@@ -63,19 +63,15 @@ func New[L any, H win32.HGDIOBJ](l *LogStruct[L, H], DPI win32.UINT) (*Object[L,
 
 	obj := Object[L, H]{ref: new(ref.Ref[H]), dpi: DPI, l: l}
 	if cached := l.cache[DPI]; cached != nil {
-		cached.StrongAssign(obj.ref) // Shared. From cache.
+		obj.ref = cached.Strong() // Shared. From cache.
 	} else {
 		h, err := l.createHandle(l.ForDPI(DPI))
 		if err != nil {
 			return nil, err
 		}
-		ref.CreateAssign(obj.ref, h, func(h H) { gg.MustOK(win32.DeleteObject(h)) })
-		var w ref.Weak[H]
-		w.OnDispose = func() {
-			delete(l.cache, DPI)
-		}
-		obj.ref.WeakAssign(&w)
-		l.cache[DPI] = &w
+		obj.ref = ref.New(h, func(h H) { gg.MustOK(win32.DeleteObject(h)) })
+		w := obj.ref.Weak(func() { delete(l.cache, DPI) })
+		l.cache[DPI] = w
 	}
 	return &obj, nil
 }
@@ -104,8 +100,7 @@ func (obj *Object[L, H]) Handle() H {
 // Clone make a copy of the object.
 // The returned object should be released after use.
 func (obj *Object[L, H]) Clone() *Object[L, H] {
-	r := Object[L, H]{ref: new(ref.Ref[H]), dpi: obj.dpi, l: obj.l}
-	ref.Assign(r.ref, obj.ref)
+	r := Object[L, H]{ref: obj.ref.AddRef(), dpi: obj.dpi, l: obj.l}
 	return &r
 }
 

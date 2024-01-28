@@ -13,117 +13,118 @@ Assignment of two Refs:
 */
 package ref
 
-import "slices"
+import (
+	"errors"
+)
 
 type noCopy struct{}
 
 func (*noCopy) Lock()   {}
 func (*noCopy) Unlock() {}
 
-type ref[T any] struct {
+// Ref is a reference counted T.
+type Ref[T any] struct {
+	noCopy  noCopy
 	dispose func(T)
 	count   uint
 	data    *T         // nil if disposed
 	w       []*Weak[T] // all weak references
 }
 
-// Ref is a reference counted T.
-// Zero Ref is an empty reference.
-type Ref[T any] struct {
-	noCopy  noCopy
-	*ref[T] // nil if empty
-}
+var errEmptyRef = errors.New("empty Ref")
+var errNilDisposer = errors.New("nil disposer")
 
-// AddRef increases the reference count by 1.
+// AddRef increases the reference count by 1 and returns r itself.
 // Panics if r is empty.
-func (r *Ref[T]) AddRef() {
+func (r *Ref[T]) AddRef() *Ref[T] {
+	if r.count == 0 {
+		panic(errEmptyRef)
+	}
 	r.count++
+	return r
 }
 
 // Release decreases the reference count by 1.
 // The reference is disposed and set to empty if it's reference count becomes zero.
 // Panics if r is empty.
 func (r *Ref[T]) Release() {
+	if r.count == 0 {
+		panic(errEmptyRef)
+	}
 	r.count--
 	if r.count == 0 {
 		r.dispose(*r.data)
 
 		for _, w := range r.w {
-			if w.OnDispose != nil {
-				w.OnDispose()
+			if w.onDispose != nil {
+				w.onDispose()
 			}
 			w.ref = nil
 		}
-		r.w = nil
-		r.dispose = nil
-		r.data = nil
+		*r = Ref[T]{}
 	}
 }
 
 // Empty returns whether r is empty.
 func (r *Ref[T]) Empty() bool {
-	return r.ref == nil || r.data == nil
+	return r.count == 0
 }
 
 // Data returns the source of r.
 // Zero T and false is returned if r is empty.
 func (r *Ref[T]) Data() (value T, ok bool) {
-	if r.ref == nil || r.data == nil {
+	if r.data == nil {
 		return
 	}
 	return *r.data, true
 }
 
-// WeakAssign assigns a weak reference of r to left.
+// Weak creates a weak reference of r.
 // Panics if r is empty.
-func (r *Ref[T]) WeakAssign(left *Weak[T]) {
+// Parameter onDispose is function which will be called when the source reference is disposed
+func (r *Ref[T]) Weak(onDispose func()) *Weak[T] {
 	if r.Empty() {
-		panic("nil ref")
-	}
-	if !left.Empty() {
-		left.ref.w = slices.DeleteFunc(left.ref.w, func(w *Weak[T]) bool { return left == w })
+		panic(errEmptyRef)
 	}
 
-	left.ref = r
-	r.w = append(r.w, left)
+	w := &Weak[T]{ref: r, onDispose: onDispose}
+	r.w = append(r.w, w)
+	return w
 }
 
 // MustData returns the source of r.
 // Panic if r is empty.
 func (r *Ref[T]) MustData() T {
-	if r.ref == nil {
-		panic("nil ref")
+	if r.data == nil {
+		panic(errEmptyRef)
 	}
 	return *r.data
 }
 
 // Assign assigns right to left.
 // After successful assignment, left references the same data as right, and the original left is released.
-func Assign[T any](left *Ref[T], right *Ref[T]) {
-	if left.ref == right.ref {
+func Assign[T any](left **Ref[T], right *Ref[T]) {
+	if *left == right {
 		return // NOP: self assignment.
 	}
-	if left.ref != nil {
-		left.Release()
+	if *left != nil {
+		(*left).Release()
 	}
-	if right.ref != nil {
+	if right != nil {
 		right.AddRef()
 	}
-	left.ref = right.ref
+	*left = right
 }
 
-// CreateAssign creates a ref-counted data and assigns[using the semantics of Assign()] it to left.
-// Disposer is a function which is called when reference count becomes zero.
+// New creates a ref-counted data.
+// Parameter disposer is a function which is called when reference count becomes zero.
 // Panics if disposer is nil.
-func CreateAssign[T any](left *Ref[T], data T, disposer func(T)) {
+func New[T any](data T, disposer func(T)) *Ref[T] {
 	if disposer == nil {
-		panic("nil disposer")
-	}
-	if !left.Empty() {
-		left.Release()
+		panic(errNilDisposer)
 	}
 	dataCopy := data
-	left.ref = &ref[T]{dispose: disposer, count: 1, data: &dataCopy}
+	return &Ref[T]{dispose: disposer, count: 1, data: &dataCopy}
 }
 
 // Weak is a wake reference.
@@ -131,16 +132,17 @@ func CreateAssign[T any](left *Ref[T], data T, disposer func(T)) {
 type Weak[T any] struct {
 	noCopy    noCopy
 	ref       *Ref[T]
-	OnDispose func() // OnDispose will be called when the source reference is disposed.
+	onDispose func() // OnDispose will be called when the source reference is disposed.
 }
 
-// StrongAssign assigns the source of w to left.
-// If w is empty, left will be empty too after this method is called.
-func (w *Weak[T]) StrongAssign(left *Ref[T]) {
+// Strong returns the source of w and adds its reference count.
+// If w is empty, returns nil.
+func (w *Weak[T]) Strong() *Ref[T] {
 	if w.Empty() {
-		Assign(left, &Ref[T]{})
+		return nil
 	}
-	Assign(left, w.ref)
+	w.ref.AddRef()
+	return w.ref
 }
 
 // Empty returns whether w references nothing or the source reference is empty.
@@ -167,13 +169,4 @@ func (w *Weak[T]) MustData() T {
 		panic("nil ref")
 	}
 	return w.ref.MustData()
-}
-
-// WeakAssign creates a new weak reference of R and assigns[using the semantics of WeakAssign()] it
-// to left, which R is the source of right.
-func WeakAssign[T any](left *Weak[T], right *Weak[T]) {
-	if left.ref == right.ref {
-		return // NOP: self assignment.
-	}
-	right.ref.WeakAssign(left)
 }

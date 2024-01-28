@@ -40,9 +40,8 @@ func panics(f func()) (result bool) {
 }
 
 func TestRelease(t *testing.T) {
-	var r ref.Ref[string]
 	var disposed = false
-	ref.CreateAssign(&r, "str", func(s string) { disposed = true })
+	r := ref.New("str", func(s string) { disposed = true })
 	if r.Empty() {
 		t.Fatal("should not be empty")
 	}
@@ -61,15 +60,13 @@ func TestRelease(t *testing.T) {
 }
 
 func TestAssign(t *testing.T) {
-	var empty ref.Ref[int]
-	var l ref.Ref[int]
 	var lDisposed = false
-	ref.CreateAssign(&l, 1, func(i int) { lDisposed = true })
-	var r ref.Ref[int]
+	l := ref.New(1, func(i int) { lDisposed = true })
 	var rDisposed = false
-	ref.CreateAssign(&r, 2, func(i int) { rDisposed = true })
+	r := ref.New(2, func(i int) { rDisposed = true })
 
-	ref.Assign(&l, &r)
+	l.Release()
+	l = r.AddRef()
 	if !lDisposed {
 		t.Fatal("should be disposed")
 	}
@@ -87,33 +84,20 @@ func TestAssign(t *testing.T) {
 	} else if data != 2 {
 		t.Fatalf("wrong data: %v", data)
 	}
-
-	ref.Assign(&l, &empty)
-	if rDisposed {
-		t.Fatal("should not be disposed")
-	}
-	r.Release()
-	if !rDisposed {
-		t.Fatal("should be disposed")
-	}
 }
 
 func TestWeak(t *testing.T) {
-	var r ref.Ref[int]
 	rDisposed := false
-	ref.CreateAssign(&r, 1, func(i int) { rDisposed = true })
-	var wr ref.Weak[int]
-	r.WeakAssign(&wr)
+	r := ref.New(1, func(i int) { rDisposed = true })
+	wrNotified := false
+	wr := r.Weak(func() { wrNotified = true })
 	if data, ok := wr.Data(); !ok {
 		t.Fatal("should not be empty")
 	} else if data != 1 {
 		t.Fatalf("wrong data: %v", data)
 	}
-	wrNotified := false
-	wr.OnDispose = func() { wrNotified = true }
 
-	var r2 ref.Ref[int]
-	wr.StrongAssign(&r2)
+	r2 := wr.Strong()
 	if data, ok := r2.Data(); !ok {
 		t.Fatal("should not be empty")
 	} else if data != 1 {
