@@ -1,62 +1,12 @@
 package win32
 
 import (
-	"errors"
-	"syscall"
 	"unsafe"
 
 	"github.com/mkch/gg"
-	"golang.org/x/exp/constraints"
+	"github.com/mkch/gw/win32/sysutil"
 	"golang.org/x/sys/windows"
 )
-
-func isNoError(err error) bool {
-	var noError syscall.Errno
-	return errors.Is(err, noError)
-}
-
-// func mustZero[T constraints.Integer](r1 uintptr, r2 uintptr, err error) (T, error) {
-// 	if r1 == 0 {
-// 		return T(r1), nil
-// 	}
-// 	return T(r1), err
-// }
-
-func mustNotZero[T constraints.Integer | ~unsafe.Pointer](r1 uintptr, r2 uintptr, err error) (T, error) {
-	if r1 != 0 {
-		return T(r1), nil
-	}
-	return T(r1), err
-}
-
-func mustNotNegativeOne[T constraints.Signed](r1 uintptr, r2 uintptr, err error) (T, error) {
-	if T(r1) != -1 {
-		return T(r1), nil
-	}
-	return T(r1), err
-}
-
-func mustNoError[T constraints.Integer](r1 uintptr, r2 uintptr, err error) (T, error) {
-	if errors.Is(err, syscall.Errno(0)) {
-		return T(r1), nil
-	}
-	return T(r1), err
-}
-
-func mustTrue(r1 uintptr, r2 uintptr, err error) error {
-	if r1 != 0 {
-		return nil
-	}
-	return err
-}
-
-func as[T constraints.Integer](r1 uintptr, r2 uintptr, err error) T {
-	return T(r1)
-}
-
-func asBool(r1 uintptr, r2 uintptr, err error) bool {
-	return r1 != 0
-}
 
 var lzUser32 = windows.NewLazySystemDLL("user32.dll")
 var lzKernel32 = windows.NewLazySystemDLL("kernel32")
@@ -78,19 +28,19 @@ type MSG struct {
 }
 
 func GetMessageW(msg *MSG, hwnd HWND, msgFilterMin uint, msgFilterMax uint) BOOL {
-	return as[BOOL](lzGetMessageW.Call(uintptr(unsafe.Pointer(msg)), uintptr(hwnd), uintptr(msgFilterMin), uintptr(msgFilterMax)))
+	return sysutil.As[BOOL](lzGetMessageW.Call(uintptr(unsafe.Pointer(msg)), uintptr(hwnd), uintptr(msgFilterMin), uintptr(msgFilterMax)))
 }
 
 var lzTranslateMessage = lzUser32.NewProc("TranslateMessage")
 
 func TranslateMessage(msg *MSG) bool {
-	return asBool(lzTranslateMessage.Call(uintptr(unsafe.Pointer(msg))))
+	return sysutil.AsBool(lzTranslateMessage.Call(uintptr(unsafe.Pointer(msg))))
 }
 
 var lzDispatchMessageW = lzUser32.NewProc("DispatchMessageW")
 
 func DispatchMessageW(msg *MSG) LRESULT {
-	return as[LRESULT](lzDispatchMessageW.Call(uintptr(unsafe.Pointer(msg))))
+	return sysutil.As[LRESULT](lzDispatchMessageW.Call(uintptr(unsafe.Pointer(msg))))
 }
 
 var lzPostQuitMessage = lzUser32.NewProc("PostQuitMessage")
@@ -134,7 +84,7 @@ const (
 var lzRegisterClassExW = lzUser32.NewProc("RegisterClassExW")
 
 func RegisterClassExW(cls *WNDCLASSEXW) (ATOM, error) {
-	return mustNotZero[ATOM](lzRegisterClassExW.Call(uintptr(unsafe.Pointer(cls))))
+	return sysutil.MustNotZero[ATOM](lzRegisterClassExW.Call(uintptr(unsafe.Pointer(cls))))
 }
 
 type WINDOW_EX_STYLE DWORD
@@ -216,7 +166,7 @@ func CreateWindowExW(
 	instance HINSTANCE,
 	param UINT_PTR,
 ) (HWND, error) {
-	return mustNotZero[HWND](lzCreateWindowExW.Call(uintptr(exStyle), uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(windowName)), uintptr(style),
+	return sysutil.MustNotZero[HWND](lzCreateWindowExW.Call(uintptr(exStyle), uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(windowName)), uintptr(style),
 		uintptr(x), uintptr(y), uintptr(width), uintptr(height),
 		uintptr(wndParent), uintptr(menu), uintptr(instance), uintptr(param)))
 }
@@ -224,19 +174,19 @@ func CreateWindowExW(
 var lzDestroyWindow = lzUser32.NewProc("DestroyWindow")
 
 func DestroyWindow(hwnd HWND) error {
-	return mustTrue(lzDestroyWindow.Call(uintptr(hwnd)))
+	return sysutil.MustTrue(lzDestroyWindow.Call(uintptr(hwnd)))
 }
 
 var lzDefWindowProcW = lzUser32.NewProc("DefWindowProcW")
 
 func DefWindowProcW(hwnd HWND, message UINT, wParam WPARAM, lParam LPARAM) LRESULT {
-	return as[LRESULT](lzDefWindowProcW.Call(uintptr(hwnd), uintptr(message), uintptr(wParam), uintptr(lParam)))
+	return sysutil.As[LRESULT](lzDefWindowProcW.Call(uintptr(hwnd), uintptr(message), uintptr(wParam), uintptr(lParam)))
 }
 
 var lzGetModuleHandleW = lzKernel32.NewProc("GetModuleHandleW")
 
 func GetModuleHandleW[H HMODULE | HINSTANCE](moduleName *WCHAR) (H, error) {
-	return mustNotZero[H](lzGetModuleHandleW.Call(uintptr(unsafe.Pointer(moduleName))))
+	return sysutil.MustNotZero[H](lzGetModuleHandleW.Call(uintptr(unsafe.Pointer(moduleName))))
 }
 
 const (
@@ -281,7 +231,7 @@ const (
 var lzGetSysColor = lzUser32.NewProc("GetSysColor ")
 
 func GetSysColor(index int) DWORD {
-	return as[DWORD](lzGetSysColor.Call(uintptr(index)))
+	return sysutil.As[DWORD](lzGetSysColor.Call(uintptr(index)))
 }
 
 type SHOW_WINDOW_CMD INT
@@ -306,7 +256,7 @@ const (
 var lzShowWindow = lzUser32.NewProc("ShowWindow")
 
 func ShowWindow(hwnd HWND, cmdShow SHOW_WINDOW_CMD) error {
-	return mustTrue(lzShowWindow.Call(uintptr(hwnd), uintptr(cmdShow)))
+	return sysutil.MustTrue(lzShowWindow.Call(uintptr(hwnd), uintptr(cmdShow)))
 }
 
 type WndProc = func(hwnd HWND, message UINT, wParam WPARAM, lParam LPARAM) LRESULT
@@ -326,7 +276,7 @@ const (
 
 func SetWindowLongPtrW(hwnd HWND, index int, newLong LONG_PTR) (LONG_PTR, error) {
 	r, _, err := lzSetWindowLongPtrW.Call(uintptr(hwnd), uintptr(index), uintptr(newLong))
-	if r != 0 || isNoError(err) {
+	if r != 0 || sysutil.IsNoError(err) {
 		err = nil
 	}
 	return LONG_PTR(r), err
@@ -334,7 +284,7 @@ func SetWindowLongPtrW(hwnd HWND, index int, newLong LONG_PTR) (LONG_PTR, error)
 
 func GetWindowLongPtrW(hwnd HWND, index int) (LONG_PTR, error) {
 	r, _, err := lzGetWindowLongPtrW.Call(uintptr(hwnd), uintptr(index))
-	if r != 0 || isNoError(err) {
+	if r != 0 || sysutil.IsNoError(err) {
 		err = nil
 	}
 	return LONG_PTR(r), err
@@ -343,20 +293,20 @@ func GetWindowLongPtrW(hwnd HWND, index int) (LONG_PTR, error) {
 var lzSetPropW = lzUser32.NewProc("SetPropW")
 
 func SetPropW(hwnd HWND, key *WCHAR, data HANDLE) error {
-	return mustTrue(lzSetPropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key)), uintptr(data)))
+	return sysutil.MustTrue(lzSetPropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key)), uintptr(data)))
 }
 
 var lzRemovePropW = lzUser32.NewProc("RemovePropW")
 
 func RemovePropW(hwnd HWND, key *WCHAR) (HANDLE, error) {
-	return mustNotZero[HANDLE](lzRemovePropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key))))
+	return sysutil.MustNotZero[HANDLE](lzRemovePropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key))))
 }
 
 var lzGetPropW = lzUser32.NewProc("GetPropW")
 
 func GetPropW(hwnd HWND, key *WCHAR) (HANDLE, error) {
 	r, _, err := lzGetPropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key)))
-	if r != 0 || isNoError(err) {
+	if r != 0 || sysutil.IsNoError(err) {
 		err = nil
 	}
 	return HANDLE(r), err
@@ -365,14 +315,14 @@ func GetPropW(hwnd HWND, key *WCHAR) (HANDLE, error) {
 var lzCallWindowProcW = lzUser32.NewProc("CallWindowProcW")
 
 func CallWindowProcW(proc uintptr, hwnd HWND, msg UINT, wParam WPARAM, lParam LPARAM) LRESULT {
-	return as[LRESULT](lzCallWindowProcW.Call(uintptr(proc), uintptr(hwnd), uintptr(msg), uintptr(wParam), uintptr(lParam)))
+	return sysutil.As[LRESULT](lzCallWindowProcW.Call(uintptr(proc), uintptr(hwnd), uintptr(msg), uintptr(wParam), uintptr(lParam)))
 }
 
 var lzSendMessageW = lzUser32.NewProc("SendMessageW")
 
 func SendMessageW(hwnd HWND, message UINT, wParam WPARAM, lParam LPARAM) (LRESULT, error) {
 	r, _, err := lzSendMessageW.Call(uintptr(hwnd), uintptr(message), uintptr(wParam), uintptr(lParam))
-	if isNoError(err) {
+	if sysutil.IsNoError(err) {
 		err = nil
 	}
 	return LRESULT(r), err
@@ -381,13 +331,13 @@ func SendMessageW(hwnd HWND, message UINT, wParam WPARAM, lParam LPARAM) (LRESUL
 var lzPostMessageW = lzUser32.NewProc("PostMessageW")
 
 func PostMessageW(hwnd HWND, message UINT, wParam WPARAM, lParam LPARAM) error {
-	return mustTrue(lzPostMessageW.Call(uintptr(hwnd), uintptr(message), uintptr(wParam), uintptr(lParam)))
+	return sysutil.MustTrue(lzPostMessageW.Call(uintptr(hwnd), uintptr(message), uintptr(wParam), uintptr(lParam)))
 }
 
 var lzPostThreadMessageW = lzUser32.NewProc("PostThreadMessageW")
 
 func PostThreadMessageW(threadId DWORD, msg UINT, wParam WPARAM, lParam LPARAM) error {
-	return mustTrue(lzPostThreadMessageW.Call(uintptr(threadId), uintptr(msg), uintptr(wParam), uintptr(lParam)))
+	return sysutil.MustTrue(lzPostThreadMessageW.Call(uintptr(threadId), uintptr(msg), uintptr(wParam), uintptr(lParam)))
 }
 
 const (
@@ -450,24 +400,24 @@ const (
 var lzLoadImageW = lzUser32.NewProc("LoadImageW")
 
 func LoadImageW[H HBITMAP | HCURSOR | HICON](instance HINSTANCE, name *WCHAR, imageType UINT, cx INT, cy INT, flag UINT) (H, error) {
-	return mustNotZero[H](lzLoadImageW.Call(uintptr(instance), uintptr(unsafe.Pointer(name)), uintptr(imageType), uintptr(cx), uintptr(cy), uintptr(flag)))
+	return sysutil.MustNotZero[H](lzLoadImageW.Call(uintptr(instance), uintptr(unsafe.Pointer(name)), uintptr(imageType), uintptr(cx), uintptr(cy), uintptr(flag)))
 }
 
 func LoadImageW_uintptr[H HBITMAP | HCURSOR | HICON](instance HINSTANCE, name uintptr, imageType UINT, cx INT, cy INT, flag UINT) (H, error) {
-	return mustNotZero[H](lzLoadImageW.Call(uintptr(instance), name, uintptr(imageType), uintptr(cx), uintptr(cy), uintptr(flag)))
+	return sysutil.MustNotZero[H](lzLoadImageW.Call(uintptr(instance), name, uintptr(imageType), uintptr(cx), uintptr(cy), uintptr(flag)))
 }
 
 var lzSetWindowTextW = lzUser32.NewProc("SetWindowTextW")
 
 func SetWindowTextW(hwnd HWND, str *WCHAR) error {
-	return mustTrue(lzSetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(str))))
+	return sysutil.MustTrue(lzSetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(str))))
 }
 
 var lzGetWindowTextLengthW = lzUser32.NewProc("GetWindowTextLengthW")
 
 func GetWindowTextLengthW(hwnd HWND) (int, error) {
 	r, _, err := lzGetWindowTextLengthW.Call(uintptr(hwnd))
-	if r != 0 || isNoError(err) {
+	if r != 0 || sysutil.IsNoError(err) {
 		err = nil
 	}
 	return int(r), err
@@ -477,7 +427,7 @@ var lzGetWindowTextW = lzUser32.NewProc("GetWindowTextW")
 
 func GetWindowTextW(hwnd HWND, buffer *WCHAR, maxCount int) (int, error) {
 	r, _, err := lzGetWindowTextW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(buffer)), uintptr(maxCount))
-	if r != 0 || isNoError(err) {
+	if r != 0 || sysutil.IsNoError(err) {
 		err = nil
 	}
 	return int(r), err
@@ -486,19 +436,19 @@ func GetWindowTextW(hwnd HWND, buffer *WCHAR, maxCount int) (int, error) {
 var lzCreateMenu = lzUser32.NewProc("CreateMenu")
 
 func CreateMenu() (HMENU, error) {
-	return mustNotZero[HMENU](lzCreateMenu.Call())
+	return sysutil.MustNotZero[HMENU](lzCreateMenu.Call())
 }
 
 var lzCreatePopupMenu = lzUser32.NewProc("CreatePopupMenu")
 
 func CreatePopupMenu() (HMENU, error) {
-	return mustNotZero[HMENU](lzCreatePopupMenu.Call())
+	return sysutil.MustNotZero[HMENU](lzCreatePopupMenu.Call())
 }
 
 var lzDestroyMenu = lzUser32.NewProc("DestroyMenu")
 
 func DestroyMenu(menu HMENU) error {
-	return mustTrue(lzDestroyMenu.Call(uintptr(menu)))
+	return sysutil.MustTrue(lzDestroyMenu.Call(uintptr(menu)))
 }
 
 const (
@@ -509,13 +459,13 @@ const (
 var lzDeleteMenu = lzUser32.NewProc("DeleteMenu")
 
 func DeleteMenu(menu HMENU, pos UINT, flags UINT) error {
-	return mustTrue(lzDeleteMenu.Call(uintptr(menu), uintptr(pos), uintptr(flags)))
+	return sysutil.MustTrue(lzDeleteMenu.Call(uintptr(menu), uintptr(pos), uintptr(flags)))
 }
 
 var lzRemoveMenu = lzUser32.NewProc("RemoveMenu")
 
 func RemoveMenu(menu HMENU, pos UINT, flags UINT) error {
-	return mustTrue(lzRemoveMenu.Call(uintptr(menu), uintptr(pos), uintptr(flags)))
+	return sysutil.MustTrue(lzRemoveMenu.Call(uintptr(menu), uintptr(pos), uintptr(flags)))
 }
 
 const (
@@ -575,31 +525,31 @@ func InsertMenuItemW(menu HMENU, item UINT, byPos bool, mii *MENUITEMINFOW) erro
 	if byPos {
 		byPosInt = 1
 	}
-	return mustTrue(lzInsertMenuItemW.Call(uintptr(menu), uintptr(item), uintptr(byPosInt), uintptr(unsafe.Pointer(mii))))
+	return sysutil.MustTrue(lzInsertMenuItemW.Call(uintptr(menu), uintptr(item), uintptr(byPosInt), uintptr(unsafe.Pointer(mii))))
 }
 
 var lzGetMenuItemCount = lzUser32.NewProc("GetMenuItemCount")
 
 func GetMenuItemCount(menu HMENU) (INT, error) {
-	return mustNotNegativeOne[INT](lzGetMenuItemCount.Call(uintptr(menu)))
+	return sysutil.MustNotNegativeOne[INT](lzGetMenuItemCount.Call(uintptr(menu)))
 }
 
 var lzGetMenuItemInfoW = lzUser32.NewProc("GetMenuItemInfoW")
 
 func GetMenuItemInfoW(menu HMENU, item UINT, byPos bool, mii *MENUITEMINFOW) error {
-	return mustTrue(lzGetMenuItemInfoW.Call(uintptr(menu), uintptr(item), uintptr(gg.If(byPos, 1, 0)), uintptr(unsafe.Pointer(mii))))
+	return sysutil.MustTrue(lzGetMenuItemInfoW.Call(uintptr(menu), uintptr(item), uintptr(gg.If(byPos, 1, 0)), uintptr(unsafe.Pointer(mii))))
 }
 
 var lzSetMenuItemInfoW = lzUser32.NewProc("SetMenuItemInfoW")
 
 func SetMenuItemInfoW(menu HMENU, item UINT, byPos bool, mmi *MENUITEMINFOW) error {
-	return mustTrue(lzSetMenuItemInfoW.Call(uintptr(menu), uintptr(item), gg.If[uintptr](byPos, 1, 0), uintptr(unsafe.Pointer(mmi))))
+	return sysutil.MustTrue(lzSetMenuItemInfoW.Call(uintptr(menu), uintptr(item), gg.If[uintptr](byPos, 1, 0), uintptr(unsafe.Pointer(mmi))))
 }
 
 var lzSetMenu = lzUser32.NewProc("SetMenu")
 
 func SetMenu(hwnd HWND, menu HMENU) error {
-	return mustTrue(lzSetMenu.Call(uintptr(hwnd), uintptr(menu)))
+	return sysutil.MustTrue(lzSetMenu.Call(uintptr(hwnd), uintptr(menu)))
 }
 
 func HIWORD[T ~uintptr](l T) WORD {
@@ -647,20 +597,20 @@ func CreateAcceleratorTableW(accel []ACCEL) (HACCEL, error) {
 	// For some reason, &accel[0] may not be aligned.
 	alignSlice(&accel)
 	r, r2, err := lzCreateAcceleratorTableW.Call(uintptr(unsafe.Pointer(&accel[0])), uintptr(len(accel)))
-	return mustNotZero[HACCEL](r, r2, err)
+	return sysutil.MustNotZero[HACCEL](r, r2, err)
 }
 
 var lzDestroyAcceleratorTable = lzUser32.NewProc("DestroyAcceleratorTable")
 
 func DestroyAcceleratorTable(table HACCEL) error {
-	return mustTrue(lzDestroyAcceleratorTable.Call(uintptr(table)))
+	return sysutil.MustTrue(lzDestroyAcceleratorTable.Call(uintptr(table)))
 }
 
 var lzTranslateAcceleratorW = lzUser32.NewProc("TranslateAcceleratorW")
 
 func TranslateAcceleratorW(hwnd HWND, accTable HACCEL, msg *MSG) (bool, error) {
 	r, _, err := lzTranslateAcceleratorW.Call(uintptr(hwnd), uintptr(accTable), uintptr(unsafe.Pointer(msg)))
-	if isNoError(err) {
+	if sysutil.IsNoError(err) {
 		err = nil
 	}
 	return r != 0, err
@@ -729,7 +679,7 @@ var lzTrackPopupMenuEx = lzUser32.NewProc("TrackPopupMenuEx")
 
 func TrackPopupMenuEx(menu HMENU, flags TRACK_POPUP_MENU_FLAG, x INT, y INT, hwnd HWND, params *TPMPARAMS) (int, error) {
 	r, _, err := lzTrackPopupMenuEx.Call(uintptr(menu), uintptr(flags), uintptr(x), uintptr(y), uintptr(hwnd), uintptr(unsafe.Pointer(params)))
-	if !isNoError(err) {
+	if !sysutil.IsNoError(err) {
 		return 0, err
 	}
 	return int(r), nil
@@ -786,7 +736,7 @@ var lzDialogBoxIndirectParamW = lzUser32.NewProc("DialogBoxIndirectParamW")
 
 func DialogBoxIndirectParamW(instance HINSTANCE, template *DLGTEMPLATE, parent HWND, dialogFunc uintptr, param LPARAM) (UINT_PTR, error) {
 	r, _, err := lzDialogBoxIndirectParamW.Call(uintptr(instance), uintptr(unsafe.Pointer(template)), uintptr(parent), dialogFunc, uintptr(param))
-	if isNoError(err) {
+	if sysutil.IsNoError(err) {
 		err = nil
 	}
 	return UINT_PTR(r), err
@@ -809,13 +759,13 @@ func MulDiv(number INT, numerator INT, denominator INT) INT {
 var lzEndDialog = lzUser32.NewProc("EndDialog")
 
 func EndDialog(hwnd HWND, result INT_PTR) error {
-	return mustTrue(lzEndDialog.Call(uintptr(hwnd), uintptr(result)))
+	return sysutil.MustTrue(lzEndDialog.Call(uintptr(hwnd), uintptr(result)))
 }
 
 var lzGetParent = lzUser32.NewProc("GetParent")
 
 func GetParent(hwnd HWND) (HWND, error) {
-	return mustNoError[HWND](lzGetParent.Call(uintptr(hwnd)))
+	return sysutil.MustNoError[HWND](lzGetParent.Call(uintptr(hwnd)))
 }
 
 type GET_ANCESTOR_FLAG UINT
@@ -829,7 +779,7 @@ const (
 var lzGetAncestor = lzUser32.NewProc("GetAncestor")
 
 func GetAncestor(hwnd HWND, flags GET_ANCESTOR_FLAG) (HWND, error) {
-	return mustNoError[HWND](lzGetAncestor.Call(uintptr(hwnd), uintptr(flags)))
+	return sysutil.MustNoError[HWND](lzGetAncestor.Call(uintptr(hwnd), uintptr(flags)))
 }
 
 type GET_WINDOW_CMD UINT
@@ -847,13 +797,13 @@ const (
 var lzGetWindow = lzUser32.NewProc("GetWindow")
 
 func GetWindow(hwnd HWND, cmd GET_WINDOW_CMD) (HWND, error) {
-	return mustNoError[HWND](lzGetWindow.Call(uintptr(hwnd), uintptr(cmd)))
+	return sysutil.MustNoError[HWND](lzGetWindow.Call(uintptr(hwnd), uintptr(cmd)))
 }
 
 var lzGetDlgItem = lzUser32.NewProc("GetDlgItem")
 
 func GetDlgItem(hwnd HWND, id INT) (HWND, error) {
-	return mustNotZero[HWND](lzGetDlgItem.Call(uintptr(hwnd), uintptr(id)))
+	return sysutil.MustNotZero[HWND](lzGetDlgItem.Call(uintptr(hwnd), uintptr(id)))
 }
 
 const (
@@ -898,14 +848,14 @@ type HUPDATE HANDLE
 var lzBeginUpdateResourceW = lzKernel32.NewProc("BeginUpdateResourceW")
 
 func BeginUpdateResourceW(fileName *WCHAR, deleteExisting bool) (HUPDATE, error) {
-	return mustNotZero[HUPDATE](lzBeginUpdateResourceW.Call(uintptr(unsafe.Pointer(fileName)), gg.If[uintptr](deleteExisting, 1, 0)))
+	return sysutil.MustNotZero[HUPDATE](lzBeginUpdateResourceW.Call(uintptr(unsafe.Pointer(fileName)), gg.If[uintptr](deleteExisting, 1, 0)))
 }
 
 var lzEndUpdateResourceW = lzKernel32.NewProc("EndUpdateResourceW")
 
 func EndUpdateResourceW(update HUPDATE, discard bool) error {
 	r, _, err := lzEndUpdateResourceW.Call(uintptr(update), gg.If[uintptr](discard, 1, 0))
-	if r != 0 && isNoError(err) {
+	if r != 0 && sysutil.IsNoError(err) {
 		err = nil
 	}
 	return err
@@ -915,7 +865,7 @@ var lzUpdateResourceW = lzKernel32.NewProc("UpdateResourceW")
 
 func UpdateResourceW(update HUPDATE, resType uintptr, name uintptr, lang WORD, data unsafe.Pointer, dataSize DWORD) error {
 	r, _, err := lzUpdateResourceW.Call(uintptr(update), resType, name, uintptr(lang), uintptr(data), uintptr(dataSize))
-	if r != 0 && isNoError(err) {
+	if r != 0 && sysutil.IsNoError(err) {
 		err = nil
 	}
 	return err
@@ -924,25 +874,25 @@ func UpdateResourceW(update HUPDATE, resType uintptr, name uintptr, lang WORD, d
 var lzEnumResourceNamesExW = lzKernel32.NewProc("EnumResourceNamesExW")
 
 func EnumResourceNamesExW(module HMODULE, typ uintptr, enumProc uintptr, lParam uintptr, flags DWORD, langId DWORD) error {
-	return mustTrue(lzEnumResourceNamesExW.Call(uintptr(module), typ, enumProc, lParam, uintptr(flags), uintptr(langId)))
+	return sysutil.MustTrue(lzEnumResourceNamesExW.Call(uintptr(module), typ, enumProc, lParam, uintptr(flags), uintptr(langId)))
 }
 
 var lzFindResourceW = lzKernel32.NewProc("FindResourceW")
 
 func FindResourceW(module HMODULE, name uintptr, typ uintptr) (HRSRC, error) {
-	return mustNotZero[HRSRC](lzFindResourceW.Call(uintptr(module), name, typ))
+	return sysutil.MustNotZero[HRSRC](lzFindResourceW.Call(uintptr(module), name, typ))
 }
 
 var lzLoadResource = lzKernel32.NewProc("LoadResource")
 
 func LoadResource(module HMODULE, res HRSRC) (HGLOBAL, error) {
-	return mustNotZero[HGLOBAL](lzLoadResource.Call(uintptr(module), uintptr(res)))
+	return sysutil.MustNotZero[HGLOBAL](lzLoadResource.Call(uintptr(module), uintptr(res)))
 }
 
 var lzLockResource = lzKernel32.NewProc("LockResource")
 
 func LockResource(res HGLOBAL) (PVOID, error) {
-	return mustNotZero[PVOID](lzLockResource.Call(uintptr(res)))
+	return sysutil.MustNotZero[PVOID](lzLockResource.Call(uintptr(res)))
 }
 
 type PAINTSTRUCT struct {
@@ -957,43 +907,43 @@ type PAINTSTRUCT struct {
 var lzBeginPaint = lzUser32.NewProc("BeginPaint")
 
 func BeginPaint(hwnd HWND, p *PAINTSTRUCT) (HDC, error) {
-	return mustNotZero[HDC](lzBeginPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(p))))
+	return sysutil.MustNotZero[HDC](lzBeginPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(p))))
 }
 
 var lzEndPaint = lzUser32.NewProc("EndPaint")
 
 func EndPaint(hwnd HWND, p *PAINTSTRUCT) error {
-	return mustTrue(lzEndPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(p))))
+	return sysutil.MustTrue(lzEndPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(p))))
 }
 
 var lzDrawFocusRect = lzUser32.NewProc("DrawFocusRect")
 
 func DrawFocusRect(hdc HDC, rect *RECT) error {
-	return mustTrue(lzDrawFocusRect.Call(uintptr(hdc), uintptr(unsafe.Pointer(rect))))
+	return sysutil.MustTrue(lzDrawFocusRect.Call(uintptr(hdc), uintptr(unsafe.Pointer(rect))))
 }
 
 var lzCreateCompatibleDC = lzGdi32.NewProc("CreateCompatibleDC")
 
 func CreateCompatibleDC(hdc HDC) (HDC, error) {
-	return mustNotZero[HDC](lzCreateCompatibleDC.Call(uintptr(hdc)))
+	return sysutil.MustNotZero[HDC](lzCreateCompatibleDC.Call(uintptr(hdc)))
 }
 
 var lzGetDC = lzUser32.NewProc("GetDC")
 
 func GetDC(hwnd HWND) (HDC, error) {
-	return mustNotZero[HDC](lzGetDC.Call(uintptr(hwnd)))
+	return sysutil.MustNotZero[HDC](lzGetDC.Call(uintptr(hwnd)))
 }
 
 var lzReleaseDC = lzUser32.NewProc("ReleaseDC")
 
 func ReleaseDC(hwnd HWND, hdc HDC) bool {
-	return asBool(lzReleaseDC.Call(uintptr(hwnd), uintptr(hdc)))
+	return sysutil.AsBool(lzReleaseDC.Call(uintptr(hwnd), uintptr(hdc)))
 }
 
 var lzCreateCompatibleBitmap = lzGdi32.NewProc("CreateCompatibleBitmap")
 
 func CreateCompatibleBitmap(hdc HDC, cx INT, cy INT) (HBITMAP, error) {
-	return mustNotZero[HBITMAP](lzCreateCompatibleBitmap.Call(uintptr(hdc), uintptr(cx), uintptr(cy)))
+	return sysutil.MustNotZero[HBITMAP](lzCreateCompatibleBitmap.Call(uintptr(hdc), uintptr(cx), uintptr(cy)))
 }
 
 const (
@@ -1017,13 +967,13 @@ const (
 var lzBitBlt = lzGdi32.NewProc("BitBlt")
 
 func BitBlt(hdc HDC, x int, y int, cx int, cy int, srcDC HDC, srcX int, srcY int, op DWORD) error {
-	return mustTrue(lzBitBlt.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(cx), uintptr(cy), uintptr(srcDC), uintptr(srcX), uintptr(srcY), uintptr(op)))
+	return sysutil.MustTrue(lzBitBlt.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(cx), uintptr(cy), uintptr(srcDC), uintptr(srcX), uintptr(srcY), uintptr(op)))
 }
 
 var lzDeleteObject = lzGdi32.NewProc("DeleteObject")
 
 func DeleteObject[H HGDIOBJ](h H) error {
-	return mustTrue(lzDeleteObject.Call(uintptr(h)))
+	return sysutil.MustTrue(lzDeleteObject.Call(uintptr(h)))
 }
 
 const (
@@ -1043,7 +993,7 @@ func SelectObject[H HGDIOBJ](hdc HDC, obj H) (H, error) {
 var lzRectangle = lzGdi32.NewProc("Rectangle")
 
 func Rectangle(hdc HDC, left int, top int, right int, bottom int) error {
-	return mustTrue(lzRectangle.Call(uintptr(hdc), uintptr(left), uintptr(top), uintptr(right), uintptr(bottom)))
+	return sysutil.MustTrue(lzRectangle.Call(uintptr(hdc), uintptr(left), uintptr(top), uintptr(right), uintptr(bottom)))
 }
 
 const (
@@ -1100,25 +1050,25 @@ const (
 var lzSystemParametersInfoW = lzUser32.NewProc("SystemParametersInfoW")
 
 func SystemParametersInfoW(action UINT, param UINT, p PVOID, winIni UINT) error {
-	return mustTrue(lzSystemParametersInfoW.Call(uintptr(action), uintptr(param), uintptr(p), uintptr(winIni)))
+	return sysutil.MustTrue(lzSystemParametersInfoW.Call(uintptr(action), uintptr(param), uintptr(p), uintptr(winIni)))
 }
 
 var lzSystemParametersInfoForDpi = lzUser32.NewProc("SystemParametersInfoForDpi")
 
 func SystemParametersInfoForDpi(action UINT, param UINT, p PVOID, winIni UINT, dpi UINT) error {
-	return mustTrue(lzSystemParametersInfoForDpi.Call(uintptr(action), uintptr(param), uintptr(unsafe.Pointer(p)), uintptr(winIni), uintptr(dpi)))
+	return sysutil.MustTrue(lzSystemParametersInfoForDpi.Call(uintptr(action), uintptr(param), uintptr(unsafe.Pointer(p)), uintptr(winIni), uintptr(dpi)))
 }
 
 var lzCreateFontIndirectW = lzGdi32.NewProc("CreateFontIndirectW")
 
 func CreateFontIndirectW(f *LOGFONTW) (HFONT, error) {
-	return mustNotZero[HFONT](lzCreateFontIndirectW.Call(uintptr(unsafe.Pointer(f))))
+	return sysutil.MustNotZero[HFONT](lzCreateFontIndirectW.Call(uintptr(unsafe.Pointer(f))))
 }
 
 var lzCreatePenIndirect = lzGdi32.NewProc("CreatePenIndirect")
 
 func CreatePenIndirect(p *LOGPEN) (HPEN, error) {
-	return mustNotZero[HPEN](lzCreatePenIndirect.Call(uintptr(unsafe.Pointer(p))))
+	return sysutil.MustNotZero[HPEN](lzCreatePenIndirect.Call(uintptr(unsafe.Pointer(p))))
 }
 
 const (
@@ -1163,13 +1113,13 @@ const (
 var lzSetWindowPos = lzUser32.NewProc("SetWindowPos")
 
 func SetWindowPos(hwnd HWND, hwndInsertAfter HWND, x INT, y INT, cx INT, cy INT, flags UINT) error {
-	return mustTrue(lzSetWindowPos.Call(uintptr(hwnd), uintptr(hwndInsertAfter), uintptr(x), uintptr(y), uintptr(cx), uintptr(cy), uintptr(flags)))
+	return sysutil.MustTrue(lzSetWindowPos.Call(uintptr(hwnd), uintptr(hwndInsertAfter), uintptr(x), uintptr(y), uintptr(cx), uintptr(cy), uintptr(flags)))
 }
 
 var lzGetDpiForWindow = lzUser32.NewProc("GetDpiForWindow")
 
 func GetDpiForWindow(hwnd HWND) (UINT, error) {
-	return mustNoError[UINT](lzGetDpiForWindow.Call(uintptr(hwnd)))
+	return sysutil.MustNoError[UINT](lzGetDpiForWindow.Call(uintptr(hwnd)))
 }
 
 var lzGetDpiForSystem = lzUser32.NewProc("GetDpiForSystem")
@@ -1191,37 +1141,37 @@ func GetDesktopWindow() HWND {
 var lzGetWindowRect = lzUser32.NewProc("GetWindowRect")
 
 func GetWindowRect(hwnd HWND, rect *RECT) error {
-	return mustTrue(lzGetWindowRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(rect))))
+	return sysutil.MustTrue(lzGetWindowRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(rect))))
 }
 
 var lzScreenToClient = lzUser32.NewProc("ScreenToClient")
 
 func ScreenToClient(hwnd HWND, pt *POINT) error {
-	return mustTrue(lzScreenToClient.Call(uintptr(hwnd), uintptr(unsafe.Pointer(pt))))
+	return sysutil.MustTrue(lzScreenToClient.Call(uintptr(hwnd), uintptr(unsafe.Pointer(pt))))
 }
 
 var lzClientToScreen = lzUser32.NewProc("ClientToScreen")
 
 func ClientToScreen(hwnd HWND, pt *POINT) error {
-	return mustTrue(lzClientToScreen.Call(uintptr(hwnd), uintptr(unsafe.Pointer(pt))))
+	return sysutil.MustTrue(lzClientToScreen.Call(uintptr(hwnd), uintptr(unsafe.Pointer(pt))))
 }
 
 var lzGetClientRect = lzUser32.NewProc("GetClientRect")
 
 func GetClientRect(hwnd HWND, rect *RECT) error {
-	return mustTrue(lzGetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(rect))))
+	return sysutil.MustTrue(lzGetClientRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(rect))))
 }
 
 var lzLineTo = lzGdi32.NewProc("LineTo")
 
 func LineTo(hdc HDC, x INT, y INT) error {
-	return mustTrue(lzLineTo.Call(uintptr(hdc), uintptr(x), uintptr(y)))
+	return sysutil.MustTrue(lzLineTo.Call(uintptr(hdc), uintptr(x), uintptr(y)))
 }
 
 var lzMoveToEx = lzGdi32.NewProc("MoveToEx")
 
 func MoveToEx(hdc HDC, x INT, y INT, prev *POINT) error {
-	return mustTrue(lzMoveToEx.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(prev))))
+	return sysutil.MustTrue(lzMoveToEx.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(prev))))
 }
 
 type MESSAGE_BOX_TYPE UINT
@@ -1269,7 +1219,7 @@ const (
 var lzMessageBoxExW = lzUser32.NewProc("MessageBoxExW")
 
 func MessageBoxExW(owner HWND, text *WCHAR, caption *WCHAR, typ MESSAGE_BOX_TYPE, lang WORD) (INT, error) {
-	return mustNotZero[INT](lzMessageBoxExW.Call(uintptr(owner), uintptr(unsafe.Pointer(text)), uintptr(unsafe.Pointer(caption)), uintptr(typ), uintptr(lang)))
+	return sysutil.MustNotZero[INT](lzMessageBoxExW.Call(uintptr(owner), uintptr(unsafe.Pointer(text)), uintptr(unsafe.Pointer(caption)), uintptr(typ), uintptr(lang)))
 }
 
 type PEN_STYLE DWORD
@@ -1314,7 +1264,7 @@ func ExtCreatePen(style PEN_STYLE, width DWORD, brush *LOGBRUSH, userStyles []DW
 		r1, r2, err = lzExtCreatePen.Call(uintptr(style), uintptr(width), uintptr(unsafe.Pointer(brush)), uintptr(len(userStyles)), uintptr(unsafe.Pointer(&userStyles[0])))
 	}
 
-	return mustNotZero[HPEN](r1, r2, err)
+	return sysutil.MustNotZero[HPEN](r1, r2, err)
 }
 
 type BRUSH_STYLE UINT
@@ -1370,7 +1320,7 @@ const (
 var lzSetBkMode = lzGdi32.NewProc("SetBkMode")
 
 func SetBkMode(hdc HDC, mode BK_MODE) (BK_MODE, error) {
-	return mustNotZero[BK_MODE](lzSetBkMode.Call(uintptr(hdc), uintptr(mode)))
+	return sysutil.MustNotZero[BK_MODE](lzSetBkMode.Call(uintptr(hdc), uintptr(mode)))
 }
 
 type DRAWTEXTPARAMS struct {
@@ -1414,19 +1364,19 @@ const (
 var lzDrawTextExW = lzUser32.NewProc("DrawTextExW")
 
 func DrawTextExW(hdc HDC, text *WCHAR, cchText INT, rect *RECT, format DRAW_TEXT_FORMAT, param *DRAWTEXTPARAMS) (INT, error) {
-	return mustNotZero[INT](lzDrawTextExW.Call(uintptr(hdc), uintptr(unsafe.Pointer(text)), uintptr(cchText), uintptr(unsafe.Pointer(rect)), uintptr(format), uintptr(unsafe.Pointer(param))))
+	return sysutil.MustNotZero[INT](lzDrawTextExW.Call(uintptr(hdc), uintptr(unsafe.Pointer(text)), uintptr(cchText), uintptr(unsafe.Pointer(rect)), uintptr(format), uintptr(unsafe.Pointer(param))))
 }
 
 var lzInvalidateRect = lzUser32.NewProc("InvalidateRect")
 
 func InvalidateRect(hwnd HWND, rect *RECT, erase bool) error {
-	return mustTrue(lzInvalidateRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(rect)), gg.If[uintptr](erase, 1, 0)))
+	return sysutil.MustTrue(lzInvalidateRect.Call(uintptr(hwnd), uintptr(unsafe.Pointer(rect)), gg.If[uintptr](erase, 1, 0)))
 }
 
 var lzDeleteDC = lzGdi32.NewProc("DeleteDC")
 
 func DeleteDC(hdc HDC) error {
-	return mustTrue(lzDeleteDC.Call(uintptr(hdc)))
+	return sysutil.MustTrue(lzDeleteDC.Call(uintptr(hdc)))
 }
 
 type DPI_AWARENESS_CONTEXT HANDLE
@@ -1442,7 +1392,7 @@ const (
 var lzSetThreadDpiAwarenessContext = lzUser32.NewProc("SetThreadDpiAwarenessContext")
 
 func SetThreadDpiAwarenessContext(ctx DPI_AWARENESS_CONTEXT) (DPI_AWARENESS_CONTEXT, error) {
-	return mustNotZero[DPI_AWARENESS_CONTEXT](lzSetThreadDpiAwarenessContext.Call(uintptr(ctx)))
+	return sysutil.MustNotZero[DPI_AWARENESS_CONTEXT](lzSetThreadDpiAwarenessContext.Call(uintptr(ctx)))
 }
 
 var lzAreDpiAwarenessContextsEqual = lzUser32.NewProc("AreDpiAwarenessContextsEqual")
