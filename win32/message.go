@@ -5,6 +5,7 @@ const (
 	WM_DESTROY                 = 0x0002
 	WM_SIZE                    = 0x0005
 	WM_CLOSE                   = 0x0010
+	WM_QUIT                    = 0x0012
 	WM_COMMAND                 = 0x0111
 	WM_NCDESTROY               = 0x0082
 	WM_RBUTTONDOWN             = 0x0204

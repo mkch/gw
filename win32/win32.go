@@ -64,8 +64,6 @@ var lzGdi32 = windows.NewLazySystemDLL("gdi32.dll")
 
 var lzGetMessageW = lzUser32.NewProc("GetMessageW")
 
-const WM_QUIT = 0x0012
-
 type Point struct {
 	X, Y LONG
 }
