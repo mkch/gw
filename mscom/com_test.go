@@ -53,6 +53,9 @@ func TestBuiltinInterface(t *testing.T) {
 	if p == nil {
 		t.Fatal("nil ptr")
 	}
+	if r := malloc.DidAlloc(p); r != 1 {
+		t.Fatal(r)
+	}
 	if n := malloc.GetSize(p); n != size {
 		t.Fatal(n)
 	}

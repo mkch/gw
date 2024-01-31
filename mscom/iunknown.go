@@ -3,7 +3,6 @@ package mscom
 import (
 	"runtime"
 	"sync/atomic"
-	"syscall"
 	"unsafe"
 
 	"github.com/mkch/gg"
@@ -11,9 +10,9 @@ import (
 )
 
 type IUnknownVMT struct {
-	queryInterface uintptr
-	addRef         uintptr
-	release        uintptr
+	queryInterface MethodPtr
+	addRef         MethodPtr
+	release        MethodPtr
 }
 
 type IUnknown struct{ vt *IUnknownVMT }
@@ -22,7 +21,7 @@ func (i *IUnknown) QueryInterface(riid sys.REFIID, pp *unsafe.Pointer) error {
 	var pinner runtime.Pinner
 	pinner.Pin(pp) // IMPORTANT!
 	defer pinner.Unpin()
-	r, _, _ := syscall.SyscallN(i.vt.queryInterface, uintptr(unsafe.Pointer(i)), uintptr(unsafe.Pointer(riid)), uintptr(unsafe.Pointer(pp)))
+	r, _ := i.vt.queryInterface.Call(unsafe.Pointer(i), uintptr(unsafe.Pointer(riid)), uintptr(unsafe.Pointer(pp)))
 	if sys.HRESULT(r) != sys.S_OK {
 		return sys.HREsultError(r)
 	}
@@ -30,12 +29,12 @@ func (i *IUnknown) QueryInterface(riid sys.REFIID, pp *unsafe.Pointer) error {
 }
 
 func (i *IUnknown) AddRef() uint32 {
-	r, _, _ := syscall.SyscallN(i.vt.addRef, uintptr(unsafe.Pointer(i)))
+	r, _ := i.vt.addRef.Call(unsafe.Pointer(i))
 	return uint32(r)
 }
 
 func (i *IUnknown) Release() uint32 {
-	r, _, _ := syscall.SyscallN(i.vt.release, uintptr(unsafe.Pointer(i)))
+	r, _ := i.vt.release.Call(unsafe.Pointer(i))
 	return uint32(r)
 }
 

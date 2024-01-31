@@ -31,10 +31,10 @@ import (
 {{range $i := loop 0 . }}
 func newMethod{{$i}}() (h method) {
 	h.nArg = {{$i}}
-	h.ptr = windows.NewCallback(func(this unsafe.Pointer{{range $j := loop 1 $i -}}, arg{{$j}} uintptr{{end}}) uintptr {
+	h.ptr = MethodPtr(windows.NewCallback(func(this unsafe.Pointer{{range $j := loop 1 $i -}}, arg{{$j}} uintptr{{end}}) uintptr {
 		f := mtdMap.Methods(this).Method(h.ptr).(func({{if $i}}uintptr{{end}} {{- range $j := loop 2 $i}}, uintptr{{end}}) uintptr)
 		return f({{if $i}}arg1{{end}} {{- range $j := loop 2 $i}}, arg{{$j}}{{end}})
-	})
+	}))
 	return
 }
 {{- end}}

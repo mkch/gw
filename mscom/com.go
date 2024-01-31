@@ -2,12 +2,13 @@
 Package mscom implements COM(The Microsoft Component Object Model) object creation and invocation.
 
 A COM interface is a struct contains a virtual function table(VMT) pointer. A VMT is a struct of
-method pointers.
+MethodPtr(s).
+Neither the interface nor the VMT should contain go pointer practically, because they usually are
+handed out to C code(or the COM library). Allocating them using Alloc/AllocMem in this package or
+HeapAlloc like APIs.
 
 For creating a COM object, call Init() on the VTM and then create methods use the *MethodCreator returned.
-
-syscall.SyscallN can be used to call methods in VTM. Note be sure to pin go pointers with runtime.Pinner
-before passing them to SyscallN.
+For using a COM object, invoke Call on the MethodPtr(s) in VTM.
 
 See type IUnknown and IMalloc for details.
 */
@@ -16,12 +17,25 @@ package mscom
 import (
 	"reflect"
 	"sync"
+	"syscall"
 	"unsafe"
 
 	"github.com/mkch/gw/mscom/sys"
 )
 
 //go:generate go run .scripts/genmethods.go
+
+// MethodPtr is a COM method pointer.
+type MethodPtr uintptr
+
+// Call executes a COM method p with receiver and arguments a.
+// The receiver should not be a go pointer. If it is, pin it using runtime.Pinner.
+//
+//go:uintptrescapes
+func (p MethodPtr) Call(receiver unsafe.Pointer, a ...uintptr) (r1, r2 uintptr) {
+	r1, r2, _ = syscall.SyscallN(uintptr(p), append([]uintptr{uintptr(unsafe.Pointer(receiver))}, a...)...)
+	return
+}
 
 // Alloc allocates a chunk of memory large enough to hold a T.
 // Alloc using the OLE memory allocator(CoTaskMem[Alloc/Free]).
@@ -60,26 +74,26 @@ func Free[T any](p *T) {
 // Key: Method ptr. Callback created by windows.NewCallback.
 // Value: Function actually executed when ptr is called. Function with zero or more uintptr arguments and a uintptr return value.
 type methods struct {
-	m map[uintptr]any
+	m map[MethodPtr]any
 }
 
 // exists returns whether ptr is already in the methods.
-func (d *methods) Exists(ptr uintptr) bool {
+func (d *methods) Exists(ptr MethodPtr) bool {
 	_, ok := d.m[ptr]
 	return ok
 }
 
 func newMethods() *methods {
-	return &methods{m: make(map[uintptr]any)}
+	return &methods{m: make(map[MethodPtr]any)}
 }
 
 // Method returns the function actually executed when ptr is called.
-func (d *methods) Method(ptr uintptr) any {
+func (d *methods) Method(ptr MethodPtr) any {
 	return d.m[ptr]
 }
 
 // setMethod sets the actually function of a method.
-func (d *methods) SetMethod(ptr uintptr, f any) {
+func (d *methods) SetMethod(ptr MethodPtr, f any) {
 	d.m[ptr] = f
 }
 
@@ -124,11 +138,11 @@ var mtdMap = newMethodMap()
 
 // method is a COM object method.
 type method struct {
-	nArg int     // count of arguments.
-	ptr  uintptr // the callback ptr.
+	nArg int       // count of arguments.
+	ptr  MethodPtr // the callback ptr.
 }
 
-func (h *method) Ptr() uintptr {
+func (h *method) Ptr() MethodPtr {
 	return h.ptr
 }
 
@@ -150,7 +164,7 @@ func newMethodCache() *methodCache {
 	return &methodCache{m: make(map[int][]method)}
 }
 
-func (c *methodCache) Get(nArg int, except func(uintptr) bool) *method {
+func (c *methodCache) Get(nArg int, except func(MethodPtr) bool) *method {
 	c.l.RLock()
 	defer c.l.RUnlock()
 	for _, h := range c.m[nArg] {
@@ -175,13 +189,13 @@ var mtdCache = newMethodCache()
 type MethodCreator methods
 
 // Create creates a method of an COM object.
-// Argument p is the address of a member in v-table.
+// Argument p is the method pointer in v-table.
 // Argument f is the function actually executed when the method is called.
 // Function f is expected to be a function with zero or more uintptr
-// arguments(`this` pointer must be omitted, we have closures in go) and one
+// arguments(method receiver must be omitted, we have closures in go) and one
 // uintptr result.
 // The return value is m itself to allow chained calls.
-func (m *MethodCreator) Create(p *uintptr, f any) *MethodCreator {
+func (m *MethodCreator) Create(p *MethodPtr, f any) *MethodCreator {
 	nArg := reflect.TypeOf(f).NumIn()
 	h := mtdCache.Get(nArg, (*methods)(m).Exists)
 	if h == nil {
