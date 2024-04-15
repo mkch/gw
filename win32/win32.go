@@ -1300,6 +1300,12 @@ type LOGBRUSH struct {
 	Hatch HATCH_STYLE
 }
 
+var lzCreateBrushIndirect = lzGdi32.NewProc("CreateBrushIndirect")
+
+func CreateBrushIndirect(p *LOGBRUSH) (HBRUSH, error) {
+	return sysutil.MustNotZero[HBRUSH](lzCreateBrushIndirect.Call(uintptr(unsafe.Pointer(p))))
+}
+
 type EXTLOGPEN struct {
 	PenStyle   PEN_STYLE
 	Width      DWORD
