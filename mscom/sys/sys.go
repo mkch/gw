@@ -69,9 +69,9 @@ func (h HRESULT) Uintptr() uintptr {
 	return uintptr(h)
 }
 
-type HREsultError HRESULT
+type HResultError HRESULT
 
-func (err HREsultError) Error() string {
+func (err HResultError) Error() string {
 	return HRESULT(err).String()
 }
 

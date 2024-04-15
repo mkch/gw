@@ -23,7 +23,7 @@ func (i *IUnknown) QueryInterface(riid sys.REFIID, pp *unsafe.Pointer) error {
 	defer pinner.Unpin()
 	r, _ := i.vt.queryInterface.Call(unsafe.Pointer(i), uintptr(unsafe.Pointer(riid)), uintptr(unsafe.Pointer(pp)))
 	if sys.HRESULT(r) != sys.S_OK {
-		return sys.HREsultError(r)
+		return sys.HResultError(r)
 	}
 	return nil
 }
@@ -49,7 +49,7 @@ type IUnknownMethods struct {
 // CreateIUnknownImpl creates an object which implements IUnknown interface.
 func CreateIUnknownImpl(ppObject **IUnknown) error {
 	if ppObject == nil {
-		return sys.HREsultError(sys.E_POINTER)
+		return sys.HResultError(sys.E_POINTER)
 	}
 	// Alloc the interface and v-table in one block of memory.
 	mem := Alloc[struct {
