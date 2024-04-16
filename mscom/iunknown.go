@@ -9,6 +9,9 @@ import (
 	"github.com/mkch/gw/mscom/sys"
 )
 
+// IUnknownVMT is the v-table of IUnknown interface.
+// The doc(microsoft website) may reorder the method list.
+// Refer to C source code to get the correct order.
 type IUnknownVMT struct {
 	queryInterface MethodPtr
 	addRef         MethodPtr
@@ -40,13 +43,8 @@ func (i *IUnknown) Release() uint32 {
 
 var IID_IUnknown = gg.Must(sys.UuidFromStringW("00000000-0000-0000-C000-000000000046"))
 
-type IUnknownMethods struct {
-	QueryInterface func(sys.REFIID, *unsafe.Pointer) int32
-	AddRef         func() uint32
-	Release        func() uint32
-}
-
 // CreateIUnknownImpl creates an object which implements IUnknown interface.
+// This function may also be considered as an example of creating COM objects with [InitIUnknownImpl].
 func CreateIUnknownImpl(ppObject **IUnknown) error {
 	if ppObject == nil {
 		return sys.HResultError(sys.E_POINTER)
@@ -61,12 +59,6 @@ func CreateIUnknownImpl(ppObject **IUnknown) error {
 	}
 	mem.IUnknown.vt = &mem.IUnknownVMT
 	InitIUnknownImpl(&mem.IUnknown, &mem.IUnknownVMT, func(id sys.REFIID, p *unsafe.Pointer) sys.HRESULT {
-		if *id == *IID_IUnknown {
-			mem.AddRef()
-			*p = unsafe.Pointer(mem)
-			return sys.S_OK
-		}
-		*p = nil
 		return sys.E_NOINTERFACE
 	}, func() {
 		Free(mem)
@@ -76,22 +68,47 @@ func CreateIUnknownImpl(ppObject **IUnknown) error {
 	return nil
 }
 
-// InitIUnknownImpl initializes an IUnknownVMT with a simple implementation.
-// The implementation implements reference counting by atomic.Int32, and calling release when reference
-// count reaches 0. It implements QueryInterface method by first checking param for E_POINTER and then
-// calling queryInterface.
-func InitIUnknownImpl[T any](obj *T, vt *IUnknownVMT, queryInterface func(sys.REFIID, *unsafe.Pointer) sys.HRESULT, release func()) {
+// InitIUnknownImpl initializes an IUnknownVMT with a default implementation.
+//
+// This function is a helper to implement arbitrary COM object. See [CreateIUnknownImpl] and other examples.
+//
+// This implementation implements reference counting by atomic.Int32, and calling release when reference
+// count reaches 0. It implements QueryInterface method for IID_IUnknown after checking param for E_POINTER
+// and then calling queryInterface.
+//
+// If queryInterface returns S_OK, the reference count is increased by 1 in this func. So don't increase the
+// reference count in queryInterface itself.
+// The returned MethodCreator is the result of calling [Init](obj) and can be used to add more methods other
+// than that of IUnknown.
+//
+// Pitfall when declaring VMT: The method order of COM interface may be reorder in microsoft website!!
+// So refer to the C source code to get the correct order.
+func InitIUnknownImpl[T any](obj *T, vt *IUnknownVMT, queryInterface func(sys.REFIID, *unsafe.Pointer) sys.HRESULT, release func()) (mtds *MethodCreator) {
 	var refCount atomic.Int32
 	refCount.Add(1) // New object has ref count of 1.
 
-	Init(obj).
+	mtds = Init(obj)
+	mtds.
 		Create(&vt.queryInterface, func(intIID uintptr, intPP uintptr) uintptr {
 			iid := sys.REFIID(unsafe.Add(nil, intIID))
 			pp := (*unsafe.Pointer)(unsafe.Add(nil, intPP))
-			if pp == nil {
-				return sys.E_POINTER.Uintptr()
+
+			result := sys.E_POINTER
+			if pp != nil {
+				if *iid == *IID_IUnknown {
+					*pp = unsafe.Pointer(obj)
+					result = sys.S_OK
+				} else {
+					result = queryInterface(iid, pp)
+				}
 			}
-			return uintptr(queryInterface(iid, pp))
+			if result == sys.S_OK {
+				if *pp == nil {
+					panic("return S_OK but pp == nil")
+				}
+				refCount.Add(1)
+			}
+			return result.Uintptr()
 		}).
 		Create(&vt.addRef, func() uintptr {
 			return uintptr(refCount.Add(1))
@@ -111,4 +128,5 @@ func InitIUnknownImpl[T any](obj *T, vt *IUnknownVMT, queryInterface func(sys.RE
 			}
 			return uintptr(count)
 		})
+	return
 }

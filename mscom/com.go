@@ -8,7 +8,12 @@ handed out to C code(or the COM library). Allocating them using Alloc/AllocMem i
 HeapAlloc like APIs.
 
 For creating a COM object, call Init() on the VTM and then create methods use the *MethodCreator returned.
+CAUTION: Do not use the order of method in microsoft website, which may be reordered there!!
+
 For using a COM object, invoke Call on the MethodPtr(s) in VTM.
+
+If customized reference counting is not required, [InitIUnknownImpl] can be used as a helper to create COM
+objects. See [CreateIUnknownImpl] and other examples.
 
 See type IUnknown and IMalloc for details.
 */

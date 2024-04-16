@@ -51,7 +51,7 @@ func UuidToStringW(uuid *UUID) (string, error) {
 	for p := str; *p != 0; p = (*win32.WCHAR)(unsafe.Add(unsafe.Pointer(p), unsafe.Sizeof(uint16(0)))) {
 		strlen++
 	}
-	return win32util.GoString(str, strlen), nil
+	return win32util.GoString(str, strlen+1), nil
 }
 
 var lzRpcStringFreeW = lzRpcrt4.NewProc("RpcStringFreeW")
@@ -91,14 +91,17 @@ const (
 )
 
 type UUID struct {
-	_ win32.ULONG
-	_ win32.USHORT
-	_ win32.USHORT
-	_ [8]win32.UCHAR
+	unused1 win32.ULONG
+	unused2 win32.USHORT
+	unused3 win32.USHORT
+	unused4 [8]win32.UCHAR
+	// Don't make these fields blanks(_).
+	// Blank fields are not considered when comparing equality.
 }
 
 type GUID = UUID
 type REFIID = *GUID
+type REFCLSID = *GUID
 
 var lzOle32 = windows.NewLazySystemDLL("Ole32.dll")
 
@@ -132,4 +135,43 @@ var lzCoTaskMemRealloc = lzOle32.NewProc("CoTaskMemRealloc")
 func CoTaskMemRealloc(p unsafe.Pointer, size uintptr) unsafe.Pointer {
 	r, _, _ := lzCoTaskMemRealloc.Call(uintptr(p), size)
 	return unsafe.Add(unsafe.Pointer(nil), r)
+}
+
+var lzCoCreateInstance = lzOle32.NewProc("CoCreateInstance")
+
+type CLSCTX win32.DWORD
+
+const (
+	CLSCTX_INPROC_SERVER                  CLSCTX = 1
+	CLSTX_INPROC_HANDLER                  CLSCTX = 0x2
+	CLSTX_LOCAL_SERVER                    CLSCTX = 0x4
+	CLSTX_INPROC_SERVER16                 CLSCTX = 0x8
+	CLSTX_REMOTE_SERVER                   CLSCTX = 0x10
+	CLSTX_INPROC_HANDLER16                CLSCTX = 0x20
+	CLSTX_RESERVED1                       CLSCTX = 0x40
+	CLSTX_RESERVED2                       CLSCTX = 0x80
+	CLSTX_RESERVED3                       CLSCTX = 0x100
+	CLSTX_RESERVED4                       CLSCTX = 0x200
+	CLSTX_NO_CODE_DOWNLOAD                CLSCTX = 0x400
+	CLSTX_RESERVED5                       CLSCTX = 0x800
+	CLSTX_NO_CUSTOM_MARSHAL               CLSCTX = 0x1000
+	CLSTX_ENABLE_CODE_DOWNLOAD            CLSCTX = 0x2000
+	CLSTX_NO_FAILURE_LOG                  CLSCTX = 0x4000
+	CLSTX_DISABLE_AAA                     CLSCTX = 0x8000
+	CLSTX_ENABLE_AAA                      CLSCTX = 0x10000
+	CLSTX_FROM_DEFAULT_CONTEXT            CLSCTX = 0x20000
+	CLSTX_ACTIVATE_X86_SERVER             CLSCTX = 0x40000
+	CLSCTX_ACTIVATE_32_BIT_SERVER         CLSCTX = CLSTX_ACTIVATE_X86_SERVER
+	CLSTX_ACTIVATE_64_BIT_SERVER          CLSCTX = 0x80000
+	CLSTX_ENABLE_CLOAKING                 CLSCTX = 0x100000
+	CLSTX_APPCONTAINER                    CLSCTX = 0x400000
+	CLSTX_ACTIVATE_AAA_AS_IU              CLSCTX = 0x800000
+	CLSTX_RESERVED6                       CLSCTX = 0x1000000
+	CLSTX_ACTIVATE_ARM32_SERVER           CLSCTX = 0x2000000
+	CLSCTX_ALLOW_LOWER_TRUST_REGISTRATION CLSCTX = 0x4000000
+	CLSTX_PS_DLL                          CLSCTX = 0x80000000
+)
+
+func CoCreateInstance(clsid *UUID, outer *unsafe.Pointer /*IUnknown*/, ctx CLSCTX, riid REFIID, ppv *unsafe.Pointer) HRESULT {
+	return sysutil.As[HRESULT](lzCoCreateInstance.Call(uintptr(unsafe.Pointer(clsid)), uintptr(unsafe.Pointer(outer)), uintptr(ctx), uintptr(unsafe.Pointer(riid)), uintptr(unsafe.Pointer(ppv))))
 }
