@@ -1407,3 +1407,19 @@ func AreDpiAwarenessContextsEqual(ctx1, ctx2 DPI_AWARENESS_CONTEXT) bool {
 	r, _, _ := lzAreDpiAwarenessContextsEqual.Call(uintptr(ctx1), uintptr(ctx2))
 	return r != 0
 }
+
+var lzSetFocus = lzUser32.NewProc("SetFocus")
+
+func SetFocus(hwnd HWND) HWND {
+	return sysutil.As[HWND](lzSetFocus.Call(uintptr(hwnd)))
+}
+
+var lzGetModuleFileNameW = lzKernel32.NewProc("GetModuleFileNameW")
+
+func GetModuleFileNameW(h HMODULE, buf []WCHAR) DWORD {
+	var p *WCHAR
+	if len(buf) > 0 {
+		p = &buf[0]
+	}
+	return sysutil.As[DWORD](lzGetModuleFileNameW.Call(uintptr(h), uintptr(unsafe.Pointer(p)), uintptr(len(buf))))
+}
