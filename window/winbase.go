@@ -4,6 +4,7 @@ import (
 	"errors"
 	"unsafe"
 
+	"github.com/mkch/gg"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/paint"
@@ -217,6 +218,7 @@ func (w *WindowBase) TrackPopupMenu(menu *menu.Menu, spec *PopupMenuSpec) error 
 		if err != nil {
 			return err
 		}
+		flags = gg.If(win32.GetSystemMetrics(win32.SM_MENUDROPALIGNMENT) != 0, win32.TPM_RIGHTALIGN, win32.TPM_LEFTALIGN)
 	}
 
 	if t, err := menu.AccelKeyTable(); err != nil {

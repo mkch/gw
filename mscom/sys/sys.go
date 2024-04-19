@@ -29,9 +29,9 @@ var lzRpcrt4 = windows.NewLazySystemDLL("Rpcrt4.dll")
 
 var lzUuidFromStringW = lzRpcrt4.NewProc("UuidFromStringW")
 
-func UuidFromStringW(uuid string) (*UUID, error) {
+func UuidFromStringW(uuid string) (*win32.UUID, error) {
 	str := append(utf16.Encode(([]rune)(uuid)), 0)
-	var ret UUID
+	var ret win32.UUID
 	if r, _, _ := lzUuidFromStringW.Call(uintptr(unsafe.Pointer(&str[0])), uintptr(unsafe.Pointer(&ret))); r != uintptr(RPC_S_OK) {
 		return nil, RpcStatusError(r)
 	}
@@ -40,7 +40,7 @@ func UuidFromStringW(uuid string) (*UUID, error) {
 
 var lzUuidToStringW = lzRpcrt4.NewProc("UuidToStringW")
 
-func UuidToStringW(uuid *UUID) (string, error) {
+func UuidToStringW(uuid *win32.UUID) (string, error) {
 	var str *win32.WCHAR
 	if r, _, _ := lzUuidToStringW.Call(uintptr(unsafe.Pointer(uuid)), uintptr(unsafe.Pointer(&str))); r != uintptr(RPC_S_OK) {
 		return "", RpcStatusError(r)
@@ -90,18 +90,8 @@ const (
 	E_ACCESSDENIED HRESULT = -(^0x80070005 & 0x7FFFFFFF) - 1 //0x80070005
 )
 
-type UUID struct {
-	unused1 win32.ULONG
-	unused2 win32.USHORT
-	unused3 win32.USHORT
-	unused4 [8]win32.UCHAR
-	// Don't make these fields blanks(_).
-	// Blank fields are not considered when comparing equality.
-}
-
-type GUID = UUID
-type REFIID = *GUID
-type REFCLSID = *GUID
+type REFIID = *win32.GUID
+type REFCLSID = *win32.GUID
 
 var lzOle32 = windows.NewLazySystemDLL("Ole32.dll")
 
@@ -172,6 +162,6 @@ const (
 	CLSTX_PS_DLL                          CLSCTX = 0x80000000
 )
 
-func CoCreateInstance(clsid *UUID, outer *unsafe.Pointer /*IUnknown*/, ctx CLSCTX, riid REFIID, ppv *unsafe.Pointer) HRESULT {
+func CoCreateInstance(clsid *win32.UUID, outer *unsafe.Pointer /*IUnknown*/, ctx CLSCTX, riid REFIID, ppv *unsafe.Pointer) HRESULT {
 	return sysutil.As[HRESULT](lzCoCreateInstance.Call(uintptr(unsafe.Pointer(clsid)), uintptr(unsafe.Pointer(outer)), uintptr(ctx), uintptr(unsafe.Pointer(riid)), uintptr(unsafe.Pointer(ppv))))
 }

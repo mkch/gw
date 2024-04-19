@@ -1086,10 +1086,10 @@ func SetTextColor(hdc HDC, color COLORREF) (COLORREF, error) {
 }
 
 const (
-	HWND_BOTTOM    = 1
-	HWND_NOTOPMOST = 2
-	HWND_TOP       = 0
-	HWND_TOPMOST   = -1
+	HWND_BOTTOM    HWND = 1
+	HWND_NOTOPMOST HWND = 2
+	HWND_TOP       HWND = 0
+	HWND_TOPMOST   HWND = ^HWND(0)
 )
 
 const (
@@ -1423,3 +1423,150 @@ func GetModuleFileNameW(h HMODULE, buf []WCHAR) DWORD {
 	}
 	return sysutil.As[DWORD](lzGetModuleFileNameW.Call(uintptr(h), uintptr(unsafe.Pointer(p)), uintptr(len(buf))))
 }
+
+type UUID struct {
+	unused1 ULONG
+	unused2 USHORT
+	unused3 USHORT
+	unused4 [8]UCHAR
+	// Don't make these fields blanks(_).
+	// Blank fields are not considered when comparing equality.
+}
+
+type GUID = UUID
+
+var lzLoadIconW = lzUser32.NewProc("LoadIconW")
+
+const (
+	IDI_APPLICATION uintptr = 32512
+	IDI_HAND        uintptr = 32513
+	IDI_QUESTION    uintptr = 32514
+	IDI_EXCLAMATION uintptr = 32515
+	IDI_ASTERISK    uintptr = 32516
+	IDI_WINLOGO     uintptr = 32517
+	IDI_SHIELD      uintptr = 32518
+	IDI_WARNING     uintptr = IDI_EXCLAMATION
+	IDI_ERROR       uintptr = IDI_HAND
+	IDI_INFORMATION uintptr = IDI_ASTERISK
+)
+
+func LoadIconW(instance HINSTANCE, name *WCHAR) (HICON, error) {
+	return sysutil.MustNotZero[HICON](lzLoadIconW.Call(uintptr(instance), uintptr(unsafe.Pointer(name))))
+}
+
+var lzSetForegroundWindow = lzUser32.NewProc("SetForegroundWindow")
+
+func SetForegroundWindow(hwnd HWND) bool {
+	return sysutil.AsBool(lzSetForegroundWindow.Call(uintptr(hwnd)))
+}
+
+var lzGetSystemMetrics = lzUser32.NewProc("GetSystemMetrics")
+
+func GetSystemMetrics(index SystemMetricsIndex) INT {
+	return sysutil.As[INT](lzGetSystemMetrics.Call(uintptr(index)))
+}
+
+type SystemMetricsIndex INT
+
+const (
+	SM_CXSCREEN                    SystemMetricsIndex = 0
+	SM_CYSCREEN                    SystemMetricsIndex = 1
+	SM_CXVSCROLL                   SystemMetricsIndex = 2
+	SM_CYHSCROLL                   SystemMetricsIndex = 3
+	SM_CYCAPTION                   SystemMetricsIndex = 4
+	SM_CXBORDER                    SystemMetricsIndex = 5
+	SM_CYBORDER                    SystemMetricsIndex = 6
+	SM_CXDLGFRAME                  SystemMetricsIndex = 7
+	SM_CYDLGFRAME                  SystemMetricsIndex = 8
+	SM_CYVTHUMB                    SystemMetricsIndex = 9
+	SM_CXHTHUMB                    SystemMetricsIndex = 10
+	SM_CXICON                      SystemMetricsIndex = 11
+	SM_CYICON                      SystemMetricsIndex = 12
+	SM_CXCURSOR                    SystemMetricsIndex = 13
+	SM_CYCURSOR                    SystemMetricsIndex = 14
+	SM_CYMENU                      SystemMetricsIndex = 15
+	SM_CXFULLSCREEN                SystemMetricsIndex = 16
+	SM_CYFULLSCREEN                SystemMetricsIndex = 17
+	SM_CYKANJIWINDOW               SystemMetricsIndex = 18
+	SM_MOUSEPRESENT                SystemMetricsIndex = 19
+	SM_CYVSCROLL                   SystemMetricsIndex = 20
+	SM_CXHSCROLL                   SystemMetricsIndex = 21
+	SM_DEBUG                       SystemMetricsIndex = 22
+	SM_SWAPBUTTON                  SystemMetricsIndex = 23
+	SM_RESERVED1                   SystemMetricsIndex = 24
+	SM_RESERVED2                   SystemMetricsIndex = 25
+	SM_RESERVED3                   SystemMetricsIndex = 26
+	SM_RESERVED4                   SystemMetricsIndex = 27
+	SM_CXMIN                       SystemMetricsIndex = 28
+	SM_CYMIN                       SystemMetricsIndex = 29
+	SM_CXSIZE                      SystemMetricsIndex = 30
+	SM_CYSIZE                      SystemMetricsIndex = 31
+	SM_CXFRAME                     SystemMetricsIndex = 32
+	SM_CYFRAME                     SystemMetricsIndex = 33
+	SM_CXMINTRACK                  SystemMetricsIndex = 34
+	SM_CYMINTRACK                  SystemMetricsIndex = 35
+	SM_CXDOUBLECLK                 SystemMetricsIndex = 36
+	SM_CYDOUBLECLK                 SystemMetricsIndex = 37
+	SM_CXICONSPACING               SystemMetricsIndex = 38
+	SM_CYICONSPACING               SystemMetricsIndex = 39
+	SM_MENUDROPALIGNMENT           SystemMetricsIndex = 40
+	SM_PENWINDOWS                  SystemMetricsIndex = 41
+	SM_DBCSENABLED                 SystemMetricsIndex = 42
+	SM_CMOUSEBUTTONS               SystemMetricsIndex = 43
+	SM_CXFIXEDFRAME                SystemMetricsIndex = SM_CXDLGFRAME
+	SM_CYFIXEDFRAME                SystemMetricsIndex = SM_CYDLGFRAME
+	SM_CXSIZEFRAME                 SystemMetricsIndex = SM_CXFRAME
+	SM_CYSIZEFRAME                 SystemMetricsIndex = SM_CYFRAME
+	SM_SECURE                      SystemMetricsIndex = 44
+	SM_CXEDGE                      SystemMetricsIndex = 45
+	SM_CYEDGE                      SystemMetricsIndex = 46
+	SM_CXMINSPACING                SystemMetricsIndex = 47
+	SM_CYMINSPACING                SystemMetricsIndex = 48
+	SM_CXSMICON                    SystemMetricsIndex = 49
+	SM_CYSMICON                    SystemMetricsIndex = 50
+	SM_CYSMCAPTION                 SystemMetricsIndex = 51
+	SM_CXSMSIZE                    SystemMetricsIndex = 52
+	SM_CYSMSIZE                    SystemMetricsIndex = 53
+	SM_CXMENUSIZE                  SystemMetricsIndex = 54
+	SM_CYMENUSIZE                  SystemMetricsIndex = 55
+	SM_ARRANGE                     SystemMetricsIndex = 56
+	SM_CXMINIMIZED                 SystemMetricsIndex = 57
+	SM_CYMINIMIZED                 SystemMetricsIndex = 58
+	SM_CXMAXTRACK                  SystemMetricsIndex = 59
+	SM_CYMAXTRACK                  SystemMetricsIndex = 60
+	SM_CXMAXIMIZED                 SystemMetricsIndex = 61
+	SM_CYMAXIMIZED                 SystemMetricsIndex = 62
+	SM_NETWORK                     SystemMetricsIndex = 63
+	SM_CLEANBOOT                   SystemMetricsIndex = 67
+	SM_CXDRAG                      SystemMetricsIndex = 68
+	SM_CYDRAG                      SystemMetricsIndex = 69
+	SM_SHOWSOUNDS                  SystemMetricsIndex = 70
+	SM_CXMENUCHECK                 SystemMetricsIndex = 71
+	SM_CYMENUCHECK                 SystemMetricsIndex = 72
+	SM_SLOWMACHINE                 SystemMetricsIndex = 73
+	SM_MIDEASTENABLED              SystemMetricsIndex = 74
+	SM_MOUSEWHEELPRESENT           SystemMetricsIndex = 75
+	SM_XVIRTUALSCREEN              SystemMetricsIndex = 76
+	SM_YVIRTUALSCREEN              SystemMetricsIndex = 77
+	SM_CXVIRTUALSCREEN             SystemMetricsIndex = 78
+	SM_CYVIRTUALSCREEN             SystemMetricsIndex = 79
+	SM_CMONITORS                   SystemMetricsIndex = 80
+	SM_SAMEDISPLAYFORMAT           SystemMetricsIndex = 81
+	SM_IMMENABLED                  SystemMetricsIndex = 82
+	SM_CXFOCUSBORDER               SystemMetricsIndex = 83
+	SM_CYFOCUSBORDER               SystemMetricsIndex = 84
+	SM_TABLETPC                    SystemMetricsIndex = 86
+	SM_MEDIACENTER                 SystemMetricsIndex = 87
+	SM_STARTER                     SystemMetricsIndex = 88
+	SM_SERVERR2                    SystemMetricsIndex = 89
+	SM_MOUSEHORIZONTALWHEELPRESENT SystemMetricsIndex = 91
+	SM_CXPADDEDBORDER              SystemMetricsIndex = 92
+	SM_DIGITIZER                   SystemMetricsIndex = 94
+	SM_MAXIMUMTOUCHES              SystemMetricsIndex = 95
+	SM_REMOTESESSION               SystemMetricsIndex = 0x1000
+	SM_SHUTTINGDOWN                SystemMetricsIndex = 0x2000
+	SM_REMOTECONTROL               SystemMetricsIndex = 0x2001
+	SM_CARETBLINKINGENABLED        SystemMetricsIndex = 0x2002
+	SM_CONVERTIBLESLATEMODE        SystemMetricsIndex = 0x2003
+	SM_SYSTEMDOCKED                SystemMetricsIndex = 0x2004
+)
