@@ -8,22 +8,32 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// By guessing.
-const maxAddr = 1 << (unsafe.Sizeof(int(0))*8 - 15)
-
 func CString(str string, p *[]win32.WCHAR) {
 	*p = (*p)[:0]
 	s := utf16.Encode([]rune(str))
 	if len(s) != 0 {
-		a := (*[maxAddr / unsafe.Sizeof(win32.WCHAR(0))]win32.WCHAR)(unsafe.Pointer(&s[0]))
-		*p = append(*p, a[:len(s)]...)
+		a := unsafe.Slice((*win32.WCHAR)(unsafe.Pointer(&s[0])), len(s))
+		*p = append(*p, a...)
 	}
 	*p = append(*p, 0) // 0 terminated.
 }
 
+// GoString converts a null terminated C string to go string.
+// size is the buffer length of C string, includes terminating null.
 func GoString(p *win32.WCHAR, size int) string {
-	s := (*[maxAddr / unsafe.Sizeof(win32.WCHAR(0))]uint16)(unsafe.Pointer(p))[:size-1] // size-1 excludes the terminated 0.
+	s := unsafe.Slice((*uint16)(unsafe.Pointer(p)), size-1) // size-1 to exclude the terminating null.
 	return string(utf16.Decode(s))
+}
+
+// CopyCString copies null terminated C string src to dest.
+// Returns the count of win32.WCHAR copied, includes terminating null.
+func CopyCString(dest, src []win32.WCHAR) (charCopied int) {
+	charCopied = copy(dest[:len(dest)-1], src)
+	if charCopied < len(src) {
+		dest[charCopied] = 0
+		charCopied++
+	}
+	return
 }
 
 type WndClass struct {
