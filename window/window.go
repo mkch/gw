@@ -70,10 +70,11 @@ func New(spec *Spec) (*Window, error) {
 			}
 		}
 	}
-	hwnd, err := win32util.CreateWindow((*win32util.Wnd)(&win32util.Wnd{
+	hwnd, err := win32util.CreateWindow((&win32util.Wnd{
 		ClassName:   spec.ClassName,
 		WindowName:  spec.Text,
 		Style:       style,
+		ExStyle:     spec.ExStyle,
 		X:           spec.X,
 		Y:           y,
 		Width:       spec.Width,

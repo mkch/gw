@@ -90,7 +90,8 @@ type Spec struct {
 //
 // See [StartModify].
 type Modifier struct {
-	data sys.NOTIFYICONDATAW
+	customTip *bool
+	data      sys.NOTIFYICONDATAW
 }
 
 // Apply applies the change.
@@ -100,39 +101,58 @@ func (m *Modifier) Apply() error {
 
 func (m *Modifier) SetIcon(icon win32.HICON) *Modifier {
 	m.data.Flags |= sys.NIF_ICON
+	if !*m.customTip {
+		m.data.Flags |= sys.NIF_SHOWTIP
+	}
 	m.data.Icon = icon
 	return m
 }
 
-// SetTip sets the tooltip string. Overrides custom tooltip.
-func (m *Modifier) SetStringTip(tip string) *Modifier {
+// SetTip sets the tooltip string.
+// if tip is "", [NIN_POPUPOPEN] event is sent to allow showing application-drawn tooltip.
+func (m *Modifier) SetTip(tip string) *Modifier {
+	if tip == "" {
+		*m.customTip = true
+		m.data.Flags &= ^(sys.NIF_TIP | sys.NIF_SHOWTIP)
+		return m
+	}
+	*m.customTip = false
 	var buf []win32.WCHAR
 	m.data.Flags |= (sys.NIF_TIP | sys.NIF_SHOWTIP)
 	win32util.CString(tip, &buf)
-	copy(m.data.Tip[:len(m.data.Tip)-1], buf)
+	win32util.CopyCString(m.data.Tip[:], buf)
 	return m
 }
 
+// SetNotify sets the ballon notification.
 func (m *Modifier) SetNotify(spec *NotifySpec) *Modifier {
+	if !*m.customTip {
+		m.data.Flags |= sys.NIF_SHOWTIP
+	}
 	setNotify(&m.data, spec)
 	return m
 }
 
-// Add adds a notify icon to taskbar's status area.
-// id can be any number to identify the icon.
-func Add(w *window.Window, id win32.WORD, spec *Spec) error {
+// NotifyIcon is an icon in taskbar's status area.
+type NotifyIcon struct {
+	w         win32.HWND
+	id        win32.UINT
+	customTip bool
+}
+
+// New adds an icon to taskbar's status area.
+// An NotifyIcon is identified by a window and an ID.
+func New(w *window.Window, id win32.WORD, spec *Spec) (*NotifyIcon, error) {
 	if id == 0 {
 		panic("id must > 0") // For [ParseCallback] HACK.
 	}
-	data := newData(spec)
-	data.ID = win32.UINT(id)
-	data.Wnd = w.HWND()
+	data := newData(spec, w.HWND(), id)
 	data.Version = sys.NOTIFYICON_VERSION_4
 	if err := sys.Shell_NotifyIconW(sys.NIM_ADD, data); err != nil {
-		return err
+		return nil, err
 	}
 	if err := sys.Shell_NotifyIconW(sys.NIM_SETVERSION, data); err != nil {
-		return err
+		return nil, err
 	}
 	if spec.OnEvent != nil {
 		k := w.AddMsgListener(CallbackMessage, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
@@ -142,45 +162,52 @@ func Add(w *window.Window, id win32.WORD, spec *Spec) error {
 			k.Remove()
 		})
 	}
-	return nil
+	return &NotifyIcon{w.HWND(), win32.UINT(id), data.Flags&sys.NIF_SHOWTIP == 0}, nil
 }
 
-// StartModify returns a [Modifier] which can be used to modify the notify icon
-// identified by w and id.
-// if customTip is true, sending [NIN_POPUPOPEN] instead of showing tooltip string.
-func StartModify(w *window.Window, id win32.WORD, customTip bool) *Modifier {
+// StartModify returns a [Modifier] which can be used to modify the notify icon identified by w and id.
+func (icon *NotifyIcon) StartModify() *Modifier {
 	var ret Modifier
 	ret.data.Size = win32.DWORD(unsafe.Sizeof(ret.data))
-	ret.data.ID = win32.UINT(id)
-	ret.data.Wnd = w.HWND()
-	if !customTip {
-		ret.data.Flags = sys.NIF_SHOWTIP
-	}
+	ret.data.ID = icon.id
+	ret.data.Wnd = icon.w
+	ret.customTip = &icon.customTip
 	return &ret
 }
 
-func Delete(w *window.Window, id win32.WORD) error {
+func (icon *NotifyIcon) ID() win32.UINT {
+	return win32.UINT(icon.id)
+}
+
+// Delete removes the icon.
+func (icon *NotifyIcon) Delete() error {
 	return sys.Shell_NotifyIconW(sys.NIM_DELETE,
 		&sys.NOTIFYICONDATAW{
 			Size: win32.DWORD(unsafe.Sizeof(sys.NOTIFYICONDATAW{})),
-			ID:   win32.UINT(id),
-			Wnd:  w.HWND(),
+			ID:   icon.id,
+			Wnd:  icon.w,
 		})
 }
 
-func SetFocus(w *window.Window, id win32.WORD) error {
+// SetFocus returns focus to the taskbar notification area.
+// Notification area icons should use this method when they have completed their UI operation.
+// For example, if the icon displays a shortcut menu, but the user presses ESC to cancel it, this method
+// to return focus to the notification area.
+func (icon *NotifyIcon) SetFocus() error {
 	return sys.Shell_NotifyIconW(sys.NIM_SETFOCUS,
 		&sys.NOTIFYICONDATAW{
 			Size: win32.DWORD(unsafe.Sizeof(sys.NOTIFYICONDATAW{})),
-			ID:   win32.UINT(id),
-			Wnd:  w.HWND(),
+			ID:   icon.id,
+			Wnd:  icon.w,
 		})
 }
 
-func newData(spec *Spec) *sys.NOTIFYICONDATAW {
+func newData(spec *Spec, hwnd win32.HWND, id win32.WORD) *sys.NOTIFYICONDATAW {
 	var ret sys.NOTIFYICONDATAW
 	ret.Size = win32.DWORD(unsafe.Sizeof(ret))
 	ret.Flags = sys.NIF_MESSAGE
+	ret.Wnd = hwnd
+	ret.ID = win32.UINT(id)
 	ret.CallbackMessage = CallbackMessage
 	if spec.Icon != 0 {
 		ret.Flags |= sys.NIF_ICON
@@ -190,7 +217,7 @@ func newData(spec *Spec) *sys.NOTIFYICONDATAW {
 		var buf []win32.WCHAR
 		ret.Flags |= (sys.NIF_TIP | sys.NIF_SHOWTIP)
 		win32util.CString(spec.Tip, &buf)
-		copy(ret.Tip[:len(ret.Tip)-1], buf)
+		win32util.CopyCString(ret.Tip[:], buf)
 	}
 	setNotify(&ret, spec.Notify)
 	return &ret
@@ -209,9 +236,9 @@ func setNotify(n *sys.NOTIFYICONDATAW, spec *NotifySpec) {
 			n.BalloonIcon = spec.Icon
 		}
 		win32util.CString(spec.Message, &buf)
-		copy(n.Info[:len(n.Info)-1], buf)
+		win32util.CopyCString(n.Info[:], buf)
 		win32util.CString(spec.Title, &buf)
-		copy(n.InfoTitle[:len(n.InfoTitle)-1], buf)
+		win32util.CopyCString(n.InfoTitle[:], buf)
 		if spec.NoSound {
 			n.InfoFlags |= sys.NIIF_NOSOUND
 		}

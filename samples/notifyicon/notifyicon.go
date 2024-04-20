@@ -16,8 +16,6 @@ import (
 //go:generate rsrc -arch 386 -manifest manifest.xml -ico main.ico
 
 func main() {
-	const iconID = 2
-
 	win := gg.Must(window.New(&window.Spec{
 		Text:    "Test Notify Icon",
 		Style:   win32.WS_OVERLAPPEDWINDOW,
@@ -29,7 +27,7 @@ func main() {
 
 	tooltip := gg.Must(window.New(&window.Spec{
 		Text:    "Tooltip",
-		Style:   win32.WS_POPUPWINDOW | win32.WS_CAPTION,
+		Style:   win32.WS_POPUP | win32.WS_BORDER | win32.WS_CAPTION,
 		ExStyle: win32.WS_EX_TOOLWINDOW,
 		Width:   200,
 		Height:  100,
@@ -40,11 +38,13 @@ func main() {
 		case win32.WM_CLOSE:
 			tooltip.Show(win32.SW_HIDE)
 			return 0
-		case win32.WM_KILLFOCUS:
-			win32.SendMessageW(tooltip.HWND(), win32.WM_CLOSE, 0, 0)
 		}
 		return prevWndProc(hwnd, message, wParam, lParam)
 	})
+
+	icon := gg.Must(win32.LoadIconW(gg.Must(win32.GetModuleHandleW[win32.HINSTANCE](nil)), (*win32.WCHAR)(unsafe.Add(unsafe.Pointer(nil), 2))))
+	const iconID = 2
+	var notifyIcon *notifyicon.NotifyIcon
 
 	fileMenu := menu.New(true)
 	fileMenu.InsertItem(-1, &menu.ItemSpec{
@@ -54,15 +54,13 @@ func main() {
 			for range 128 {
 				b.WriteRune('.')
 			}
-			gg.MustOK(notifyicon.StartModify(win, iconID, false).
-				SetStringTip(b.String()).
-				Apply())
+			gg.MustOK(notifyIcon.StartModify().SetTip(b.String()).Apply())
 		},
 	})
 	fileMenu.InsertItem(-1, &menu.ItemSpec{
 		Title: "Custom Tip",
 		OnClick: func() {
-			gg.MustOK(notifyicon.StartModify(win, iconID, true).Apply())
+			gg.MustOK(notifyIcon.StartModify().SetTip("").Apply())
 
 		},
 	})
@@ -70,13 +68,13 @@ func main() {
 		Title: "Change Icon",
 		OnClick: func() {
 			icon := gg.Must(win32.LoadIconW(0, (*win32.WCHAR)(unsafe.Add(unsafe.Pointer(nil), win32.IDI_INFORMATION))))
-			gg.MustOK(notifyicon.StartModify(win, iconID, false).SetIcon(icon).Apply())
+			gg.MustOK(notifyIcon.StartModify().SetIcon(icon).Apply())
 		},
 	})
 	fileMenu.InsertItem(-1, &menu.ItemSpec{
 		Title: "Change Notification",
 		OnClick: func() {
-			gg.MustOK(notifyicon.StartModify(win, iconID, false).
+			gg.MustOK(notifyIcon.StartModify().
 				SetNotify(&notifyicon.NotifySpec{
 					Icon:    notifyicon.BI_ERROR,
 					Title:   "New Title",
@@ -90,9 +88,7 @@ func main() {
 		OnClick: func() { win32.SendMessageW(win.HWND(), win32.WM_CLOSE, 0, 0) },
 	})
 
-	icon := gg.Must(win32.LoadIconW(gg.Must(win32.GetModuleHandleW[win32.HINSTANCE](nil)), (*win32.WCHAR)(unsafe.Add(unsafe.Pointer(nil), 2))))
-
-	gg.MustOK(notifyicon.Add(win, iconID, &notifyicon.Spec{
+	notifyIcon = gg.Must(notifyicon.New(win, iconID, &notifyicon.Spec{
 		Icon: icon,
 		Tip:  "Notify icon tip",
 		Notify: &notifyicon.NotifySpec{
@@ -101,7 +97,7 @@ func main() {
 			Message: "This is a notification",
 		},
 		OnEvent: func(id win32.WORD, event notifyicon.Event, eventX, eventY win32.SHORT) {
-			if id != iconID {
+			if id != win32.WORD(notifyIcon.ID()) {
 				panic("wrong id")
 			}
 			switch event {
@@ -119,6 +115,8 @@ func main() {
 					0, 0, win32.SWP_NOSIZE)
 				win32.SetForegroundWindow(tooltip.HWND())
 				tooltip.Show(win32.SW_SHOWNORMAL)
+			case notifyicon.NIN_POPUPCLOSE:
+				tooltip.Show(win32.SW_HIDE)
 			}
 		},
 	}))
