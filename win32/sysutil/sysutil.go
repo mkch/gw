@@ -16,7 +16,7 @@ func IsNoError(err error) bool {
 }
 
 // MustZero returns nil if r1 is 0, err otherwise.
-func MustZero[T constraints.Integer](r1 uintptr, r2 uintptr, err error) error {
+func MustZero(r1 uintptr, r2 uintptr, err error) error {
 	if r1 == 0 {
 		return nil
 	}
