@@ -1,10 +1,8 @@
 # gw
 
-[简体中文](README-zh_CN.md)
+一个Go语言Windows平台GUI框架。
 
-A Go GUI framework on the Windows platform.
-
-## Usage
+## 使用方法
 
 ```go
 package main
@@ -42,20 +40,20 @@ func main() {
 
 ```
 
-The Go program above creates a window and a button. When the button is clicked, a message box pops up.
+上述 Go 程序创建了一个窗口和一个按钮，当按钮被点击时弹出一个消息框。
 
-## FAQ
+## 常见问题
 
-1. How to remove the console window when the executable is run?
+1. 如何去掉exe运行时的控制台窗口？
 
-    Add `-ldflags "-H=windowsgui"` when running `go build`, for example: `go build -ldflags "-H=windowsgui"`.
+    在执行`go build`时加上`-ldflags "-H=windowsgui"`参数，例如：`go build -ldflags "-H=windowsgui"`。
 
-2. How to specify an icon or other resources for the executable?
+2. 如何为exe指定图标等资源？
 
-    You can use a third-party tool, such as `rsrc`.
+    可以使用第三方工具，例如`rsrc`。
 
-    First, use the command `go get github.com/akavel/rsrc` to install rsrc.
+    首先使用`go get github.com/akavel/rsrc`命令来安装`rsrc`。
 
-    Then use a command such as `rsrc -arch amd64 -ico FILE.ico` to compile the \*.ico file into \*.syso resource file.
+    然后使用诸如`rsrc -arch amd64 -ico FILE.ico`的命令来把\*.ico文件编译为\*.syso资源文件。
 
-    Finally, place the \*.syso file in the same directory as the \*.go source files, and then run go build.
+    最后把\*.syso文件放在\*.go源文件放在同一个目录下，然后执行`go build`即可。
