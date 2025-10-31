@@ -6,6 +6,7 @@ import (
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
 	"github.com/mkch/gw/paint/font"
 	"github.com/mkch/gw/paint/pen"
@@ -22,9 +23,9 @@ func main() {
 	bkWin := gg.Must(window.New(&window.Spec{
 		Text:    "Full screen",
 		Style:   win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
-		X:       win32.CW_USEDEFAULT,
-		Y:       win32.INT(win32.SW_SHOWMAXIMIZED),
-		Width:   win32.CW_USEDEFAULT,
+		X:       metrics.Px(win32.CW_USEDEFAULT),
+		Y:       metrics.Px(win32.INT(win32.SW_SHOWMAXIMIZED)),
+		Width:   metrics.Px(win32.CW_USEDEFAULT),
 		OnClose: func() { app.Quit(0) },
 	}))
 
@@ -74,17 +75,17 @@ func main() {
 
 	bkWin.SetPaintCallback(func(dc *paint.PaintDC, prev func(*paint.PaintDC)) {
 		rcClient := gg.Must(bkWin.GetClientRect())
-		rcClient.Right = win32util.DPIConv(rcClient.Right, dpi, gridDpi)
-		rcClient.Bottom = win32util.DPIConv(rcClient.Bottom, dpi, gridDpi)
+		rcClient.Right = metrics.DPIConv(rcClient.Right, dpi, gridDpi)
+		rcClient.Bottom = metrics.DPIConv(rcClient.Bottom, dpi, gridDpi)
 
 		defer gg.Must(paint.SelectObject(dc.HDC(), linePen.HPEN())).Restore()
 		defer gg.Must(paint.SelectObject(dc.HDC(), textFont.HFONT())).Restore()
 
 		var charBuf []win32.WCHAR
 		for x := win32.INT(rcClient.Left) + gridSize; x <= win32.INT(rcClient.Right); x += gridSize {
-			drawX := win32util.DPIConv(x, gridDpi, dpi)
+			drawX := metrics.DPIConv(x, gridDpi, dpi)
 			gg.MustOK(win32.MoveToEx(dc.HDC(), drawX, 0, nil))
-			gg.MustOK(win32.LineTo(dc.HDC(), drawX, win32.INT(win32util.DPIConv(rcClient.Bottom, gridDpi, dpi))))
+			gg.MustOK(win32.LineTo(dc.HDC(), drawX, win32.INT(metrics.DPIConv(rcClient.Bottom, gridDpi, dpi))))
 			win32util.CString(strconv.Itoa(int(x)), &charBuf)
 			rect := win32.RECT{}
 			gg.Must(win32.DrawTextExW(dc.HDC(), &charBuf[0], -1, &rect, win32.DT_CALCRECT, nil))
@@ -94,9 +95,9 @@ func main() {
 			gg.Must(win32.DrawTextExW(dc.HDC(), &charBuf[0], -1, &rect, win32.DT_CENTER, nil))
 		}
 		for y := win32.INT(rcClient.Top) + gridSize; y <= win32.INT(rcClient.Bottom); y += gridSize {
-			drawY := win32util.DPIConv(y, gridDpi, dpi)
+			drawY := metrics.DPIConv(y, gridDpi, dpi)
 			gg.MustOK(win32.MoveToEx(dc.HDC(), 0, drawY, nil))
-			gg.MustOK(win32.LineTo(dc.HDC(), win32.INT(win32util.DPIConv(rcClient.Right, gridDpi, dpi)), drawY))
+			gg.MustOK(win32.LineTo(dc.HDC(), win32.INT(metrics.DPIConv(rcClient.Right, gridDpi, dpi)), drawY))
 			win32util.CString(strconv.Itoa(int(y)), &charBuf)
 			rect := win32.RECT{}
 			gg.Must(win32.DrawTextExW(dc.HDC(), &charBuf[0], -1, &rect, win32.DT_CALCRECT, nil))
@@ -116,10 +117,10 @@ func main() {
 		WndParent: bkWin.HWND(),
 		Text:      "500 X 500",
 		Style:     win32.WS_POPUP | win32.WS_CAPTION | win32.WS_VISIBLE,
-		X:         win32.CW_USEDEFAULT,
-		Y:         win32.INT(win32.SW_SHOWNORMAL),
-		Width:     500,
-		Height:    500,
+		X:         metrics.Px(win32.CW_USEDEFAULT),
+		Y:         metrics.Px(win32.INT(win32.SW_SHOWNORMAL)),
+		Width:     metrics.Dip(500),
+		Height:    metrics.Dip(500),
 	}))
 	win1.OnLButtonDown = func(opt window.MouseClickOpt, x, y int) {
 		gg.Must(win32.SendMessageW(win1.HWND(), win32.WM_NCLBUTTONDOWN, win32.HTCAPTION, 0))

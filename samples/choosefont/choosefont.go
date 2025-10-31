@@ -5,6 +5,7 @@ import (
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/dialog"
 	"github.com/mkch/gw/menu"
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
 	"github.com/mkch/gw/paint/font"
 	"github.com/mkch/gw/win32"
@@ -19,9 +20,9 @@ func main() {
 	win := gg.Must(window.New(&window.Spec{
 		Text:    "Test font",
 		Style:   win32.WS_OVERLAPPEDWINDOW,
-		X:       win32.CW_USEDEFAULT,
-		Width:   500,
-		Height:  300,
+		X:       metrics.Px(win32.CW_USEDEFAULT),
+		Width:   metrics.Dip(500),
+		Height:  metrics.Dip(300),
 		OnClose: func() { app.Quit(0) },
 	}))
 

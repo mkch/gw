@@ -1,8 +1,8 @@
 package withdpi
 
 import (
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
-	"github.com/mkch/gw/win32/win32util"
 )
 
 type Int[T ~int32 | ~uint32] struct {
@@ -14,7 +14,7 @@ func (i *Int[T]) ForDPI(newDPI win32.UINT) T {
 	if newDPI == i.DPI {
 		return i.Value
 	}
-	return win32util.DPIConv(i.Value, i.DPI, newDPI)
+	return metrics.DPIConv(i.Value, i.DPI, newDPI)
 }
 
 type Value[T any] struct {

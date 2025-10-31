@@ -1,9 +1,9 @@
 package font
 
 import (
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint/withdpi"
 	"github.com/mkch/gw/win32"
-	"github.com/mkch/gw/win32/win32util"
 )
 
 // LogFont holds a win32.LOGFONTW and the DPI value.
@@ -16,7 +16,7 @@ type LogFont struct {
 func NewLogFont(logFont *win32.LOGFONTW, DPI win32.UINT) *LogFont {
 	return &LogFont{*withdpi.NewLogStruct[win32.LOGFONTW, win32.HFONT](logFont, DPI,
 		func(l *win32.LOGFONTW, oldDPI, newDIP win32.UINT) {
-			l.Height = win32util.DPIConv(l.Height, oldDPI, newDIP)
+			l.Height = metrics.DPIConv(l.Height, oldDPI, newDIP)
 		}, win32.CreateFontIndirectW)}
 }
 

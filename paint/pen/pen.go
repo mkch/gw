@@ -1,9 +1,9 @@
 package pen
 
 import (
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint/withdpi"
 	"github.com/mkch/gw/win32"
-	"github.com/mkch/gw/win32/win32util"
 )
 
 // LogPen holds a win32.EXTLOGPEN and the DPI value.
@@ -23,9 +23,9 @@ func NewExtLogPen(l *win32.EXTLOGPEN, DPI win32.UINT) *LogPen {
 	}
 	return &LogPen{*withdpi.NewLogStruct[win32.EXTLOGPEN, win32.HPEN](l, DPI, func(l *win32.EXTLOGPEN, oldDPI, newDPI win32.UINT) {
 		if oldDPI != withdpi.DPI_INDEPENDENT {
-			l.Width = win32util.DPIConv(l.Width, oldDPI, newDPI)
+			l.Width = metrics.DPIConv(l.Width, oldDPI, newDPI)
 			for i, entry := range l.StyleEntry {
-				l.StyleEntry[i] = win32util.DPIConv(entry, oldDPI, newDPI)
+				l.StyleEntry[i] = metrics.DPIConv(entry, oldDPI, newDPI)
 			}
 		}
 	}, func(l *win32.EXTLOGPEN) (win32.HPEN, error) {

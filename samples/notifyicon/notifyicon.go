@@ -7,6 +7,7 @@ import (
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/notifyicon"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/window"
@@ -19,9 +20,9 @@ func main() {
 	win := gg.Must(window.New(&window.Spec{
 		Text:    "Test Notify Icon",
 		Style:   win32.WS_OVERLAPPEDWINDOW,
-		X:       win32.CW_USEDEFAULT,
-		Width:   500,
-		Height:  300,
+		X:       metrics.Px(win32.CW_USEDEFAULT),
+		Width:   metrics.Dip(500),
+		Height:  metrics.Dip(300),
 		OnClose: func() { app.Quit(0) },
 	}))
 
@@ -29,8 +30,8 @@ func main() {
 		Text:    "Tooltip",
 		Style:   win32.WS_POPUP | win32.WS_BORDER | win32.WS_CAPTION,
 		ExStyle: win32.WS_EX_TOOLWINDOW,
-		Width:   200,
-		Height:  100,
+		Width:   metrics.Dip(200),
+		Height:  metrics.Dip(100),
 		OnClose: func() {},
 	}))
 	tooltip.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"unsafe"
 
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
-	"github.com/mkch/gw/win32/win32util"
 )
 
 type LogFont = LogStruct[win32.LOGFONTW, win32.HFONT]
@@ -13,7 +13,7 @@ type Font = Object[win32.LOGFONTW, win32.HFONT]
 
 func NewLogFont(l *win32.LOGFONTW, DPI win32.UINT) *LogFont {
 	return NewLogStruct[win32.LOGFONTW, win32.HFONT](l, DPI, func(l *win32.LOGFONTW, oldDPI, newDPI win32.UINT) {
-		l.Height = win32util.DPIConv(l.Height, oldDPI, newDPI)
+		l.Height = metrics.DPIConv(l.Height, oldDPI, newDPI)
 	}, win32.CreateFontIndirectW)
 }
 

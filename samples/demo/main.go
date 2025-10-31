@@ -6,6 +6,7 @@ import (
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/button"
 	"github.com/mkch/gw/menu"
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/static"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
@@ -47,26 +48,24 @@ func main() {
 	win, _ := window.New(&window.Spec{
 		Text:  "Hello, Go!",
 		Style: win32.WS_OVERLAPPEDWINDOW,
-		X:     win32.CW_USEDEFAULT,
-		Width: 500, Height: 300,
+		X:     metrics.Px(win32.CW_USEDEFAULT),
+		Width: metrics.Dip(500), Height: metrics.Dip(300),
 		OnClose: func() { app.Quit(0) },
 	})
 	win.SetMenu(createMenu(ticker, &tickerStopped))
 
 	timeStatic, _ := static.New(win.HWND(), &static.Spec{
-		Text:        "Time",
-		Style:       win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
-		InParentDPI: true,
-		X:           200, Y: 30,
-		Width: 100, Height: 60,
+		Text:  "Time",
+		Style: win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
+		X:     metrics.Dip(200), Y: metrics.Dip(30),
+		Width: metrics.Dip(100), Height: metrics.Dip(60),
 	})
 
 	button.New(win.HWND(), &button.Spec{
 		Text:  "Hello",
 		Style: win32.WS_VISIBLE,
-		X:     200, Y: 120,
-		Width: 100, Height: 60,
-		InParentDPI: true,
+		X:     metrics.Dip(200), Y: metrics.Dip(120),
+		Width: metrics.Dip(100), Height: metrics.Dip(60),
 		OnClick: func() {
 			win32util.MessageBox(win.HWND(),
 				"Hello GUI!", "Button clicked",

@@ -83,19 +83,18 @@ func RegisterClass(cls *WndClass) (win32.ATOM, error) {
 }
 
 type Wnd struct {
-	ClassName   string
-	WindowName  string
-	Style       win32.WINDOW_STYLE
-	ExStyle     win32.WINDOW_EX_STYLE
-	X           win32.INT
-	Y           win32.INT
-	Width       win32.INT
-	Height      win32.INT
-	WndParent   win32.HWND
-	InParentDPI bool // Whether X, Y, Width and Height are in WndParent's DPI. USER_DEFAULT_SCREEN_DPI is used if false.
-	Menu        win32.HMENU
-	Instance    win32.HINSTANCE // 0 for this module.
-	Param       win32.UINT_PTR
+	ClassName  string
+	WindowName string
+	Style      win32.WINDOW_STYLE
+	ExStyle    win32.WINDOW_EX_STYLE
+	X          win32.INT
+	Y          win32.INT
+	Width      win32.INT
+	Height     win32.INT
+	WndParent  win32.HWND
+	Menu       win32.HMENU
+	Instance   win32.HINSTANCE // 0 for this module.
+	Param      win32.UINT_PTR
 }
 
 func CreateWindow(spec *Wnd) (win32.HWND, error) {
@@ -111,23 +110,9 @@ func CreateWindow(spec *Wnd) (win32.HWND, error) {
 		CString(spec.WindowName, &windowNameBuf)
 		windowNamePtr = &windowNameBuf[0]
 	}
-	x := spec.X
-	y := spec.Y
-	cx := spec.Width
-	cy := spec.Height
-	if spec.InParentDPI {
-		// spec.WndParent can't be 0 if InCurrentDPI is true.
-		dpi, err := win32.GetDpiForWindow(spec.WndParent)
-		if err != nil {
-			return 0, err
-		}
-		x = FromDefaultDPI(spec.X, dpi)
-		y = FromDefaultDPI(spec.Y, dpi)
-		cx = FromDefaultDPI(spec.Width, dpi)
-		cy = FromDefaultDPI(spec.Height, dpi)
-	}
+
 	return win32.CreateWindowExW(spec.ExStyle, &classNameBuf[0], windowNamePtr, spec.Style,
-		x, y, cx, cy,
+		spec.X, spec.Y, spec.Width, spec.Height,
 		spec.WndParent, spec.Menu, instance, spec.Param)
 }
 
@@ -196,16 +181,6 @@ func ScreenToClient(hwnd win32.HWND, rect *win32.RECT) error {
 		return err
 	}
 	return nil
-}
-
-// DPIConv converts a value from old DPI to new DPI.
-func DPIConv[T ~int32 | ~uint32](oldValue T, oldDPI, newDPI win32.UINT) (newValue T) {
-	return T(win32.MulDiv(win32.INT(oldValue), win32.INT(newDPI), win32.INT(oldDPI)))
-}
-
-// FromDefaultDPI convert value from USER_DEFAULT_SCREEN_DPI(96) to a new DPI.
-func FromDefaultDPI[T ~int32 | ~uint32](value T, dpi win32.UINT) T {
-	return DPIConv(value, win32.USER_DEFAULT_SCREEN_DPI, dpi)
 }
 
 func MessageBoxEx(owner win32.HWND, text string, caption string, typ win32.MESSAGE_BOX_TYPE, langID win32.WORD) (int, error) {
