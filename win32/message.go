@@ -38,6 +38,7 @@ const (
 	WM_INITDIALOG              = 0x0110
 	WM_USER                    = 0x0400
 	WM_SETFONT                 = 0x0030
+	WM_GETFONT                 = 0x0031
 	WM_DPICHANGED              = 0x02E0
 	WM_DPICHANGED_BEFOREPARENT = 0x02E2
 	WM_DPICHANGED_AFTERPARENT  = 0x02E3
