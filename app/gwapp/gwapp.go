@@ -40,8 +40,11 @@ func (app *GwApp) Run() int {
 		if r == 0 {
 			return int(msg.WParam)
 		}
-		if msg.Hwnd == 0 && msg.Message == appmsg.POST {
-			app.postMap.Value(objectmap.Handle(msg.WParam))()
+		if msg.Hwnd == 0 {
+			if msg.Message == appmsg.POST {
+				app.postMap.Value(objectmap.Handle(msg.WParam))()
+			}
+			continue // Messages not associated with a window cannot be dispatched
 		}
 
 		if !window.PreTranslateMessage(&msg) {
