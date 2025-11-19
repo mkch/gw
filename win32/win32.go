@@ -1570,3 +1570,40 @@ const (
 	SM_CONVERTIBLESLATEMODE        SystemMetricsIndex = 0x2003
 	SM_SYSTEMDOCKED                SystemMetricsIndex = 0x2004
 )
+
+var lzGetStockObject = lzGdi32.NewProc("GetStockObject")
+
+// GetStockObject retrieves a handle to one of the stock pens, brushes, fonts, or
+// palettes.
+//
+// Returns 0 if it fails, no additional error information is available.
+func GetStockObject[H HGDIOBJ](object StockObjectType) H {
+	h, _, _ := lzGetStockObject.Call(uintptr(object))
+	return H(h)
+}
+
+type StockObjectType int
+
+const (
+	WHITE_BRUSH         = StockObjectType(0)
+	LTGRAY_BRUSH        = StockObjectType(1)
+	GRAY_BRUSH          = StockObjectType(2)
+	DKGRAY_BRUSH        = StockObjectType(3)
+	BLACK_BRUSH         = StockObjectType(4)
+	NULL_BRUSH          = StockObjectType(5)
+	HOLLOW_BRUSH        = NULL_BRUSH
+	WHITE_PEN           = StockObjectType(6)
+	BLACK_PEN           = StockObjectType(7)
+	NULL_PEN            = StockObjectType(8)
+	OEM_FIXED_FONT      = StockObjectType(10)
+	ANSI_FIXED_FONT     = StockObjectType(11)
+	ANSI_VAR_FONT       = StockObjectType(12)
+	SYSTEM_FONT         = StockObjectType(13)
+	DEVICE_DEFAULT_FONT = StockObjectType(14)
+	DEFAULT_PALETTE     = StockObjectType(15)
+	SYSTEM_FIXED_FONT   = StockObjectType(16)
+	DEFAULT_GUI_FONT    = StockObjectType(17)
+	DC_BRUSH            = StockObjectType(18)
+	DC_PEN              = StockObjectType(19)
+	STOCK_LAST          = StockObjectType(19)
+)

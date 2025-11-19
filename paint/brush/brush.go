@@ -1,12 +1,24 @@
 package brush
 
 import (
+	"errors"
+
 	"github.com/mkch/gw/util/ref"
 	"github.com/mkch/gw/win32"
 )
 
 type Brush struct {
 	ref *ref.Ref[win32.HBRUSH]
+}
+
+func NewStock(stockType win32.StockObjectType) (*Brush, error) {
+	h := win32.GetStockObject[win32.HBRUSH](stockType)
+	if h == 0 {
+		return nil, errors.New("failed to get stock brush")
+	}
+	return &Brush{
+		ref: ref.New(h, func(h win32.HBRUSH) { /* no-op for stock objects */ }),
+	}, nil
 }
 
 func New(logBrush *win32.LOGBRUSH) (*Brush, error) {
