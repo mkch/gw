@@ -27,8 +27,22 @@ type MSG struct {
 	Point   Point
 }
 
-func GetMessageW(msg *MSG, hwnd HWND, msgFilterMin uint, msgFilterMax uint) BOOL {
+func GetMessageW(msg *MSG, hwnd HWND, msgFilterMin UINT, msgFilterMax UINT) BOOL {
 	return sysutil.As[BOOL](lzGetMessageW.Call(uintptr(unsafe.Pointer(msg)), uintptr(hwnd), uintptr(msgFilterMin), uintptr(msgFilterMax)))
+}
+
+type PeekMessageFlag UINT
+
+const (
+	PM_NOREMOVE = PeekMessageFlag(0x0000)
+	PM_REMOVE   = PeekMessageFlag(0x0001)
+	PM_NOYIELD  = PeekMessageFlag(0x0002)
+)
+
+var lzPeekMessageW = lzUser32.NewProc("PeekMessageW")
+
+func PeekMessageW(msg *MSG, hwnd HWND, msgFilterMin UINT, msgFilterMax UINT, flags PeekMessageFlag) BOOL {
+	return sysutil.As[BOOL](lzPeekMessageW.Call(uintptr(unsafe.Pointer(msg)), uintptr(hwnd), uintptr(msgFilterMin), uintptr(msgFilterMax), uintptr(flags)))
 }
 
 var lzTranslateMessage = lzUser32.NewProc("TranslateMessage")
@@ -1606,4 +1620,55 @@ const (
 	DC_BRUSH            = StockObjectType(18)
 	DC_PEN              = StockObjectType(19)
 	STOCK_LAST          = StockObjectType(19)
+)
+
+var lzSetWindowsHookExW = lzUser32.NewProc("SetWindowsHookExW")
+
+func SetWindowsHookExW(idHook HookID, lpfn uintptr, hMod HINSTANCE, dwThreadId DWORD) (HHOOK, error) {
+	return sysutil.MustNotZero[HHOOK](lzSetWindowsHookExW.Call(uintptr(idHook), lpfn, uintptr(hMod), uintptr(dwThreadId)))
+}
+
+type HookID INT
+
+const (
+	WH_MSGFILTER       HookID = -1
+	WH_JOURNALRECORD   HookID = 0
+	WH_JOURNALPLAYBACK HookID = 1
+	WH_KEYBOARD        HookID = 2
+	WH_GETMESSAGE      HookID = 3
+	WH_CALLWNDPROC     HookID = 4
+	WH_CBT             HookID = 5
+	WH_SYSMSGFILTER    HookID = 6
+	WH_MOUSE           HookID = 7
+	WH_HARDWARE        HookID = 8
+	WH_DEBUG           HookID = 9
+	WH_SHELL           HookID = 10
+	WH_FOREGROUNDIDLE  HookID = 11
+	WH_CALLWNDPROCRET  HookID = 12
+	WH_KEYBOARD_LL     HookID = 13
+	WH_MOUSE_LL        HookID = 14
+)
+
+var lzUnhookWindowsHookEx = lzUser32.NewProc("UnhookWindowsHookEx")
+
+func UnhookWindowsHookEx(hhk HHOOK) error {
+	return sysutil.MustTrue(lzUnhookWindowsHookEx.Call(uintptr(hhk)))
+}
+
+var lzCallNextHookEx = lzUser32.NewProc("CallNextHookEx")
+
+func CallNextHookEx(hhk HHOOK, nCode HookCode, wParam WPARAM, lParam LPARAM) LRESULT {
+	return sysutil.As[LRESULT](lzCallNextHookEx.Call(uintptr(hhk), uintptr(nCode), uintptr(wParam), uintptr(lParam)))
+}
+
+type HookCode INT
+
+const (
+	HC_ACTION      HookCode = 0
+	HC_GETNEXT     HookCode = 1
+	HC_SKIP        HookCode = 2
+	HC_NOREMOVE    HookCode = 3
+	HC_NOREM       HookCode = HC_NOREMOVE
+	HC_SYSMODALON  HookCode = 4
+	HC_SYSMODALOFF HookCode = 5
 )

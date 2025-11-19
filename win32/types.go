@@ -2,7 +2,9 @@ package win32
 
 import "unsafe"
 
-// Source: https://learn.microsoft.com/en-us/windows/win32/winprog/windows-data-types
+// Source:
+// https://learn.microsoft.com/en-us/windows/win32/winprog/windows-data-types
+// https://learn.microsoft.com/en-us/cpp/cpp/data-type-ranges?view=msvc-170
 
 type BYTE uint8  // A byte (8 bits).
 type WORD uint16 // A 16-bit unsigned integer.
@@ -56,6 +58,8 @@ type HGLOBAL HANDLE
 type HRSRC HANDLE
 type HICON HANDLE   // DestroyIcon
 type HCURSOR HANDLE // DestroyCursor
+
+type HHOOK HANDLE
 
 func RGB(r, g, b byte) COLORREF {
 	return COLORREF(r) | (COLORREF(g) << 8) | (COLORREF(b) << 16)

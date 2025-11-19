@@ -41,3 +41,8 @@ func (m *ObjectMap[V]) Value(h Handle) (value V, ok bool) {
 func (m *ObjectMap[V]) Remove(h Handle) {
 	delete(m.m, h)
 }
+
+// Len returns the number of objects in the map.
+func (m *ObjectMap[V]) Len() int {
+	return len(m.m)
+}

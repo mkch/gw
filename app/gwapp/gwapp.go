@@ -6,7 +6,9 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"unsafe"
 
+	"github.com/mkch/gg"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/win32"
@@ -15,22 +17,48 @@ import (
 )
 
 type GwApp struct {
-	uiThreadId win32.DWORD
-	postMap    safeMap
+	uiThreadId    win32.DWORD
+	postMap       safeMap
+	threadMsgHook win32.HHOOK
 }
 
 // New creates a GwApp and do application initialization.
 func New() *GwApp {
 	runtime.LockOSThread()
-	return &GwApp{
+
+	app := &GwApp{
 		uiThreadId: win32.DWORD(windows.GetCurrentThreadId()),
 		postMap:    safeMap{ObjectMap: objectmap.New[func()](1, math.MaxUint)},
 	}
+
+	// Prepare postMap
+	// See https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagew#remarks
+
+	// Initialize message queue
+	win32.PeekMessageW(&win32.MSG{}, 0, 0, 0, win32.PM_NOREMOVE)
+	// Install thread message hook
+	proc := windows.NewCallback(func(code win32.HookCode, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+		if code >= 0 && win32.PeekMessageFlag(wParam) == win32.PM_REMOVE {
+			if msg := (*win32.MSG)(unsafe.Add(nil, lParam)); msg.Message == appmsg.POST {
+				// Handle posted functions
+				app.postMap.Value(objectmap.Handle(msg.WParam))()
+				msg.Message = win32.WM_NULL // Stop WNDPROC processing
+				return 0                    // Stop other hook processing
+			}
+		}
+		return win32.CallNextHookEx(app.threadMsgHook, code, wParam, lParam)
+	})
+	app.threadMsgHook = gg.Must(win32.SetWindowsHookExW(win32.WH_GETMESSAGE, proc, 0, app.uiThreadId))
+
+	return app
 }
 
 // Run runs the message loop.
 func (app *GwApp) Run() int {
-	defer runtime.UnlockOSThread()
+	defer func() {
+		gg.MustOK(win32.UnhookWindowsHookEx(app.threadMsgHook))
+		runtime.UnlockOSThread()
+	}()
 	var msg win32.MSG
 	for {
 		r := win32.GetMessageW(&msg, 0, 0, 0)
@@ -41,9 +69,6 @@ func (app *GwApp) Run() int {
 			return int(msg.WParam)
 		}
 		if msg.Hwnd == 0 {
-			if msg.Message == appmsg.POST {
-				app.postMap.Value(objectmap.Handle(msg.WParam))()
-			}
 			continue // Messages not associated with a window cannot be dispatched
 		}
 
@@ -92,4 +117,12 @@ func (m *safeMap) Remove(h objectmap.Handle) {
 	m.l.Lock()
 	defer m.l.Unlock()
 	m.ObjectMap.Remove(h)
+}
+
+// Len returns the number of elements in the map.
+// For debugging use only.
+func (m *safeMap) Len() int {
+	m.l.RLock()
+	defer m.l.RUnlock()
+	return m.ObjectMap.Len()
 }
