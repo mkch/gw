@@ -131,15 +131,21 @@ func (mk MouseClickOpt) XButton2() bool {
 	return mk&win32.MK_XBUTTON2 != 0
 }
 
-func (w *WindowBase) realWndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) (r win32.LRESULT) {
-	r = w.wndProc(hwnd, message, wParam, lParam, w.prevWndProc)
+func (w *WindowBase) realWndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 	switch message {
-	case win32.WM_NCDESTROY:
+	case win32.WM_DESTROY:
 		if w.menu != nil {
-			w.menu.Destroy()
+			// Although the menu is automatically destroyed by the system when the window is destroyed,
+			// the cleanup for menuMap is not called then.
+
+			// Don't do this after WM_DESTROY because SetMenu(0) causes WM_SIZE and related messages
+			// to be sent which may cause problems in event handlers if the window handle is already destroyed.
 			win32.SetMenu(w.hwnd, 0)
+			// Manually destroy the menu to avoid resource leak in menuMap.
+			w.menu.Destroy()
 			w.hwnd = 0
 		}
+	case win32.WM_NCDESTROY:
 		if w.accelKeyTable != 0 {
 			win32.DestroyAcceleratorTable(w.accelKeyTable)
 			w.accelKeyTable = 0
@@ -147,7 +153,7 @@ func (w *WindowBase) realWndProc(hwnd win32.HWND, message win32.UINT, wParam win
 		delete(windowBaseMap, hwnd)
 		delete(msgPreTranslatorMap, hwnd)
 	}
-	return
+	return w.wndProc(hwnd, message, wParam, lParam, w.prevWndProc)
 }
 
 func (w *Window) setMenu(menu *menu.Menu) error {
