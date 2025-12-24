@@ -121,12 +121,12 @@ func GetWindowText(hwnd win32.HWND) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	buf := make([]win32.WCHAR, l)
-	n, err := win32.GetWindowTextW(hwnd, &buf[0], l)
+	buf := make([]win32.WCHAR, l+1)
+	n, err := win32.GetWindowTextW(hwnd, &buf[0], len(buf))
 	if n == 0 && err != nil {
 		return "", err
 	}
-	return GoString(&buf[0], l), nil
+	return GoString(&buf[0], n+1), nil
 }
 
 func SetWindowText(hwnd win32.HWND, str string) error {
