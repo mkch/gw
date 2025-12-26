@@ -3,5 +3,8 @@
         "build.buildFlags": [
            "-ldflags=-H=windowsgui"
         ]
-    }
+    },
+    "cSpell.words": [
+        "CTLCOLORSTATIC"
+    ]
 }

@@ -3,7 +3,9 @@ package static
 import (
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/control"
+	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/metrics"
+	"github.com/mkch/gw/paint/brush"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
 )
@@ -45,16 +47,48 @@ const (
 
 type Static struct {
 	control.Control
+	backgroundColor win32.COLORREF
+	backgroundBrush *brush.Brush // can't bi nil
+}
+
+// BackgroundColor returns the background color of the Static control.
+func BackgroundColor(static *Static) *win32.COLORREF {
+	return &static.backgroundColor
+}
+
+// SetBackgroundColor sets the background color of the Static control.
+func (static *Static) SetBackgroundColor(color win32.COLORREF) error {
+	if static.backgroundColor == color {
+		return nil
+	}
+
+	if static.backgroundBrush != nil {
+		static.backgroundBrush.Release()
+	}
+
+	static.backgroundColor = color
+	var err error
+	if static.backgroundBrush, err = createBackgroundBrush(color); err != nil {
+		return err
+	}
+	return win32.InvalidateRect(static.HWND(), nil, true)
+
+}
+
+// createBackgroundBrush is a helper function that creates a solid brush with the specified color.
+func createBackgroundBrush(color win32.COLORREF) (*brush.Brush, error) {
+	return brush.New(&win32.LOGBRUSH{Style: win32.BS_SOLID, Color: color})
 }
 
 type Spec struct {
-	Text    string
-	X       metrics.Dimension
-	Y       metrics.Dimension
-	Width   metrics.Dimension
-	Height  metrics.Dimension
-	Style   win32.WINDOW_STYLE
-	ExStyle win32.WINDOW_EX_STYLE
+	Text            string
+	X               metrics.Dimension
+	Y               metrics.Dimension
+	Width           metrics.Dimension
+	Height          metrics.Dimension
+	Style           win32.WINDOW_STYLE
+	ExStyle         win32.WINDOW_EX_STYLE
+	BackgroundColor *win32.COLORREF // nil for default.
 }
 
 func New(parent win32.HWND, spec *Spec) (*Static, error) {
@@ -77,5 +111,20 @@ func New(parent win32.HWND, spec *Spec) (*Static, error) {
 	if err := control.Attach(hwnd, &static.Control); err != nil {
 		return nil, err
 	}
+	if spec.BackgroundColor != nil {
+		static.SetBackgroundColor(*spec.BackgroundColor)
+	} else {
+		static.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW)))
+	}
+	static.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {
+		switch message {
+		case win32.WM_DESTROY:
+			static.backgroundBrush.Release()
+		case appmsg.REFLECT_CTLCOLORSTATIC:
+			win32.SetBkMode(win32.HDC(wParam), win32.TRANSPARENT) // The *text* background is transparent.
+			return win32.LRESULT(static.backgroundBrush.HBRUSH())
+		}
+		return prevWndProc(hwnd, message, wParam, lParam)
+	})
 	return &static, nil
 }

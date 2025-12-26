@@ -330,6 +330,10 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 				}
 			}
 			switch message {
+			case win32.WM_CTLCOLORSTATIC:
+				if ret, err := win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_CTLCOLORSTATIC, wParam, lParam); err == nil && ret != 0 {
+					return ret
+				}
 			case win32.WM_COMMAND:
 				if lParam != 0 {
 					win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_COMMAND, wParam, lParam)

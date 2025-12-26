@@ -242,7 +242,7 @@ const (
 	COLOR_WINDOWTEXT              = 8
 )
 
-var lzGetSysColor = lzUser32.NewProc("GetSysColor ")
+var lzGetSysColor = lzUser32.NewProc("GetSysColor")
 
 func GetSysColor(index int) DWORD {
 	return sysutil.As[DWORD](lzGetSysColor.Call(uintptr(index)))
@@ -1010,6 +1010,12 @@ func Rectangle(hdc HDC, left int, top int, right int, bottom int) error {
 	return sysutil.MustTrue(lzRectangle.Call(uintptr(hdc), uintptr(left), uintptr(top), uintptr(right), uintptr(bottom)))
 }
 
+var lzFillRect = lzUser32.NewProc("FillRect")
+
+func FillRect(hdc HDC, rect *RECT, brush HBRUSH) error {
+	return sysutil.MustTrue(lzFillRect.Call(uintptr(hdc), uintptr(unsafe.Pointer(rect)), uintptr(brush)))
+}
+
 const (
 	LF_FACESIZE = 32
 )
@@ -1672,3 +1678,9 @@ const (
 	HC_SYSMODALON  HookCode = 4
 	HC_SYSMODALOFF HookCode = 5
 )
+
+var lzSetViewportOrgEx = lzGdi32.NewProc("SetViewportOrgEx")
+
+func SetViewportOrgEx(hdc HDC, x INT, y INT, prev *POINT) error {
+	return sysutil.MustTrue(lzSetViewportOrgEx.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(prev))))
+}
