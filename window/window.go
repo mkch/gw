@@ -25,13 +25,15 @@ type Spec struct {
 	Menu      *menu.Menu
 	Instance  win32.HINSTANCE // 0 for this module.
 	OnCreate  func()
-	OnClose   func()
+	OnClose   func() bool // Return true to allow closing, false to prevent.
+	OnDestroy func()
 }
 
 type Window struct {
 	WindowBase
-	OnCreate func()
-	OnClose  func()
+	OnCreate  func()
+	OnClose   func() bool
+	OnDestroy func()
 }
 
 func New(spec *Spec) (*Window, error) {
@@ -119,7 +121,7 @@ func New(spec *Spec) (*Window, error) {
 		win32.ShowWindow(hwnd, showCmd)
 	}
 
-	win := &Window{OnCreate: spec.OnCreate, OnClose: spec.OnClose}
+	win := &Window{OnCreate: spec.OnCreate, OnClose: spec.OnClose, OnDestroy: spec.OnDestroy}
 	if err := Attach(hwnd, &win.WindowBase); err != nil {
 		return nil, err
 	}
@@ -131,7 +133,13 @@ func New(spec *Spec) (*Window, error) {
 		switch message {
 		case win32.WM_CLOSE:
 			if win.OnClose != nil {
-				win.OnClose()
+				if !win.OnClose() {
+					return 0 // prevent closing
+				}
+			}
+		case win32.WM_DESTROY:
+			if win.OnDestroy != nil {
+				win.OnDestroy()
 			}
 		}
 		return prevWndProc(hwnd, message, wParam, lParam)

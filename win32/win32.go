@@ -1130,6 +1130,18 @@ const (
 	SWP_SHOWWINDOW     = 0x0040
 )
 
+var lzEnableWindow = lzUser32.NewProc("EnableWindow")
+
+func EnableWindow(hwnd HWND, enable bool) bool {
+	return sysutil.AsBool(lzEnableWindow.Call(uintptr(hwnd), gg.If[uintptr](enable, 1, 0)))
+}
+
+var lzIsWindowEnabled = lzUser32.NewProc("IsWindowEnabled")
+
+func IsWindowEnabled(hwnd HWND) bool {
+	return sysutil.AsBool(lzIsWindowEnabled.Call(uintptr(hwnd)))
+}
+
 var lzSetWindowPos = lzUser32.NewProc("SetWindowPos")
 
 func SetWindowPos(hwnd HWND, hwndInsertAfter HWND, x INT, y INT, cx INT, cy INT, flags UINT) error {
