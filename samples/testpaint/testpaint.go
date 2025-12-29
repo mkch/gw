@@ -21,12 +21,12 @@ import (
 func main() {
 
 	bkWin := gg.Must(window.New(&window.Spec{
-		Text:    "Full screen",
-		Style:   win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
-		X:       metrics.Px(win32.CW_USEDEFAULT),
-		Y:       metrics.Px(win32.INT(win32.SW_SHOWMAXIMIZED)),
-		Width:   metrics.Px(win32.CW_USEDEFAULT),
-		OnClose: func() { app.Quit(0) },
+		Text:      "Full screen",
+		Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
+		X:         metrics.Px(win32.CW_USEDEFAULT),
+		Y:         metrics.Px(win32.INT(win32.SW_SHOWMAXIMIZED)),
+		Width:     metrics.Px(win32.CW_USEDEFAULT),
+		OnDestroy: func() { app.Quit(0) },
 	}))
 
 	linePen := gg.Must(pen.NewCosmetic(win32.PS_SOLID, win32.RGB(255, 0, 0)))

@@ -18,12 +18,12 @@ import (
 
 func main() {
 	win := gg.Must(window.New(&window.Spec{
-		Text:    "Test font",
-		Style:   win32.WS_OVERLAPPEDWINDOW,
-		X:       metrics.Px(win32.CW_USEDEFAULT),
-		Width:   metrics.Dip(500),
-		Height:  metrics.Dip(300),
-		OnClose: func() { app.Quit(0) },
+		Text:      "Test font",
+		Style:     win32.WS_OVERLAPPEDWINDOW,
+		X:         metrics.Px(win32.CW_USEDEFAULT),
+		Width:     metrics.Dip(500),
+		Height:    metrics.Dip(300),
+		OnDestroy: func() { app.Quit(0) },
 	}))
 
 	dpi := gg.Must(win.DPI())

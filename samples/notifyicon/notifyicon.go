@@ -18,12 +18,12 @@ import (
 
 func main() {
 	win := gg.Must(window.New(&window.Spec{
-		Text:    "Test Notify Icon",
-		Style:   win32.WS_OVERLAPPEDWINDOW,
-		X:       metrics.Px(win32.CW_USEDEFAULT),
-		Width:   metrics.Dip(500),
-		Height:  metrics.Dip(300),
-		OnClose: func() { app.Quit(0) },
+		Text:      "Test Notify Icon",
+		Style:     win32.WS_OVERLAPPEDWINDOW,
+		X:         metrics.Px(win32.CW_USEDEFAULT),
+		Width:     metrics.Dip(500),
+		Height:    metrics.Dip(300),
+		OnDestroy: func() { app.Quit(0) },
 	}))
 
 	tooltip := gg.Must(window.New(&window.Spec{
@@ -32,7 +32,6 @@ func main() {
 		ExStyle: win32.WS_EX_TOOLWINDOW,
 		Width:   metrics.Dip(200),
 		Height:  metrics.Dip(100),
-		OnClose: func() {},
 	}))
 	tooltip.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {
 		switch message {
