@@ -81,14 +81,13 @@ func createBackgroundBrush(color win32.COLORREF) (*brush.Brush, error) {
 }
 
 type Spec struct {
-	Text            string
-	X               metrics.Dimension
-	Y               metrics.Dimension
-	Width           metrics.Dimension
-	Height          metrics.Dimension
-	Style           win32.WINDOW_STYLE
-	ExStyle         win32.WINDOW_EX_STYLE
-	BackgroundColor *win32.COLORREF // nil for default.
+	Text    string
+	X       metrics.Dimension
+	Y       metrics.Dimension
+	Width   metrics.Dimension
+	Height  metrics.Dimension
+	Style   win32.WINDOW_STYLE
+	ExStyle win32.WINDOW_EX_STYLE
 }
 
 func New(parent win32.HWND, spec *Spec) (*Static, error) {
@@ -111,11 +110,8 @@ func New(parent win32.HWND, spec *Spec) (*Static, error) {
 	if err := control.Attach(hwnd, &static.Control); err != nil {
 		return nil, err
 	}
-	if spec.BackgroundColor != nil {
-		static.SetBackgroundColor(*spec.BackgroundColor)
-	} else {
-		static.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW)))
-	}
+
+	static.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW)))
 	static.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {
 		switch message {
 		case win32.WM_DESTROY:
