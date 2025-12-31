@@ -31,7 +31,7 @@ func main() {
 		Hatch: win32.HS_DIAGCROSS,
 	}))
 	defer winBkBrush.Release()
-	win.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
+	win.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
 		rect := gg.Must(win.GetClientRect())
 		win32.FillRect(paintData.DC, rect, winBkBrush.HBRUSH())
 	})

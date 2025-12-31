@@ -17,6 +17,11 @@ const (
 	WM_CLOSE                   = 0x0010
 	WM_QUIT                    = 0x0012
 	WM_CONTEXTMENU             = 0x007B
+	WM_STYLECHANGING           = 0x007C
+	WM_STYLECHANGED            = 0x007D
+	WM_DISPLAYCHANGE           = 0x007E
+	WM_GETICON                 = 0x007F
+	WM_SETICON                 = 0x0080
 	WM_COMMAND                 = 0x0111
 	WM_NCDESTROY               = 0x0082
 	WM_MOUSEFIRST              = 0x0200

@@ -910,7 +910,7 @@ func LockResource(res HGLOBAL) (PVOID, error) {
 }
 
 type PAINTSTRUCT struct {
-	HDC     HANDLE
+	HDC     HDC
 	Erase   BOOL
 	RcPaint RECT
 	_       BOOL

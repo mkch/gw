@@ -71,7 +71,7 @@ func New(parent win32.HWND, spec *Spec) (*Panel, error) {
 		}
 		return prevWndProc(hwnd, message, wParam, lParam)
 	})
-	panel.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
+	panel.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
 		prev(paintData)
 		win32.FillRect(paintData.DC, &paintData.Rect, panel.backgroundBrush.HBRUSH())
 	})

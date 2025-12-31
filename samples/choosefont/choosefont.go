@@ -84,7 +84,7 @@ func main() {
 	const text = "微软中文软件 Test font"
 	var textBuf []win32.WCHAR
 	win32util.CString(text, &textBuf)
-	win.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
+	win.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
 		defer gg.Must(paint.SelectObject(paintData.DC, textFont.HFONT())).Restore()
 		gg.Must(win32.SetTextColor(paintData.DC, textColor))
 		rcClient, _ := win.GetClientRect()

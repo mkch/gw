@@ -8,12 +8,12 @@ type Buffer struct {
 	oldBitmap win32.HBITMAP
 }
 
-func NewBuffer(dc win32.HDC, width, height win32.INT) (*Buffer, error) {
+func NewBuffer(dc win32.HDC, width, height int) (*Buffer, error) {
 	memDC, err := win32.CreateCompatibleDC(dc)
 	if err != nil {
 		return nil, err
 	}
-	bitmap, err := win32.CreateCompatibleBitmap(dc, width, height)
+	bitmap, err := win32.CreateCompatibleBitmap(dc, win32.INT(width), win32.INT(height))
 	if err != nil {
 		win32.DeleteDC(memDC)
 		return nil, err
@@ -24,7 +24,10 @@ func NewBuffer(dc win32.HDC, width, height win32.INT) (*Buffer, error) {
 		win32.DeleteObject(bitmap)
 		return nil, err
 	}
-	return &Buffer{DC: DC{memDC}, bitmap: bitmap, oldBitmap: oldBitmap}, nil
+	return &Buffer{
+		DC:        DC{memDC},
+		bitmap:    bitmap,
+		oldBitmap: oldBitmap}, nil
 }
 
 func (buf *Buffer) Destroy() error {

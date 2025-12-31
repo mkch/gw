@@ -73,7 +73,7 @@ func main() {
 		bkWin.InvalidateRect(nil, true)
 	})
 
-	bkWin.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
+	bkWin.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
 		rcClient := gg.Must(bkWin.GetClientRect())
 		rcClient.Right = metrics.DPIConv(rcClient.Right, dpi, gridDpi)
 		rcClient.Bottom = metrics.DPIConv(rcClient.Bottom, dpi, gridDpi)
@@ -128,7 +128,7 @@ func main() {
 
 	var win1CharBuf []win32.WCHAR
 	win32util.CString("字体测试 ABCDEFG 50 100 150", &win1CharBuf)
-	win1.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
+	win1.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
 		defer gg.Must(paint.SelectObject(paintData.DC, textFontForWin1.HFONT())).Restore()
 		rect := gg.Must(win1.GetClientRect())
 		gg.Must(win32.DrawTextExW(paintData.DC, &win1CharBuf[0], -1, rect, win32.DT_CENTER|win32.DT_SINGLELINE|win32.DT_VCENTER, nil))

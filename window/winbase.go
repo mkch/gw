@@ -392,16 +392,80 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 	return nil
 }
 
-func (w *WindowBase) SetPaintCallback(f func(dc *paint.PaintData, prev func(*paint.PaintData))) {
+func (w *WindowBase) AddPaintCallback(f func(data *paint.PaintData, prev func(*paint.PaintData))) {
 	if w.paintCb == nil {
-		w.paintCb = callback.New(func(dc *paint.PaintData, prev func(*paint.PaintData) (struct{}, error)) (_ struct{}, _ error) {
+		w.paintCb = callback.New(func(data *paint.PaintData, prev func(*paint.PaintData) (struct{}, error)) (_ struct{}, _ error) {
 			return
 		}, func(*paint.PaintData) (_ struct{}, _ error) { return })
 	}
-	w.paintCb.Set(func(pdc *paint.PaintData, prev func(*paint.PaintData) (struct{}, error)) (struct{}, error) {
-		f(pdc, func(pdc *paint.PaintData) { prev(pdc) })
+	w.paintCb.Add(func(data *paint.PaintData, prev func(*paint.PaintData) (struct{}, error)) (struct{}, error) {
+		f(data, func(data2 *paint.PaintData) { prev(data2) })
 		return struct{}{}, nil
 	})
+}
+
+func (w *WindowBase) AddDoubleBufferingPaintCallback() (err error) {
+	rect, err := w.GetClientRect()
+	if err != nil {
+		return
+	}
+	windowDC, err := win32.GetDC(w.hwnd)
+	if err != nil {
+		return
+	}
+	defer win32.ReleaseDC(w.hwnd, windowDC)
+	buffer, err := paint.NewBuffer(windowDC, int(rect.Width()), int(rect.Height()))
+	if err != nil {
+		return
+	}
+	w.AddPaintCallback(func(data *paint.PaintData, prev func(*paint.PaintData)) {
+		// call previous callback with the buffer
+		prev(&paint.PaintData{
+			DC:    buffer.HDC(),
+			Erase: data.Erase,
+			Rect:  data.Rect,
+		})
+		client, err := w.GetClientRect()
+		if err != nil {
+			panic(err)
+		}
+		// copy the buffer to the window DC
+		err = win32.BitBlt(data.DC, 0, 0, int(client.Width()), int(client.Height()),
+			buffer.HDC(), 0, 0,
+			win32.SRCCOPY)
+		if err != nil {
+			panic(err)
+		}
+	})
+	w.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {
+		switch message {
+		case win32.WM_DESTROY:
+			if err := buffer.Destroy(); err != nil {
+				panic(err)
+			}
+		case win32.WM_SIZE:
+			var err error
+			err = buffer.Destroy()
+			if err != nil {
+				panic(err)
+			}
+			rect, err := w.GetClientRect()
+			if err != nil {
+				panic(err)
+			}
+			windowDC, err := win32.GetDC(hwnd)
+			if err != nil {
+				panic(err)
+			}
+			defer win32.ReleaseDC(hwnd, windowDC)
+			buffer, err = paint.NewBuffer(windowDC, int(rect.Width()), int(rect.Height()))
+			if err != nil {
+				panic(err)
+			}
+		}
+		return prevWndProc(hwnd, message, wParam, lParam)
+	})
+	return nil
 }
 
 // AddMsgListener adds a listener that is called when the message is received in the window procedure.
