@@ -84,11 +84,11 @@ func main() {
 	const text = "微软中文软件 Test font"
 	var textBuf []win32.WCHAR
 	win32util.CString(text, &textBuf)
-	win.SetPaintCallback(func(dc *paint.PaintDC, prev func(*paint.PaintDC)) {
-		defer gg.Must(paint.SelectObject(dc.HDC(), textFont.HFONT())).Restore()
-		gg.Must(win32.SetTextColor(dc.HDC(), textColor))
+	win.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
+		defer gg.Must(paint.SelectObject(paintData.DC, textFont.HFONT())).Restore()
+		gg.Must(win32.SetTextColor(paintData.DC, textColor))
 		rcClient, _ := win.GetClientRect()
-		win32.DrawTextExW(dc.HDC(), &textBuf[0], -1, rcClient, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE, nil)
+		win32.DrawTextExW(paintData.DC, &textBuf[0], -1, rcClient, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE, nil)
 	})
 
 	win.Show(win32.SW_SHOW)

@@ -5,6 +5,7 @@ import (
 	"github.com/mkch/gw/win32"
 )
 
+// DC is a readonly wrapper of win32.HDC.
 type DC struct {
 	hdc win32.HDC
 }
@@ -50,4 +51,10 @@ func NewPaintDC(hwnd win32.HWND) (dc *PaintDC, err error) {
 	dc.DC.hdc = hdc
 	dc.hwnd = hwnd
 	return
+}
+
+type PaintData struct {
+	DC    win32.HDC
+	Erase bool
+	Rect  win32.RECT
 }

@@ -9,22 +9,22 @@ type Buffer struct {
 }
 
 func NewBuffer(dc win32.HDC, width, height win32.INT) (*Buffer, error) {
-	dc, err := win32.CreateCompatibleDC(dc)
+	memDC, err := win32.CreateCompatibleDC(dc)
 	if err != nil {
 		return nil, err
 	}
 	bitmap, err := win32.CreateCompatibleBitmap(dc, width, height)
 	if err != nil {
-		win32.DeleteDC(dc)
+		win32.DeleteDC(memDC)
 		return nil, err
 	}
-	oldBitmap, err := win32.SelectObject(dc, bitmap)
+	oldBitmap, err := win32.SelectObject(memDC, bitmap)
 	if err != nil {
-		win32.DeleteDC(dc)
+		win32.DeleteDC(memDC)
 		win32.DeleteObject(bitmap)
 		return nil, err
 	}
-	return &Buffer{DC: DC{dc}, bitmap: bitmap, oldBitmap: oldBitmap}, nil
+	return &Buffer{DC: DC{memDC}, bitmap: bitmap, oldBitmap: oldBitmap}, nil
 }
 
 func (buf *Buffer) Destroy() error {

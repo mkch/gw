@@ -73,38 +73,38 @@ func main() {
 		bkWin.InvalidateRect(nil, true)
 	})
 
-	bkWin.SetPaintCallback(func(dc *paint.PaintDC, prev func(*paint.PaintDC)) {
+	bkWin.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
 		rcClient := gg.Must(bkWin.GetClientRect())
 		rcClient.Right = metrics.DPIConv(rcClient.Right, dpi, gridDpi)
 		rcClient.Bottom = metrics.DPIConv(rcClient.Bottom, dpi, gridDpi)
 
-		defer gg.Must(paint.SelectObject(dc.HDC(), linePen.HPEN())).Restore()
-		defer gg.Must(paint.SelectObject(dc.HDC(), textFont.HFONT())).Restore()
+		defer gg.Must(paint.SelectObject(paintData.DC, linePen.HPEN())).Restore()
+		defer gg.Must(paint.SelectObject(paintData.DC, textFont.HFONT())).Restore()
 
 		var charBuf []win32.WCHAR
 		for x := win32.INT(rcClient.Left) + gridSize; x <= win32.INT(rcClient.Right); x += gridSize {
 			drawX := metrics.DPIConv(x, gridDpi, dpi)
-			gg.MustOK(win32.MoveToEx(dc.HDC(), drawX, 0, nil))
-			gg.MustOK(win32.LineTo(dc.HDC(), drawX, win32.INT(metrics.DPIConv(rcClient.Bottom, gridDpi, dpi))))
+			gg.MustOK(win32.MoveToEx(paintData.DC, drawX, 0, nil))
+			gg.MustOK(win32.LineTo(paintData.DC, drawX, win32.INT(metrics.DPIConv(rcClient.Bottom, gridDpi, dpi))))
 			win32util.CString(strconv.Itoa(int(x)), &charBuf)
 			rect := win32.RECT{}
-			gg.Must(win32.DrawTextExW(dc.HDC(), &charBuf[0], -1, &rect, win32.DT_CALCRECT, nil))
+			gg.Must(win32.DrawTextExW(paintData.DC, &charBuf[0], -1, &rect, win32.DT_CALCRECT, nil))
 			width := rect.Width()
 			rect.Left = win32.LONG(drawX) - width/2
 			rect.Right = rect.Left + width
-			gg.Must(win32.DrawTextExW(dc.HDC(), &charBuf[0], -1, &rect, win32.DT_CENTER, nil))
+			gg.Must(win32.DrawTextExW(paintData.DC, &charBuf[0], -1, &rect, win32.DT_CENTER, nil))
 		}
 		for y := win32.INT(rcClient.Top) + gridSize; y <= win32.INT(rcClient.Bottom); y += gridSize {
 			drawY := metrics.DPIConv(y, gridDpi, dpi)
-			gg.MustOK(win32.MoveToEx(dc.HDC(), 0, drawY, nil))
-			gg.MustOK(win32.LineTo(dc.HDC(), win32.INT(metrics.DPIConv(rcClient.Right, gridDpi, dpi)), drawY))
+			gg.MustOK(win32.MoveToEx(paintData.DC, 0, drawY, nil))
+			gg.MustOK(win32.LineTo(paintData.DC, win32.INT(metrics.DPIConv(rcClient.Right, gridDpi, dpi)), drawY))
 			win32util.CString(strconv.Itoa(int(y)), &charBuf)
 			rect := win32.RECT{}
-			gg.Must(win32.DrawTextExW(dc.HDC(), &charBuf[0], -1, &rect, win32.DT_CALCRECT, nil))
+			gg.Must(win32.DrawTextExW(paintData.DC, &charBuf[0], -1, &rect, win32.DT_CALCRECT, nil))
 			height := rect.Height()
 			rect.Top = win32.LONG(drawY) - height/2
 			rect.Bottom = rect.Top + height
-			gg.Must(win32.DrawTextExW(dc.HDC(), &charBuf[0], -1, &rect, win32.DT_CENTER, nil))
+			gg.Must(win32.DrawTextExW(paintData.DC, &charBuf[0], -1, &rect, win32.DT_CENTER, nil))
 		}
 	})
 
@@ -128,10 +128,10 @@ func main() {
 
 	var win1CharBuf []win32.WCHAR
 	win32util.CString("字体测试 ABCDEFG 50 100 150", &win1CharBuf)
-	win1.SetPaintCallback(func(dc *paint.PaintDC, prev func(*paint.PaintDC)) {
-		defer gg.Must(paint.SelectObject(dc.HDC(), textFontForWin1.HFONT())).Restore()
+	win1.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
+		defer gg.Must(paint.SelectObject(paintData.DC, textFontForWin1.HFONT())).Restore()
 		rect := gg.Must(win1.GetClientRect())
-		gg.Must(win32.DrawTextExW(dc.HDC(), &win1CharBuf[0], -1, rect, win32.DT_CENTER|win32.DT_SINGLELINE|win32.DT_VCENTER, nil))
+		gg.Must(win32.DrawTextExW(paintData.DC, &win1CharBuf[0], -1, rect, win32.DT_CENTER|win32.DT_SINGLELINE|win32.DT_VCENTER, nil))
 	})
 
 	win1.AddMsgListener(win32.WM_DPICHANGED, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {

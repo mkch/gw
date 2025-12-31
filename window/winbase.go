@@ -56,7 +56,7 @@ type WindowBase struct {
 	OnLButtonDown  func(opt MouseClickOpt, x int, y int)
 	OnRButtonUp    func(opt MouseClickOpt, x int, y int)
 	OnRButtonDown  func(opt MouseClickOpt, x int, y int)
-	paintCb        *callback.Callback[*paint.PaintDC, struct{}]
+	paintCb        *callback.Callback[*paint.PaintData, struct{}]
 	msgListeners   map[win32.UINT]msgListenerMap
 	values         map[any]any
 	hwnd           win32.HWND
@@ -360,14 +360,17 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 				if window.paintCb == nil {
 					break
 				}
-				if paint, err := paint.NewPaintDC(hwnd); err != nil {
+				var ps win32.PAINTSTRUCT
+				dc, err := win32.BeginPaint(hwnd, &ps)
+				if err != nil {
 					panic(err)
-				} else {
-					if _, err := window.paintCb.Call(paint); err != nil {
-						panic(err)
-					}
-					paint.EndPaint()
 				}
+				defer win32.EndPaint(hwnd, &ps)
+				window.paintCb.Call(&paint.PaintData{
+					DC:    dc,
+					Erase: ps.Erase != 0,
+					Rect:  ps.RcPaint,
+				})
 				return 0 // Not calling default.
 			case win32.WM_DPICHANGED:
 				// For top level windows.
@@ -389,12 +392,14 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 	return nil
 }
 
-func (w *WindowBase) SetPaintCallback(f func(dc *paint.PaintDC, prev func(*paint.PaintDC))) {
+func (w *WindowBase) SetPaintCallback(f func(dc *paint.PaintData, prev func(*paint.PaintData))) {
 	if w.paintCb == nil {
-		w.paintCb = callback.New(func(dc *paint.PaintDC, prev func(*paint.PaintDC) (struct{}, error)) (_ struct{}, _ error) { return }, func(*paint.PaintDC) (_ struct{}, _ error) { return })
+		w.paintCb = callback.New(func(dc *paint.PaintData, prev func(*paint.PaintData) (struct{}, error)) (_ struct{}, _ error) {
+			return
+		}, func(*paint.PaintData) (_ struct{}, _ error) { return })
 	}
-	w.paintCb.Set(func(pdc *paint.PaintDC, prev func(*paint.PaintDC) (struct{}, error)) (struct{}, error) {
-		f(pdc, func(pdc *paint.PaintDC) { prev(pdc) })
+	w.paintCb.Set(func(pdc *paint.PaintData, prev func(*paint.PaintData) (struct{}, error)) (struct{}, error) {
+		f(pdc, func(pdc *paint.PaintData) { prev(pdc) })
 		return struct{}{}, nil
 	})
 }

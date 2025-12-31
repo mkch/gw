@@ -68,16 +68,12 @@ func New(parent win32.HWND, spec *Spec) (*Panel, error) {
 			if panel.backgroundBrush != nil {
 				panel.backgroundBrush.Release()
 			}
-			// case win32.WM_PAINT:
-			// 	dc := gg.Must(paint.NewPaintDC(hwnd))
-			// 	defer dc.EndPaint()
-			// 	win32.FillRect(dc.HDC(), dc.Rect(), panel.backgroundBrush.HBRUSH())
 		}
 		return prevWndProc(hwnd, message, wParam, lParam)
 	})
-	panel.SetPaintCallback(func(dc *paint.PaintDC, prev func(*paint.PaintDC)) {
-		prev(dc)
-		win32.FillRect(dc.HDC(), dc.Rect(), panel.backgroundBrush.HBRUSH())
+	panel.SetPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
+		prev(paintData)
+		win32.FillRect(paintData.DC, &paintData.Rect, panel.backgroundBrush.HBRUSH())
 	})
 
 	return panel, nil
