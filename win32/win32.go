@@ -574,6 +574,22 @@ func LOWORD[T ~uintptr](l T) WORD {
 	return WORD(l & 0xFFFF)
 }
 
+func MAKEWORD[T ~byte](a, b T) WORD {
+	return WORD(a) | WORD(b)<<8
+}
+
+func MAKELONG[T ~uint16](a, b T) LONG {
+	return LONG(uint32(a) | uint32(b)<<16)
+}
+
+func LOBYTE[T ~uint16](w T) BYTE {
+	return BYTE(w & 0xff)
+}
+
+func HIBYTE[T ~uint16](w T) BYTE {
+	return BYTE((w >> 8) & 0xff)
+}
+
 type ACCEL_FVIRT BYTE
 
 const (

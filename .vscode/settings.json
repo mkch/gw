@@ -5,6 +5,16 @@
         ]
     },
     "cSpell.words": [
-        "CTLCOLORSTATIC"
+        "CTLCOLORSTATIC",
+        "HIBYTE",
+        "LOBYTE",
+        "MAJORVERSION",
+        "MAKELONG",
+        "MAKEWORD",
+        "MINORVERSION",
+        "OSVERSIONINFOEXW",
+        "osvi",
+        "SERVICEPACKMAJOR",
+        "versionhelpers"
     ]
 }
