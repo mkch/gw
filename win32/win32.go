@@ -1696,3 +1696,16 @@ var lzSetViewportOrgEx = lzGdi32.NewProc("SetViewportOrgEx")
 func SetViewportOrgEx(hdc HDC, x INT, y INT, prev *POINT) error {
 	return sysutil.MustTrue(lzSetViewportOrgEx.Call(uintptr(hdc), uintptr(x), uintptr(y), uintptr(unsafe.Pointer(prev))))
 }
+
+var lzSetLayeredWindowAttributes = lzUser32.NewProc("SetLayeredWindowAttributes")
+
+type LayeredWindowFlag DWORD
+
+const (
+	LWA_ALPHA    LayeredWindowFlag = 0x00000002
+	LWA_COLORKEY LayeredWindowFlag = 0x00000001
+)
+
+func SetLayeredWindowAttributes(hwnd HWND, crKey COLORREF, bAlpha BYTE, dwFlags LayeredWindowFlag) error {
+	return sysutil.MustTrue(lzSetLayeredWindowAttributes.Call(uintptr(hwnd), uintptr(crKey), uintptr(bAlpha), uintptr(dwFlags)))
+}

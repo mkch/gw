@@ -15,10 +15,11 @@ const className = "github.com/mkch/gw/panel_class"
 var classRegistered = false
 
 type Spec struct {
-	X      metrics.Dimension
-	Y      metrics.Dimension
-	Width  metrics.Dimension
-	Height metrics.Dimension
+	X       metrics.Dimension
+	Y       metrics.Dimension
+	Width   metrics.Dimension
+	Height  metrics.Dimension
+	ExStyle win32.WINDOW_EX_STYLE
 }
 
 type Panel struct {
@@ -42,6 +43,7 @@ func New(parent win32.HWND, spec *Spec) (*Panel, error) {
 	hwnd, err := win32util.CreateWindow((&win32util.Wnd{
 		ClassName: className,
 		Style:     win32.WS_CHILD | win32.WS_VISIBLE,
+		ExStyle:   spec.ExStyle,
 		X:         spec.X.Px(dpi),
 		Y:         spec.Y.Px(dpi),
 		Width:     spec.Width.Px(dpi),
@@ -66,12 +68,16 @@ func New(parent win32.HWND, spec *Spec) (*Panel, error) {
 			if panel.backgroundBrush != nil {
 				panel.backgroundBrush.Release()
 			}
-		case win32.WM_PAINT:
-			dc := gg.Must(paint.NewPaintDC(hwnd))
-			defer dc.EndPaint()
-			win32.FillRect(dc.HDC(), dc.Rect(), panel.backgroundBrush.HBRUSH())
+			// case win32.WM_PAINT:
+			// 	dc := gg.Must(paint.NewPaintDC(hwnd))
+			// 	defer dc.EndPaint()
+			// 	win32.FillRect(dc.HDC(), dc.Rect(), panel.backgroundBrush.HBRUSH())
 		}
 		return prevWndProc(hwnd, message, wParam, lParam)
+	})
+	panel.SetPaintCallback(func(dc *paint.PaintDC, prev func(*paint.PaintDC)) {
+		prev(dc)
+		win32.FillRect(dc.HDC(), dc.Rect(), panel.backgroundBrush.HBRUSH())
 	})
 
 	return panel, nil
