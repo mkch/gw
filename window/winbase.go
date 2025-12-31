@@ -30,6 +30,12 @@ func PreTranslateMessage(msg *win32.MSG) bool {
 	return false
 }
 
+// LookupWindowBase looks up the WindowBase associated with hwnd.
+// It returns nil if not found.
+func LookupWindowBase(hwnd win32.HWND) *WindowBase {
+	return windowBaseMap[hwnd]
+}
+
 var windowBaseMap = make(map[win32.HWND]*WindowBase)
 
 var wndProc = windows.NewCallback(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
@@ -413,7 +419,6 @@ func (w *WindowBase) AddDoubleBufferingPaintCallback() (err error) {
 	if err != nil {
 		return
 	}
-	defer win32.ReleaseDC(w.hwnd, windowDC)
 	buffer, err := paint.NewBuffer(windowDC, int(rect.Width()), int(rect.Height()))
 	if err != nil {
 		return
@@ -429,7 +434,7 @@ func (w *WindowBase) AddDoubleBufferingPaintCallback() (err error) {
 		if err != nil {
 			panic(err)
 		}
-		// copy the buffer to the window DC
+		// copy the buffer to the paint DC
 		err = win32.BitBlt(data.DC, 0, 0, int(client.Width()), int(client.Height()),
 			buffer.HDC(), 0, 0,
 			win32.SRCCOPY)
@@ -437,34 +442,41 @@ func (w *WindowBase) AddDoubleBufferingPaintCallback() (err error) {
 			panic(err)
 		}
 	})
+
+	// Listen to WM_DISPLAYCHANGE to recreate the buffer
+	root, err := win32.GetAncestor(w.hwnd, win32.GA_ROOT)
+	if err != nil {
+		return
+	}
+	rootWin := LookupWindowBase(root)
+	if rootWin == nil {
+		return errors.New("cannot find root window")
+	}
+	displayChangeKey := rootWin.AddMsgListener(win32.WM_DISPLAYCHANGE, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
+		gg.MustOK(buffer.Destroy())
+		rect := gg.Must(w.GetClientRect())
+		if !win32.ReleaseDC(w.hwnd, windowDC) {
+			panic("failed to release DC")
+		}
+		windowDC = gg.Must(win32.GetDC(w.hwnd))
+		buffer = gg.Must(paint.NewBuffer(windowDC, int(rect.Width()), int(rect.Height())))
+	})
+
 	w.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {
 		switch message {
 		case win32.WM_DESTROY:
-			if err := buffer.Destroy(); err != nil {
-				panic(err)
+			if !win32.ReleaseDC(w.hwnd, windowDC) {
+				panic("failed to release DC")
 			}
+			gg.MustOK(buffer.Destroy())
+			displayChangeKey.Remove()
 		case win32.WM_SIZE:
-			var err error
-			err = buffer.Destroy()
-			if err != nil {
-				panic(err)
-			}
-			rect, err := w.GetClientRect()
-			if err != nil {
-				panic(err)
-			}
-			windowDC, err := win32.GetDC(hwnd)
-			if err != nil {
-				panic(err)
-			}
-			defer win32.ReleaseDC(hwnd, windowDC)
-			buffer, err = paint.NewBuffer(windowDC, int(rect.Width()), int(rect.Height()))
-			if err != nil {
-				panic(err)
-			}
+			rect := gg.Must(w.GetClientRect())
+			gg.MustOK(buffer.Resize(int(rect.Width()), int(rect.Height())))
 		}
 		return prevWndProc(hwnd, message, wParam, lParam)
 	})
+
 	return nil
 }
 
