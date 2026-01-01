@@ -7,12 +7,15 @@ import (
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
 	"github.com/mkch/gw/util/callback"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
 	"golang.org/x/sys/windows"
 )
+
+var CW_USEDEFAULT = metrics.Px(win32.CW_USEDEFAULT)
 
 type msgProc func(msg *win32.MSG) bool
 
@@ -295,6 +298,14 @@ func (w *WindowBase) DPI() (win32.UINT, error) {
 func (w *WindowBase) GetClientRect() (*win32.RECT, error) {
 	var rect win32.RECT
 	if err := win32.GetClientRect(w.hwnd, &rect); err != nil {
+		return nil, err
+	}
+	return &rect, nil
+}
+
+func (w *WindowBase) GetWindowRect() (*win32.RECT, error) {
+	var rect win32.RECT
+	if err := win32.GetWindowRect(w.hwnd, &rect); err != nil {
 		return nil, err
 	}
 	return &rect, nil
