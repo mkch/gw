@@ -205,3 +205,37 @@ func CreatePen(style win32.PEN_STYLE, width win32.DWORD, color win32.COLORREF) (
 	}
 	return win32.ExtCreatePen(style|win32.PS_GEOMETRIC, width, &brush, nil)
 }
+
+type ModifyStyleSpec struct {
+	Add    win32.WINDOW_STYLE
+	Remove win32.WINDOW_STYLE
+}
+
+// ModifyWindowStyle modifies the window style of the specified window by removing and adding styles.
+func ModifyWindowStyle(hwnd win32.HWND, spec ModifyStyleSpec) error {
+	style, err := win32.GetWindowLongPtrW(hwnd, win32.GWL_STYLE)
+	if err != nil {
+		return err
+	}
+	style &^= win32.LONG_PTR(spec.Remove)
+	style |= win32.LONG_PTR(spec.Add)
+	_, err = win32.SetWindowLongPtrW(hwnd, win32.GWL_STYLE, style)
+	return err
+}
+
+type ModifyExStyleSpec struct {
+	Add    win32.WINDOW_EX_STYLE
+	Remove win32.WINDOW_EX_STYLE
+}
+
+// ModifyWindowExStyle modifies the extended window style of the specified window by removing and adding styles.
+func ModifyWindowExStyle(hwnd win32.HWND, spec ModifyExStyleSpec) error {
+	exStyle, err := win32.GetWindowLongPtrW(hwnd, win32.GWL_EXSTYLE)
+	if err != nil {
+		return err
+	}
+	exStyle &^= win32.LONG_PTR(spec.Remove)
+	exStyle |= win32.LONG_PTR(spec.Add)
+	_, err = win32.SetWindowLongPtrW(hwnd, win32.GWL_EXSTYLE, exStyle)
+	return err
+}
