@@ -602,6 +602,14 @@ func HIBYTE[T ~uint16](w T) BYTE {
 	return BYTE((w >> 8) & 0xff)
 }
 
+func GET_X_LPARAM(lp LPARAM) int {
+	return int(int16(LOWORD(uintptr(lp))))
+}
+
+func GET_Y_LPARAM(lp LPARAM) int {
+	return int(int16(HIWORD(uintptr(lp))))
+}
+
 type ACCEL_FVIRT BYTE
 
 const (

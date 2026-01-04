@@ -359,19 +359,19 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 				}
 			case win32.WM_LBUTTONUP:
 				if window.OnLButtonUp != nil {
-					window.OnLButtonUp(MouseClickOpt(wParam), int(win32.LOWORD(uintptr(lParam))), int(win32.HIWORD(uintptr(lParam))))
+					window.OnLButtonUp(MouseClickOpt(wParam), int(win32.GET_X_LPARAM(lParam)), int(win32.GET_Y_LPARAM(lParam)))
 				}
 			case win32.WM_LBUTTONDOWN:
 				if window.OnLButtonDown != nil {
-					window.OnLButtonDown(MouseClickOpt(wParam), int(win32.LOWORD(uintptr(lParam))), int(win32.HIWORD(uintptr(lParam))))
+					window.OnLButtonDown(MouseClickOpt(wParam), int(win32.GET_X_LPARAM(lParam)), int(win32.GET_Y_LPARAM(lParam)))
 				}
 			case win32.WM_RBUTTONUP:
 				if window.OnRButtonUp != nil {
-					window.OnRButtonUp(MouseClickOpt(wParam), int(win32.LOWORD(uintptr(lParam))), int(win32.HIWORD(uintptr(lParam))))
+					window.OnRButtonUp(MouseClickOpt(wParam), int(win32.GET_X_LPARAM(lParam)), int(win32.GET_Y_LPARAM(lParam)))
 				}
 			case win32.WM_RBUTTONDOWN:
 				if window.OnRButtonDown != nil {
-					window.OnRButtonDown(MouseClickOpt(wParam), int(win32.LOWORD(uintptr(lParam))), int(win32.HIWORD(uintptr(lParam))))
+					window.OnRButtonDown(MouseClickOpt(wParam), int(win32.GET_X_LPARAM(lParam)), int(win32.GET_Y_LPARAM(lParam)))
 				}
 			case win32.WM_PAINT:
 				if window.paintCb == nil {
