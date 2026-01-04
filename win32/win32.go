@@ -566,6 +566,18 @@ func SetMenu(hwnd HWND, menu HMENU) error {
 	return sysutil.MustTrue(lzSetMenu.Call(uintptr(hwnd), uintptr(menu)))
 }
 
+var lzDrawMenu = lzUser32.NewProc("DrawMenuBar")
+
+func DrawMenuBar(hwnd HWND) error {
+	return sysutil.MustTrue(lzDrawMenu.Call(uintptr(hwnd)))
+}
+
+var lzGetMenu = lzUser32.NewProc("GetMenu")
+
+func GetMenu(hwnd HWND) (HMENU, error) {
+	return sysutil.MustNotZero[HMENU](lzGetMenu.Call(uintptr(hwnd)))
+}
+
 func HIWORD[T ~uintptr](l T) WORD {
 	return WORD((l >> 16) & 0xFFFF)
 }

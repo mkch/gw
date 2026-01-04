@@ -36,6 +36,7 @@ type Menu struct {
 	OnAccelKeyChanged func() error
 	h                 win32.HMENU
 	parent            *Item
+	popup             bool
 }
 
 // AccelKeyTable returns all accelerator keys in this menu and its submenus.
@@ -88,9 +89,16 @@ func (m *Menu) callAccelKeyChanged() error {
 }
 
 func New(popup bool) *Menu {
-	r := &Menu{h: gg.If(popup, gg.Must(win32.CreatePopupMenu()), gg.Must(win32.CreateMenu())), parent: nil}
+	r := &Menu{
+		h:      gg.If(popup, gg.Must(win32.CreatePopupMenu()), gg.Must(win32.CreateMenu())),
+		parent: nil,
+		popup:  popup}
 	menuMap[r.h] = r
 	return r
+}
+
+func (m *Menu) Popup() bool {
+	return m.popup
 }
 
 func (m *Menu) HMENU() win32.HMENU {
