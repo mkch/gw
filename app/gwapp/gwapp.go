@@ -3,6 +3,7 @@
 package gwapp
 
 import (
+	"errors"
 	"math"
 	"runtime"
 	"sync"
@@ -20,6 +21,9 @@ type GwApp struct {
 	uiThreadId    win32.DWORD
 	postMap       safeMap
 	threadMsgHook win32.HHOOK
+
+	msgDispatcher     MessageDispatcher
+	prevMsgDispatcher func(msg *win32.MSG) win32.LRESULT
 }
 
 // New creates a GwApp and do application initialization.
@@ -29,6 +33,10 @@ func New() *GwApp {
 	app := &GwApp{
 		uiThreadId: win32.DWORD(windows.GetCurrentThreadId()),
 		postMap:    safeMap{ObjectMap: objectmap.New[func()](1, math.MaxUint)},
+		msgDispatcher: func(msg *win32.MSG, prevProc func(msg *win32.MSG) win32.LRESULT) win32.LRESULT {
+			return prevProc(msg)
+		},
+		prevMsgDispatcher: win32.DispatchMessageW,
 	}
 
 	// Prepare postMap
@@ -75,8 +83,27 @@ func (app *GwApp) Run() int {
 		if !window.PreTranslateMessage(&msg) {
 			win32.TranslateMessage(&msg)
 		}
-		win32.DispatchMessageW(&msg)
+		// Dispatch message
+		app.msgDispatcher(&msg, app.prevMsgDispatcher)
 	}
+}
+
+// MessageDispatcher is a function that dispatches Windows messages.
+// The prevProc parameter is the previous message dispatcher in the chain,
+// which can be called to continue the default message processing.
+type MessageDispatcher func(msg *win32.MSG, prevProc func(msg *win32.MSG) win32.LRESULT) win32.LRESULT
+
+// SetMessageDispatcher sets a dispatcher for windows message dispatching.
+// The default message dispatcher is [win32.DispatchMessageW].
+func (app *GwApp) SetMessageDispatcher(dispatcher MessageDispatcher) {
+	if dispatcher == nil {
+		panic(errors.New("nil MsgProc"))
+	}
+	oldMsgDispatcher, oldPrevMsgDispatcher := app.msgDispatcher, app.prevMsgDispatcher
+	app.prevMsgDispatcher = func(msg *win32.MSG) win32.LRESULT {
+		return oldMsgDispatcher(msg, oldPrevMsgDispatcher)
+	}
+	app.msgDispatcher = dispatcher
 }
 
 // Post put f into the UI message queue, f will run in the UI thread ASAP.

@@ -21,3 +21,11 @@ func Post(f func()) error {
 func Quit(exitCode int) {
 	app.Quit(exitCode)
 }
+
+type MsgProc = gwapp.MessageDispatcher
+
+// SetMessageDispatcher sets a dispatcher for windows message dispatching.
+// The default message dispatcher is [win32.DispatchMessageW].
+func SetMessageDispatcher(msgProc MsgProc) {
+	app.SetMessageDispatcher(msgProc)
+}
