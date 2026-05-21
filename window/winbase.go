@@ -236,6 +236,12 @@ func (w *WindowBase) TrackPopupMenu(menu *menu.Menu, spec *PopupMenuSpec) error 
 		flags = gg.If(win32.GetSystemMetrics(win32.SM_MENUDROPALIGNMENT) != 0, win32.TPM_RIGHTALIGN, win32.TPM_LEFTALIGN)
 	}
 
+	// TPM_RIGHTBUTTON makes right clicking select the menu item.
+	// If not set, right clicking(releasing right mouse button) of a menu item will post a WM_RBUTTONUP message to the window.
+	// If win32.TrackPopupMenuEx is called in a WM_RBUTTONUP handler, the extra WM_RBUTTONUP message will cause a recursive call
+	// to win32.TrackPopupMenuEx which results an error of "1446 Popup menu already active".
+	flags |= win32.TPM_RIGHTBUTTON
+
 	if t, err := menu.AccelKeyTable(); err != nil {
 		return err
 	} else {

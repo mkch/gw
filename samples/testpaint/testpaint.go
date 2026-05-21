@@ -62,8 +62,8 @@ func main() {
 		},
 	}))
 
-	bkWin.OnRButtonDown = func(opt window.MouseClickOpt, x, y int) {
-		bkWin.TrackPopupMenu(ctxMenu, nil)
+	bkWin.OnRButtonUp = func(opt window.MouseClickOpt, x, y int) {
+		gg.MustOK(bkWin.TrackPopupMenu(ctxMenu, nil))
 	}
 
 	const gridSize = win32.INT(50)
