@@ -4,17 +4,4 @@
            "-ldflags=-H=windowsgui"
         ]
     },
-    "cSpell.words": [
-        "CTLCOLORSTATIC",
-        "HIBYTE",
-        "LOBYTE",
-        "MAJORVERSION",
-        "MAKELONG",
-        "MAKEWORD",
-        "MINORVERSION",
-        "OSVERSIONINFOEXW",
-        "osvi",
-        "SERVICEPACKMAJOR",
-        "versionhelpers"
-    ]
 }
