@@ -15,17 +15,13 @@ var lzGdi32 = windows.NewLazySystemDLL("gdi32.dll")
 
 var lzGetMessageW = lzUser32.NewProc("GetMessageW")
 
-type Point struct {
-	X, Y LONG
-}
-
 type MSG struct {
 	Hwnd    HWND
 	Message UINT
 	WParam  WPARAM
 	LParam  LPARAM
 	Time    DWORD
-	Point   Point
+	Point   POINT
 }
 
 func GetMessageW(msg *MSG, hwnd HWND, msgFilterMin UINT, msgFilterMax UINT) BOOL {
