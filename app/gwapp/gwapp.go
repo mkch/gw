@@ -41,15 +41,8 @@ func (app *GwApp) Run() int {
 			continue
 		}
 		win32.TranslateMessage(&msg)
-		// Dispatch message
-		(*ExternalApp)(app).DispatchMessage(&msg)
+		win32.DispatchMessageW(&msg)
 	}
-}
-
-// SetMessageDispatcher sets a dispatcher for windows message dispatching.
-// The default message dispatcher is [win32.DispatchMessageW].
-func (app *GwApp) SetMessageDispatcher(dispatcher MessageDispatcher) {
-	(*ExternalApp)(app).SetMessageDispatcher(dispatcher)
 }
 
 // Post put f into the UI message queue, f will run in the UI thread ASAP.

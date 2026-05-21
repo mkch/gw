@@ -70,7 +70,7 @@ func main() {
 			continue
 		}
 		win32.TranslateMessage(&msg)
-		app.DispatchMessage(&msg)
+		win32.DispatchMessageW(&msg)
 	}
 	ticker.Stop()
 	os.Exit(int(msg.WParam))
