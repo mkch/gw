@@ -1,5 +1,5 @@
-github.com/mkch/gg v0.0.0-20240126094904-8d17c81281f6 h1:skyRfRTpfU8VD1XgTv0rLayKzJtSF8hImXb2CMR9tlA=
-github.com/mkch/gg v0.0.0-20240126094904-8d17c81281f6/go.mod h1:WOz0t21TN8cn9510DxRFrXyf2WrBWBs/IlzCwDqm+PE=
+github.com/mkch/gg v0.0.0-20260316121435-39da716c7d56 h1:aiA/VclybGoNtFMkFPWhtw66ywwbjMEesUzfIemTy50=
+github.com/mkch/gg v0.0.0-20260316121435-39da716c7d56/go.mod h1:U5RQAS2LPwnWs/CX+LwZOioBmDcK3htt8yZe0PUAk04=
 golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb h1:c0vyKkb6yr3KR7jEfJaOSv4lG7xPkbN6r52aJz1d8a8=
 golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb/go.mod h1:iRJReGqOEeBhDZGkGbynYwcHlctCvnjTYIamk7uXpHI=
 golang.org/x/sys v0.15.0 h1:h48lPFYpsTvQJZF4EKyI4aLHaev3CxivZmv7yZig9pc=
