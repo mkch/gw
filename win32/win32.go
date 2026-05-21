@@ -1,6 +1,7 @@
 package win32
 
 import (
+	"structs"
 	"unsafe"
 
 	"github.com/mkch/gg"
@@ -1726,6 +1727,23 @@ const (
 	HC_SYSMODALON  HookCode = 4
 	HC_SYSMODALOFF HookCode = 5
 )
+
+type CWPRETSTRUCT struct {
+	_       structs.HostLayout
+	Result  LRESULT
+	LParam  LPARAM
+	WParam  WPARAM
+	Message UINT
+	Hwnd    HWND
+}
+
+type MOUSEHOOKSTRUCT struct {
+	_           structs.HostLayout
+	Pt          POINT
+	Hwnd        HWND
+	HitTestCode UINT
+	ExtraInfo   ULONG_PTR
+}
 
 var lzSetViewportOrgEx = lzGdi32.NewProc("SetViewportOrgEx")
 
