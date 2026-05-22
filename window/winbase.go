@@ -41,8 +41,37 @@ func LookupWindowBase(hwnd win32.HWND) *WindowBase {
 
 var windowBaseMap = make(map[win32.HWND]*WindowBase)
 
-var wndProc = windows.NewCallback(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-	return windowBaseMap[hwnd].realWndProc(hwnd, message, wParam, lParam)
+type MessageRetListener func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT)
+
+type MessageRetListenerKey struct{ p *MessageRetListener }
+
+var messageRetListeners map[MessageRetListenerKey]MessageRetListener
+
+// AddMessageRetListener adds a listener that is called after a message is processed in any window procedure.
+// The returned [MessageRetListenerKey] can be used to remove the listener by calling [RemoveMessageRetListener].
+func AddMessageRetListener(listener MessageRetListener) MessageRetListenerKey {
+	if listener == nil {
+		panic("nil listener")
+	}
+	if messageRetListeners == nil {
+		messageRetListeners = make(map[MessageRetListenerKey]MessageRetListener)
+	}
+	key := MessageRetListenerKey{p: &listener}
+	messageRetListeners[key] = listener
+	return key
+}
+
+// RemoveMessageRetListener removes the listener added by AddMessageRetListener.
+func RemoveMessageRetListener(key MessageRetListenerKey) {
+	delete(messageRetListeners, key)
+}
+
+var wndProc = windows.NewCallback(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) (result win32.LRESULT) {
+	result = windowBaseMap[hwnd].realWndProc(hwnd, message, wParam, lParam)
+	for _, listener := range messageRetListeners {
+		listener(hwnd, message, wParam, lParam, result)
+	}
+	return
 })
 
 type WndProc func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT
