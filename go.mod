@@ -1,6 +1,6 @@
 module github.com/mkch/gw
 
-go 1.25
+go 1.26.0
 
 require (
 	github.com/mkch/gg v0.0.0-20260316121435-39da716c7d56
