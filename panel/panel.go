@@ -10,16 +10,19 @@ import (
 	"github.com/mkch/gw/win32/win32util"
 )
 
-const className = "github.com/mkch/gw/panel_class"
+const className = "github.com/mkch/gw/panel"
 
-var classRegistered = false
+var classAtom win32.ATOM
+
+var customClassNames gg.Set[string]
 
 type Spec struct {
-	X       metrics.Dimension
-	Y       metrics.Dimension
-	Width   metrics.Dimension
-	Height  metrics.Dimension
-	ExStyle win32.WINDOW_EX_STYLE
+	ClassName string // Custom class name. If empty, the default class will be used.
+	X         metrics.Dimension
+	Y         metrics.Dimension
+	Width     metrics.Dimension
+	Height    metrics.Dimension
+	ExStyle   win32.WINDOW_EX_STYLE
 }
 
 type Panel struct {
@@ -29,19 +32,33 @@ type Panel struct {
 }
 
 func New(parent win32.HWND, spec *Spec) (*Panel, error) {
-	if !classRegistered {
-		gg.Must(win32util.RegisterClass(&win32util.WndClass{
+	if classAtom == 0 {
+		classAtom = gg.Must(win32util.RegisterClass(&win32util.WndClass{
 			ClassName: className,
 			WndProc: func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 				return win32.DefWindowProcW(hwnd, message, wParam, lParam)
 			},
 			Cursor: gg.Must(win32.LoadImageW_uintptr[win32.HCURSOR](0, uintptr(win32.OCR_NORMAL), win32.IMAGE_CURSOR, 0, 0, win32.LR_DEFAULTSIZE|win32.LR_SHARED)),
 		}))
-		classRegistered = true
 	}
+	if spec.ClassName == "" { // Use default class name.
+		spec = new(*spec)
+		spec.ClassName = className
+	} else { // Use custom class name.
+		if customClassNames == nil {
+			customClassNames = make(gg.Set[string])
+		}
+		if !customClassNames.Contains(spec.ClassName) {
+			if _, err := win32util.CopyWindowClass(classAtom, spec.ClassName); err != nil {
+				return nil, err
+			}
+			customClassNames.Add(spec.ClassName)
+		}
+	}
+
 	dpi := gg.Must(win32.GetDpiForWindow(parent))
 	hwnd, err := win32util.CreateWindow((&win32util.Wnd{
-		ClassName: className,
+		ClassName: spec.ClassName,
 		Style:     win32.WS_CHILD | win32.WS_VISIBLE,
 		ExStyle:   spec.ExStyle,
 		X:         spec.X.Px(dpi),

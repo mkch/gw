@@ -98,6 +98,22 @@ func RegisterClassExW(cls *WNDCLASSEXW) (ATOM, error) {
 	return sysutil.MustNotZero[ATOM](lzRegisterClassExW.Call(uintptr(unsafe.Pointer(cls))))
 }
 
+var lzGetClassInfoExW = lzUser32.NewProc("GetClassInfoExW")
+
+func GetClassInfoExW(instance HINSTANCE, className *WCHAR, cls *WNDCLASSEXW) error {
+	return sysutil.MustTrue(lzGetClassInfoExW.Call(uintptr(instance), uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(cls))))
+}
+
+func GetClassInfoExWAtom(instance HINSTANCE, classAtom ATOM, cls *WNDCLASSEXW) error {
+	return sysutil.MustTrue(lzGetClassInfoExW.Call(uintptr(instance), uintptr(classAtom), uintptr(unsafe.Pointer(cls))))
+}
+
+var lzGetClassNameW = lzUser32.NewProc("GetClassNameW")
+
+func GetClassNameW(hwnd HWND, buffer *WCHAR, maxCount int) (int, error) {
+	return sysutil.MustNotZero[int](lzGetClassNameW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(buffer)), uintptr(maxCount)))
+}
+
 type WINDOW_EX_STYLE DWORD
 
 const (

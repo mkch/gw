@@ -8,12 +8,14 @@ import (
 	"github.com/mkch/gw/win32/win32util"
 )
 
-const defClassName = "github.com/mkch/gw/wnd_class"
+const defClassName = "github.com/mkch/gw/window"
 
-var defClassRegistered = false
+var defClassAtom win32.ATOM
+
+var customClassNames gg.Set[string]
 
 type Spec struct {
-	ClassName string
+	ClassName string // Custom class name. If empty, the default class will be used.
 	Text      string
 	Style     win32.WINDOW_STYLE
 	ExStyle   win32.WINDOW_EX_STYLE
@@ -37,8 +39,8 @@ type Window struct {
 }
 
 func New(spec *Spec) (*Window, error) {
-	if !defClassRegistered {
-		gg.Must(win32util.RegisterClass(&win32util.WndClass{
+	if defClassAtom == 0 {
+		defClassAtom = gg.Must(win32util.RegisterClass(&win32util.WndClass{
 			ClassName: defClassName,
 			WndProc: func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 				return win32.DefWindowProcW(hwnd, message, wParam, lParam)
@@ -46,12 +48,20 @@ func New(spec *Spec) (*Window, error) {
 			Background: win32.HBRUSH(win32.COLOR_WINDOW + 1),
 			Cursor:     gg.Must(win32.LoadImageW_uintptr[win32.HCURSOR](0, uintptr(win32.OCR_NORMAL), win32.IMAGE_CURSOR, 0, 0, win32.LR_DEFAULTSIZE|win32.LR_SHARED)),
 		}))
-		defClassRegistered = true
 	}
-	if spec.ClassName == "" {
-		copy := *spec
-		copy.ClassName = defClassName
-		spec = &copy
+	if spec.ClassName == "" { // Use default class name.
+		spec = new(*spec)
+		spec.ClassName = defClassName
+	} else { // Use custom class name.
+		if customClassNames == nil {
+			customClassNames = make(gg.Set[string])
+		}
+		if !customClassNames.Contains(spec.ClassName) {
+			if _, err := win32util.CopyWindowClass(defClassAtom, spec.ClassName); err != nil {
+				return nil, err
+			}
+			customClassNames.Add(spec.ClassName)
+		}
 	}
 
 	var visible bool

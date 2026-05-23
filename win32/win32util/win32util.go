@@ -4,6 +4,7 @@ import (
 	"unicode/utf16"
 	"unsafe"
 
+	"github.com/mkch/gg"
 	"github.com/mkch/gw/win32"
 	"golang.org/x/sys/windows"
 )
@@ -238,4 +239,19 @@ func ModifyWindowExStyle(hwnd win32.HWND, spec ModifyExStyleSpec) error {
 	exStyle |= win32.LONG_PTR(spec.Add)
 	_, err = win32.SetWindowLongPtrW(hwnd, win32.GWL_EXSTYLE, exStyle)
 	return err
+}
+
+// CopyWindowClass registers a new window class by copying an existing class specified by src, and changing the class name to newClassName.
+func CopyWindowClass(src win32.ATOM, newClassName string) (win32.ATOM, error) {
+	// Retrieve the default class info
+	var cls = win32.WNDCLASSEXW{Size: win32.UINT(unsafe.Sizeof(win32.WNDCLASSEXW{}))}
+	if err := win32.GetClassInfoExWAtom(gg.Must(win32.GetModuleHandleW[win32.HINSTANCE](nil)), src, &cls); err != nil {
+		return 0, err
+	}
+	// Change the class name
+	var classNameBuf []win32.WCHAR
+	CString(newClassName, &classNameBuf)
+	cls.ClassName = &classNameBuf[0]
+	// Register the new class
+	return win32.RegisterClassExW(&cls)
 }
