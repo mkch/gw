@@ -8,7 +8,7 @@ import (
 	"github.com/mkch/gw/win32/win32util"
 )
 
-const defClassName = "github.com/mkch/gw#window"
+const defClassName = "github.com/mkch/gw#Window"
 
 var defClassSpec = win32util.WndClass{
 	WndProc: func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
