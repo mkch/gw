@@ -10,11 +10,16 @@ import (
 	"github.com/mkch/gw/win32/win32util"
 )
 
-const className = "github.com/mkch/gw/panel"
+const defClassName = "github.com/mkch/gw#panel"
 
-var classAtom win32.ATOM
+var defClassSpec = win32util.WndClass{
+	WndProc: func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+		return win32.DefWindowProcW(hwnd, message, wParam, lParam)
+	},
+	Cursor: gg.Must(win32.LoadImageW_uintptr[win32.HCURSOR](0, uintptr(win32.OCR_NORMAL), win32.IMAGE_CURSOR, 0, 0, win32.LR_DEFAULTSIZE|win32.LR_SHARED)),
+}
 
-var customClassNames gg.Set[string]
+var registeredClasses gg.Set[string]
 
 type Spec struct {
 	ClassName string // Custom class name. If empty, the default class will be used.
@@ -32,33 +37,26 @@ type Panel struct {
 }
 
 func New(parent win32.HWND, spec *Spec) (*Panel, error) {
-	if classAtom == 0 {
-		classAtom = gg.Must(win32util.RegisterClass(&win32util.WndClass{
-			ClassName: className,
-			WndProc: func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-				return win32.DefWindowProcW(hwnd, message, wParam, lParam)
-			},
-			Cursor: gg.Must(win32.LoadImageW_uintptr[win32.HCURSOR](0, uintptr(win32.OCR_NORMAL), win32.IMAGE_CURSOR, 0, 0, win32.LR_DEFAULTSIZE|win32.LR_SHARED)),
-		}))
+	className := spec.ClassName
+	if className == "" {
+		// Use default class name.
+		className = defClassName
 	}
-	if spec.ClassName == "" { // Use default class name.
-		spec = new(*spec)
-		spec.ClassName = className
-	} else { // Use custom class name.
-		if customClassNames == nil {
-			customClassNames = make(gg.Set[string])
+	if registeredClasses == nil {
+		registeredClasses = make(gg.Set[string])
+	}
+	if !registeredClasses.Contains(className) {
+		cls := new(defClassSpec)
+		cls.ClassName = className
+		if _, err := win32util.RegisterClass(cls); err != nil {
+			return nil, err
 		}
-		if !customClassNames.Contains(spec.ClassName) {
-			if _, err := win32util.CopyWindowClass(classAtom, spec.ClassName); err != nil {
-				return nil, err
-			}
-			customClassNames.Add(spec.ClassName)
-		}
+		registeredClasses.Add(className)
 	}
 
 	dpi := gg.Must(win32.GetDpiForWindow(parent))
 	hwnd, err := win32util.CreateWindow((&win32util.Wnd{
-		ClassName: spec.ClassName,
+		ClassName: className,
 		Style:     win32.WS_CHILD | win32.WS_VISIBLE,
 		ExStyle:   spec.ExStyle,
 		X:         spec.X.Px(dpi),

@@ -8,11 +8,17 @@ import (
 	"github.com/mkch/gw/win32/win32util"
 )
 
-const defClassName = "github.com/mkch/gw/window"
+const defClassName = "github.com/mkch/gw#window"
 
-var defClassAtom win32.ATOM
+var defClassSpec = win32util.WndClass{
+	WndProc: func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+		return win32.DefWindowProcW(hwnd, message, wParam, lParam)
+	},
+	Background: win32.HBRUSH(win32.COLOR_WINDOW + 1),
+	Cursor:     gg.Must(win32.LoadImageW_uintptr[win32.HCURSOR](0, uintptr(win32.OCR_NORMAL), win32.IMAGE_CURSOR, 0, 0, win32.LR_DEFAULTSIZE|win32.LR_SHARED)),
+}
 
-var customClassNames gg.Set[string]
+var registeredClasses gg.Set[string]
 
 type Spec struct {
 	ClassName string // Custom class name. If empty, the default class will be used.
@@ -39,29 +45,21 @@ type Window struct {
 }
 
 func New(spec *Spec) (*Window, error) {
-	if defClassAtom == 0 {
-		defClassAtom = gg.Must(win32util.RegisterClass(&win32util.WndClass{
-			ClassName: defClassName,
-			WndProc: func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-				return win32.DefWindowProcW(hwnd, message, wParam, lParam)
-			},
-			Background: win32.HBRUSH(win32.COLOR_WINDOW + 1),
-			Cursor:     gg.Must(win32.LoadImageW_uintptr[win32.HCURSOR](0, uintptr(win32.OCR_NORMAL), win32.IMAGE_CURSOR, 0, 0, win32.LR_DEFAULTSIZE|win32.LR_SHARED)),
-		}))
+	className := spec.ClassName
+	if className == "" {
+		// Use default class name.
+		className = defClassName
 	}
-	if spec.ClassName == "" { // Use default class name.
-		spec = new(*spec)
-		spec.ClassName = defClassName
-	} else { // Use custom class name.
-		if customClassNames == nil {
-			customClassNames = make(gg.Set[string])
+	if registeredClasses == nil {
+		registeredClasses = make(gg.Set[string])
+	}
+	if !registeredClasses.Contains(className) {
+		cls := new(defClassSpec)
+		cls.ClassName = className
+		if _, err := win32util.RegisterClass(cls); err != nil {
+			return nil, err
 		}
-		if !customClassNames.Contains(spec.ClassName) {
-			if _, err := win32util.CopyWindowClass(defClassAtom, spec.ClassName); err != nil {
-				return nil, err
-			}
-			customClassNames.Add(spec.ClassName)
-		}
+		registeredClasses.Add(className)
 	}
 
 	var visible bool
@@ -92,7 +90,7 @@ func New(spec *Spec) (*Window, error) {
 	}
 
 	hwnd, err := win32util.CreateWindow((&win32util.Wnd{
-		ClassName:  spec.ClassName,
+		ClassName:  className,
 		WindowName: spec.Text,
 		Style:      style,
 		ExStyle:    spec.ExStyle,
