@@ -15,7 +15,7 @@ type GwApp app
 // New creates a GwApp and do application initialization.
 func New() *GwApp {
 	runtime.LockOSThread()
-	return (*GwApp)(NewExternal())
+	return (*GwApp)(NewExternal(false))
 }
 
 // Run runs the message loop.

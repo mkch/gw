@@ -88,7 +88,6 @@ extern "C" {
 
 extern void Show(HWND parent);
 extern void Cleanup(void);
-extern BOOL PreTranslateMessage(MSG* msg);
 
 #ifdef __cplusplus
 }

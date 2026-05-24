@@ -34,8 +34,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     GW_Show = (void (*)(HWND))GetProcAddress(hDll, "Show");
     void (*GW_Cleanup)(void) = (void (*)(void))GetProcAddress(hDll, "Cleanup");
-    BOOL (*GW_PreTranslateMessage)(MSG* msg) = (BOOL (*)(MSG*))GetProcAddress(hDll, "PreTranslateMessage");
-    if (GW_Show == NULL || GW_Cleanup == NULL || GW_PreTranslateMessage == NULL) {
+    if (GW_Show == NULL || GW_Cleanup == NULL) {
         MessageBoxW(NULL, L"Failed to get function addresses from gw.dll", L"Error", MB_OK | MB_ICONERROR);
         FreeLibrary(hDll);
         return 1;
@@ -77,9 +76,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 	MSG msg;
 	while (GetMessageW(&msg, NULL, 0, 0) > 0) {
-        if(GW_PreTranslateMessage(&msg)) {
-            continue;
-        }
 		TranslateMessage(&msg);
 		DispatchMessageW(&msg);
 	}

@@ -28,7 +28,7 @@ func Show(parent C.HWND) {
 	const TickerDuration = time.Millisecond * 100
 	ticker = time.NewTicker(TickerDuration)
 
-	app = gwapp.NewExternal()
+	app = gwapp.NewExternal(true)
 
 	mainWindow := chkerr.Must(window.New(&window.Spec{
 		WndParent: win32.HWND(unsafe.Pointer(parent)),
@@ -75,15 +75,6 @@ func Show(parent C.HWND) {
 //export Cleanup
 func Cleanup() {
 	ticker.Stop()
-	app.Destroy()
-}
-
-//export PreTranslateMessage
-func PreTranslateMessage(msg *C.MSG) C.BOOL {
-	if app.PreTranslateMessage((*win32.MSG)(unsafe.Pointer(msg))) {
-		return 1
-	}
-	return 0
 }
 
 func main() {}

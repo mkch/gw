@@ -19,11 +19,14 @@ type ExternalApp struct {
 	threadMsgHook win32.HHOOK
 }
 
-// NewExternal creates a GwApp for an external message loop.
-// The external initialization code should call NewExternal before starting the message loop in the same thread,
-// and call [Destroy] before exiting the message loop.
-func NewExternal() *ExternalApp {
-	app := &ExternalApp{
+// NewExternal creates a [ExternalApp] for an external message loop.
+// The external initialization code must call NewExternal in the main thread that runs the message loop.
+// If hookMsgLoop is true, a thread message hook will be installed to process messages with app.PreTranslateMessage
+// and call app.Destroy when WM_QUIT is received.
+// If hookMsgLoop is false, it is the responsibility of the external code to call app.PreTranslateMessage
+// in the message loop and call app.Destroy before exiting.
+func NewExternal(hookMsgLoop bool) (app *ExternalApp) {
+	app = &ExternalApp{
 		uiThreadId: win32.DWORD(windows.GetCurrentThreadId()),
 		postMap:    safeMap{ObjectMap: objectmap.New[func()](1, math.MaxUint)},
 	}
@@ -34,18 +37,42 @@ func NewExternal() *ExternalApp {
 	// Initialize message queue
 	win32.PeekMessageW(&win32.MSG{}, 0, 0, 0, win32.PM_NOREMOVE)
 	// Install thread message hook
-	proc := windows.NewCallback(func(code win32.HookCode, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-		if code >= 0 && win32.PeekMessageFlag(wParam) == win32.PM_REMOVE {
-			if msg := (*win32.MSG)(unsafe.Add(nil, lParam)); msg.Message == appmsg.POST {
-				// Handle posted functions
-				app.postMap.Value(objectmap.Handle(msg.WParam))()
-				msg.Message = win32.WM_NULL // Stop WNDPROC processing
-				return 0                    // Stop other hook processing
+	var proc func(code win32.HookCode, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT
+	if hookMsgLoop {
+		proc = func(code win32.HookCode, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+			if code >= 0 && win32.PeekMessageFlag(wParam) == win32.PM_REMOVE {
+				msg := (*win32.MSG)(unsafe.Add(nil, lParam))
+				switch msg.Message {
+				case win32.WM_QUIT:
+					app.Destroy() // Destroy the app when the message loop is about to exit.
+				case appmsg.POST:
+					// Handle posted functions
+					app.postMap.Value(objectmap.Handle(msg.WParam))()
+					msg.Message = win32.WM_NULL // Stop WNDPROC processing
+					return 0                    // Stop other hook processing
+				default:
+					if app.PreTranslateMessage(msg) {
+						msg.Message = win32.WM_NULL // Stop WNDPROC processing
+						return 0                    // Stop other hook processing
+					}
+				}
 			}
+			return win32.CallNextHookEx(app.threadMsgHook, code, wParam, lParam)
 		}
-		return win32.CallNextHookEx(app.threadMsgHook, code, wParam, lParam)
-	})
-	app.threadMsgHook = gg.Must(win32.SetWindowsHookExW(win32.WH_GETMESSAGE, proc, 0, app.uiThreadId))
+	} else {
+		proc = func(code win32.HookCode, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+			if code >= 0 && win32.PeekMessageFlag(wParam) == win32.PM_REMOVE {
+				if msg := (*win32.MSG)(unsafe.Add(nil, lParam)); msg.Message == appmsg.POST {
+					// Handle posted functions
+					app.postMap.Value(objectmap.Handle(msg.WParam))()
+					msg.Message = win32.WM_NULL // Stop WNDPROC processing
+					return 0                    // Stop other hook processing
+				}
+			}
+			return win32.CallNextHookEx(app.threadMsgHook, code, wParam, lParam)
+		}
+	}
+	app.threadMsgHook = gg.Must(win32.SetWindowsHookExW(win32.WH_GETMESSAGE, windows.NewCallback(proc), 0, app.uiThreadId))
 
 	return app
 }
@@ -58,7 +85,7 @@ func (app *ExternalApp) Destroy() {
 }
 
 // PreTranslateMessage should be called in the external message loop before TranslateMessage.
-// If PreTranslateMessage returns true, the message must not be passed to TranslateMessage and DispatchMessage.
+// If it returns true, the message must not be passed to TranslateMessage and DispatchMessage.
 func (app *ExternalApp) PreTranslateMessage(msg *win32.MSG) bool {
 	return window.PreTranslateMessage(msg)
 }
