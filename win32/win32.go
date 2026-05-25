@@ -1,6 +1,7 @@
 package win32
 
 import (
+	"errors"
 	"structs"
 	"unsafe"
 
@@ -1043,12 +1044,21 @@ const (
 	GDI_ERROR = 0xFFFFFFFF
 )
 
+// ErrSelectObject is return by [SelectObject] f an error occurs and the selected object is not a region.
+var ErrSelectObject = errors.New("SelectObject failed")
+
+// ErrGDIError is returned by GDI functions when they fail and the error is not more specifically categorized.
+var ErrGDIError = errors.New("GDI error")
+
 var lzSelectObject = lzGdi32.NewProc("SelectObject")
 
 func SelectObject[H HGDIOBJ](hdc HDC, obj H) (H, error) {
-	h, _, err := lzSelectObject.Call(uintptr(hdc), uintptr(obj))
-	if h == 0 || h == GDI_ERROR {
-		return 0, err
+	h, _, _ := lzSelectObject.Call(uintptr(hdc), uintptr(obj))
+	if h == 0 {
+		return 0, ErrSelectObject
+	}
+	if h == GDI_ERROR {
+		return H(h), ErrGDIError
 	}
 	return H(h), nil
 }
@@ -1136,9 +1146,12 @@ func CreateFontIndirectW(f *LOGFONTW) (HFONT, error) {
 
 var lzGetFontData = lzGdi32.NewProc("GetFontData")
 
-func GetFontData(hdc HDC, table DWORD, offset DWORD, buffer PVOID, bufSize DWORD) DWORD {
+func GetFontData(hdc HDC, table DWORD, offset DWORD, buffer PVOID, bufSize DWORD) (DWORD, error) {
 	r, _, _ := lzGetFontData.Call(uintptr(hdc), uintptr(table), uintptr(offset), uintptr(buffer), uintptr(bufSize))
-	return DWORD(r)
+	if r == GDI_ERROR {
+		return DWORD(r), ErrGDIError
+	}
+	return DWORD(r), nil
 }
 
 var lzCreatePenIndirect = lzGdi32.NewProc("CreatePenIndirect")
