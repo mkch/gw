@@ -1134,6 +1134,16 @@ func CreateFontIndirectW(f *LOGFONTW) (HFONT, error) {
 	return sysutil.MustNotZero[HFONT](lzCreateFontIndirectW.Call(uintptr(unsafe.Pointer(f))))
 }
 
+var lzGetFontData = lzGdi32.NewProc("GetFontData")
+
+func GetFontData(hdc HDC, table DWORD, offset DWORD, buffer PVOID, bufSize DWORD) (DWORD, error) {
+	r, _, err := lzGetFontData.Call(uintptr(hdc), uintptr(table), uintptr(offset), uintptr(buffer), uintptr(bufSize))
+	if r == GDI_ERROR {
+		return 0, err
+	}
+	return DWORD(r), nil
+}
+
 var lzCreatePenIndirect = lzGdi32.NewProc("CreatePenIndirect")
 
 func CreatePenIndirect(p *LOGPEN) (HPEN, error) {
