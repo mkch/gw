@@ -74,7 +74,7 @@ func NewExternal(hookMsgLoop bool) (app *ExternalApp) {
 	}
 	app.threadMsgHook = gg.Must(win32.SetWindowsHookExW(win32.WH_GETMESSAGE, windows.NewCallback(proc), 0, app.uiThreadId))
 
-	return app
+	return
 }
 
 // Destroy destroys the app for an external message loop.
