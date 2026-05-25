@@ -27,7 +27,7 @@ func (l *LogFont) LOGFONTW() *win32.LOGFONTW {
 
 // New creates a new Font.
 func New(l *LogFont, DPI win32.UINT) (*Font, error) {
-	f, err := withdpi.New[win32.LOGFONTW, win32.HFONT](&l.LogStruct, DPI)
+	f, err := withdpi.New(&l.LogStruct, DPI)
 	return &Font{*f}, err
 }
 
