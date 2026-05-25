@@ -105,6 +105,8 @@ func ChooseFont(spec *ChooseFontSpec) (*FontChosen, error) {
 	if spec.LogFont != nil {
 		cf.LogFont = spec.LogFont.ForDPI(dpi)
 		cf.Flags |= win32.CF_INITTOLOGFONTSTRUCT
+	} else {
+		cf.LogFont = &win32.LOGFONTW{}
 	}
 	if spec.Color != nil {
 		cf.Color = *spec.Color
