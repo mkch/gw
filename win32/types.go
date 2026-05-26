@@ -33,6 +33,7 @@ type SIZE_T ULONG_PTR
 type SSIZE_T LONG_PTR
 type SHORT int16 // A 16-bit integer.
 type UINT uint32
+type UINT32 uint32
 type ULONG uint32     // An unsigned LONG.
 type ULONGLONG uint64 // A 64-bit unsigned integer.
 type USHORT uint16
