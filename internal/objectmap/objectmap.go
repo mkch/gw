@@ -18,7 +18,7 @@ func New[V any](minHandle Handle, maxHandle Handle) *ObjectMap[V] {
 	if maxHandle < minHandle {
 		panic("invalid parameters")
 	}
-	return &ObjectMap[V]{maxHandle: maxHandle, m: make(map[Handle]V)}
+	return &ObjectMap[V]{minHandle: minHandle, maxHandle: maxHandle, m: make(map[Handle]V)}
 }
 
 func (m *ObjectMap[V]) Add(value V) Handle {
