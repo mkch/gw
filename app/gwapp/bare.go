@@ -66,15 +66,17 @@ type BareApp struct {
 	msgRetListeners   map[MessageRetListenerKey]MessageRetListener
 	menuMap           map[win32.HMENU]unsafe.Pointer       // unsafe.Pointer is [*github.com/mkch/gw/menu.Menu]
 	menuItemMap       *objectmap.ObjectMap[unsafe.Pointer] // unsafe.Pointer is [*github.com/mkch/gw/menu.MenuItem]
+	cleanup           func()                               // called before the app is destroyed, can be nil.
 }
 
 // NewBare creates a [BareApp] that do not manage the message loop.
+// The cleanup function will be called when the application is about to exit, it can be nil if no cleanup is needed.
 // The external initialization code must call NewBare in the main thread that runs the message loop.
-func NewBare() (app *BareApp) {
-	return newBare(true)
+func NewBare(cleanup func()) (app *BareApp) {
+	return newBare(true, cleanup)
 }
 
-func newBare(hookGetMsg bool) (app *BareApp) {
+func newBare(hookGetMsg bool, cleanup func()) (app *BareApp) {
 	if threadLocalApp() != nil {
 		panic("app already exists in this thread")
 	}
@@ -85,6 +87,7 @@ func newBare(hookGetMsg bool) (app *BareApp) {
 		msgRetListeners:   make(map[MessageRetListenerKey]MessageRetListener),
 		menuMap:           make(map[win32.HMENU]unsafe.Pointer),
 		menuItemMap:       objectmap.New[unsafe.Pointer](internal.MinMenuItemID, internal.MaxMenuItemID),
+		cleanup:           cleanup,
 	}
 
 	// Prepare postMap
@@ -101,6 +104,9 @@ func newBare(hookGetMsg bool) (app *BareApp) {
 				msg := (*win32.MSG)(unsafe.Add(nil, lParam))
 				switch msg.Message {
 				case win32.WM_QUIT:
+					if app.cleanup != nil {
+						app.cleanup()
+					}
 					app.destroy() // Destroy the app when the message loop is about to exit.
 				case appmsg.POST:
 					// Handle posted functions

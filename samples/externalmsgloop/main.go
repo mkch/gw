@@ -25,7 +25,7 @@ func main() {
 	const TickerDuration = time.Millisecond * 100
 	ticker := time.NewTicker(TickerDuration)
 
-	app = gwapp.NewBare()
+	app = gwapp.NewBare(nil)
 
 	mainWindow := gg.Must(window.New(&window.Spec{
 		Text:      "Hello, World!",

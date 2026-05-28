@@ -28,7 +28,7 @@ func Show(parent C.HWND) {
 	const TickerDuration = time.Millisecond * 100
 	ticker = time.NewTicker(TickerDuration)
 
-	app = gwapp.NewBare()
+	app = gwapp.NewBare(nil)
 
 	mainWindow := chkerr.Must(window.New(&window.Spec{
 		WndParent: win32.HWND(unsafe.Pointer(parent)),

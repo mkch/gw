@@ -1,12 +1,12 @@
 // Package app initializes application and message loop in main goroutine.
 // Running gw in main goroutine involves importing this package and calling [Run] in main function.
-// This package creates a [GwApp] in initialization and the functions in this package operate on that [GwApp].
+// This package creates a [GwApp] in initialization with gwapp.New(nil) and the functions in this package operate on that [GwApp].
 // See [gwapp] for details of application creation in other scenarios.
 package app
 
 import "github.com/mkch/gw/app/gwapp"
 
-var app *gwapp.GwApp = gwapp.New()
+var app *gwapp.GwApp = gwapp.New(nil)
 
 // Run runs the message loop.
 func Run() int {

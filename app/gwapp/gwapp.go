@@ -18,14 +18,18 @@ type app BareApp // Avoid exposing that a [GwApp] is actually an [BaseApp].
 type GwApp app
 
 // New creates a GwApp and do application initialization.
-func New() *GwApp {
+// The cleanup function will be called when the application is about to exit, it can be nil if no cleanup is needed.
+func New(cleanup func()) *GwApp {
 	runtime.LockOSThread()
-	return (*GwApp)(newBare(false))
+	return (*GwApp)(newBare(false, cleanup))
 }
 
 // Run runs the message loop.
 func (app *GwApp) Run() int {
 	defer func() {
+		if app.cleanup != nil {
+			app.cleanup()
+		}
 		(*BareApp)(app).destroy()
 		runtime.UnlockOSThread()
 	}()
