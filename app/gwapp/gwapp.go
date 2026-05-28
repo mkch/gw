@@ -29,10 +29,6 @@ func New() *GwApp {
 // This function does not return until the message loop exits.
 // To exit the message loop, call [GwApp.Quit].
 func (app *GwApp) Run() int {
-	defer func() {
-		(*BareApp)(app).Destroy()
-		runtime.UnlockOSThread()
-	}()
 	var msg win32.MSG
 	for {
 		r := win32.GetMessageW(&msg, 0, 0, 0)
@@ -82,4 +78,5 @@ func (app *GwApp) Quit(exitCode int) {
 // operation should be performed after that.
 func (app *GwApp) Destroy() {
 	(*BareApp)(app).Destroy()
+	runtime.UnlockOSThread()
 }
