@@ -29,7 +29,9 @@ func LookupWindowBase(hwnd win32.HWND) *WindowBase {
 }
 
 var wndProc = windows.NewCallback(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) (result win32.LRESULT) {
-	return LookupWindowBase(hwnd).realWndProc(hwnd, message, wParam, lParam)
+	result = LookupWindowBase(hwnd).realWndProc(hwnd, message, wParam, lParam)
+	app.CallMsgRetListeners(app.ThreadLocalApp(), hwnd, message, wParam, lParam, result)
+	return
 })
 
 type WndProc func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT

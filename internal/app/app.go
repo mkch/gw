@@ -23,3 +23,6 @@ func MenuMap(app *gwapp.BareApp) map[win32.HMENU]unsafe.Pointer
 
 //go:linkname MenuItemMap
 func MenuItemMap(app *gwapp.BareApp) *objectmap.ObjectMap[unsafe.Pointer]
+
+//go:linkname CallMsgRetListeners
+func CallMsgRetListeners(app *gwapp.BareApp, hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT)

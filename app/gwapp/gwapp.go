@@ -20,7 +20,7 @@ type GwApp app
 // New creates a GwApp and do application initialization.
 func New() *GwApp {
 	runtime.LockOSThread()
-	return (*GwApp)(newBase(false))
+	return (*GwApp)(newBare(false))
 }
 
 // Run runs the message loop.
@@ -53,14 +53,12 @@ func (app *GwApp) Run() int {
 // AddMessageRetListener adds a listener that is called after a message is processed in any window procedure.
 // The returned key can be used to remove the listener by calling [RemoveMessageRetListener].
 func (app *GwApp) AddMessageRetListener(listener MessageRetListener) (key MessageRetListenerKey) {
-	key = MessageRetListenerKey{p: &listener}
-	app.msgRetListeners[key] = listener
-	return
+	return (*BareApp)(app).AddMessageRetListener(listener)
 }
 
 // RemoveMessageRetListener removes the listener added by AddMessageRetListener.
 func (app *GwApp) RemoveMessageRetListener(key MessageRetListenerKey) {
-	delete(app.msgRetListeners, key)
+	(*BareApp)(app).RemoveMessageRetListener(key)
 }
 
 // Post put f into the UI message queue, f will run in the UI thread ASAP.

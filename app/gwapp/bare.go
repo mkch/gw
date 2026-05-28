@@ -41,6 +41,11 @@ func app_MenuItemMap(app *BareApp) *objectmap.ObjectMap[unsafe.Pointer] {
 	return app.menuItemMap
 }
 
+//go:linkname app_callMsgRetListeners github.com/mkch/gw/internal/app.CallMsgRetListeners
+func app_callMsgRetListeners(app *BareApp, hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT) {
+	app.callMsgRetListeners(hwnd, message, wParam, lParam, result)
+}
+
 // MessageRetListener is a function type used by [BareApp.AddMessageRetListener] and [GwApp.AddMessageRetListener].
 type MessageRetListener func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT)
 
@@ -57,7 +62,6 @@ type BareApp struct {
 	uiThreadId        win32.DWORD
 	postMap           safeMap
 	getMsgHook        win32.HHOOK
-	callWndProcRet    win32.HHOOK
 	msgPreTranslators map[win32.HWND]func(msg *win32.MSG) bool
 	msgRetListeners   map[MessageRetListenerKey]MessageRetListener
 	menuMap           map[win32.HMENU]unsafe.Pointer       // unsafe.Pointer is [*github.com/mkch/gw/menu.Menu]
@@ -67,10 +71,10 @@ type BareApp struct {
 // NewBare creates a [BareApp] that do not manage the message loop.
 // The external initialization code must call NewBare in the main thread that runs the message loop.
 func NewBare() (app *BareApp) {
-	return newBase(true)
+	return newBare(true)
 }
 
-func newBase(hookGetMsg bool) (app *BareApp) {
+func newBare(hookGetMsg bool) (app *BareApp) {
 	if threadLocalApp() != nil {
 		panic("app already exists in this thread")
 	}
@@ -127,14 +131,6 @@ func newBase(hookGetMsg bool) (app *BareApp) {
 	}
 	app.getMsgHook = gg.Must(win32.SetWindowsHookExW(win32.WH_GETMESSAGE, windows.NewCallback(msgHookProc), 0, app.uiThreadId))
 
-	// Install thread WH_CALLWNDPROCRET hook
-	msgRetHookProc := func(code win32.HookCode, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-		msg := (*win32.CWPRETSTRUCT)(unsafe.Add(nil, lParam))
-		app.callMsgRetListeners(msg.Hwnd, msg.Message, msg.WParam, msg.LParam, msg.Result)
-		return win32.CallNextHookEx(app.callWndProcRet, code, wParam, lParam)
-	}
-	app.callWndProcRet = gg.Must(win32.SetWindowsHookExW(win32.WH_CALLWNDPROCRET, windows.NewCallback(msgRetHookProc), 0, app.uiThreadId))
-
 	gg.MustOK(win32.TlsSetValue(tlsApp, win32.PVOID(unsafe.Pointer(app))))
 	return
 }
@@ -157,7 +153,6 @@ func (app *BareApp) RemoveMessageRetListener(key MessageRetListenerKey) {
 // After calling this function, the app should not be used anymore.
 func (app *BareApp) destroy() {
 	gg.MustOK(win32.UnhookWindowsHookEx(app.getMsgHook))
-	gg.MustOK(win32.UnhookWindowsHookEx(app.callWndProcRet))
 	gg.MustOK(win32.TlsSetValue(tlsApp, nil))
 }
 
