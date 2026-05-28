@@ -20,7 +20,7 @@ import (
 //go:generate rsrc -arch amd64 -ico main.ico -manifest manifest.xml
 //go:generate rsrc -arch 386 -ico main.ico -manifest manifest.xml
 
-var app *gwapp.ExternalApp
+var app *gwapp.BareApp
 var ticker *time.Ticker
 
 //export Show
@@ -28,7 +28,7 @@ func Show(parent C.HWND) {
 	const TickerDuration = time.Millisecond * 100
 	ticker = time.NewTicker(TickerDuration)
 
-	app = gwapp.NewExternal(true)
+	app = gwapp.NewBare()
 
 	mainWindow := chkerr.Must(window.New(&window.Spec{
 		WndParent: win32.HWND(unsafe.Pointer(parent)),

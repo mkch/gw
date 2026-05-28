@@ -2,12 +2,12 @@ package dialog
 
 import (
 	"errors"
-	"math"
+	"runtime"
+	"unsafe"
 
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/button"
 	"github.com/mkch/gw/internal"
-	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
@@ -15,14 +15,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// HWND -> Dialog
-var dialogMap = make(map[win32.HWND]*Dialog)
-
-// Dialog return code -> return value
-var retMap = objectmap.New[any](1, math.MaxUint)
-
-// LPARAM of WM_INITDIALOG
-var dialogParamMap = objectmap.New[*Dialog](1, math.MaxUint)
+var dialogProp = win32util.NewWindowProp[Dialog]("github.com/mkch/gw#DialogProp")
 
 type Dialog struct {
 	window.Window
@@ -32,6 +25,11 @@ type Dialog struct {
 	initSpec    *Spec
 	dlgProc     DlgProc
 	prevDlgProc Proc
+
+	// pinner is used to pin the Dialog struct when it is passed to DialogBoxIndirectParamW as lParam,
+	// and dialog result in [Dialog.End].
+	// It is Unpinned after [Modal] returns.
+	pinner runtime.Pinner
 }
 
 type Spec struct {
@@ -54,21 +52,22 @@ var dlgProc = windows.NewCallback(func(hwnd win32.HWND, msg win32.UINT, wParam w
 	switch msg {
 	case win32.WM_INITDIALOG:
 		// Find the *Dialog set in lParam
-		dialog, _ := dialogParamMap.Value(objectmap.Handle(lParam))
+		dialog := (*Dialog)(unsafe.Add(nil, lParam))
 		if err := window.Attach(hwnd, &dialog.WindowBase); err != nil {
 			panic(err)
 		}
-		// Put dialog in dialogMap for following messages to retrieve.
-		dialogMap[hwnd] = dialog
+		// Put dialog in window property for following messages to retrieve.
+		gg.MustOK(dialogProp.Set(hwnd, dialog))
 		dialog.SetText(dialog.initSpec.Text)
 		dialog.SetMenu(dialog.initSpec.Menu)
 		return dialog.callDlgProc(hwnd, msg, wParam, lParam)
 	case win32.WM_NCDESTROY:
-		r := dialogMap[hwnd].callDlgProc(hwnd, msg, wParam, lParam)
-		delete(dialogMap, hwnd)
+		dialog := dialogProp.Get(hwnd)
+		dialogProp.Set(hwnd, nil)
+		r := dialog.callDlgProc(hwnd, msg, wParam, lParam)
 		return r
 	default:
-		return dialogMap[hwnd].callDlgProc(hwnd, msg, wParam, lParam)
+		return dialogProp.Get(hwnd).callDlgProc(hwnd, msg, wParam, lParam)
 	}
 })
 
@@ -92,7 +91,9 @@ func (d *Dialog) SetDlgProc(dlgProc DlgProc) {
 
 // End ends the dialog and set the result value.
 func (d *Dialog) End(result any) error {
-	return win32.EndDialog(d.HWND(), win32.INT_PTR(retMap.Add(result)))
+	p := &result
+	d.pinner.Pin(p)
+	return win32.EndDialog(d.HWND(), win32.INT_PTR(uintptr(unsafe.Pointer(p))))
 }
 
 // Reposition repositions a top-level dialog box so that it fits within the desktop area.
@@ -196,6 +197,7 @@ func Modal(spec *Spec) (ret any, err error) {
 		OnCancel: spec.OnCancel,
 		initSpec: spec,
 	}
+	defer dialog.pinner.Unpin()
 	dialog.prevDlgProc = func(hwnd win32.HWND, msg win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) bool {
 		switch msg {
 		case win32.WM_INITDIALOG:
@@ -221,13 +223,11 @@ func Modal(spec *Spec) (ret any, err error) {
 	dialog.dlgProc = func(hwnd win32.HWND, msg win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevDlgProc Proc) bool {
 		return prevDlgProc(hwnd, msg, wParam, lParam)
 	}
-	param := dialogParamMap.Add(dialog)
-	defer dialogParamMap.Remove(param)
-	r, err := win32.DialogBoxIndirectParamW(instance, tpl, spec.WndParent, dlgProc, win32.LPARAM(param))
+	dialog.pinner.Pin(dialog)
+	r, err := win32.DialogBoxIndirectParamW(instance, tpl, spec.WndParent, dlgProc, win32.LPARAM(uintptr(unsafe.Pointer(dialog))))
 	if err != nil {
 		return nil, err
 	}
-	ret, _ = retMap.Value(objectmap.Handle(r))
-	retMap.Remove(objectmap.Handle(r))
+	ret = *(*any)(unsafe.Add(nil, r))
 	return
 }

@@ -1,11 +1,15 @@
 package window
 
 import (
+	"errors"
+	"sync"
+
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
+	"golang.org/x/sys/windows"
 )
 
 const defClassName = "github.com/mkch/gw#Window"
@@ -18,7 +22,22 @@ var defClassSpec = win32util.WndClass{
 	Cursor:     gg.Must(win32.LoadImageW_uintptr[win32.HCURSOR](0, uintptr(win32.OCR_NORMAL), win32.IMAGE_CURSOR, 0, 0, win32.LR_DEFAULTSIZE|win32.LR_SHARED)),
 }
 
-var registeredClasses gg.Set[string]
+// classRegistered is a function that returns two functions: setRegistered and registered.
+// setRegistered marks a class name as registered, and registered checks if a class name is marked as registered.
+// The returned functions are concurrency-safe.
+var classRegistered = sync.OnceValues(func() (func(string), func(string) bool) {
+	var lock sync.RWMutex
+	var registeredClasses = make(gg.Set[string])
+	return func(s string) {
+			lock.Lock()
+			defer lock.Unlock()
+			registeredClasses.Add(s)
+		}, func(s string) bool {
+			lock.RLock()
+			defer lock.RUnlock()
+			return registeredClasses.Contains(s)
+		}
+})
 
 type Spec struct {
 	ClassName string // Custom class name. If empty, the default class will be used.
@@ -50,16 +69,14 @@ func New(spec *Spec) (*Window, error) {
 		// Use default class name.
 		className = defClassName
 	}
-	if registeredClasses == nil {
-		registeredClasses = make(gg.Set[string])
-	}
-	if !registeredClasses.Contains(className) {
+	setRegistered, registered := classRegistered()
+	if !registered(className) {
 		cls := new(defClassSpec)
 		cls.ClassName = className
 		if _, err := win32util.RegisterClass(cls); err != nil {
 			return nil, err
 		}
-		registeredClasses.Add(className)
+		setRegistered(className)
 	}
 
 	var visible bool
@@ -166,8 +183,11 @@ func (w *Window) preTranslateMessage(p *win32.MSG) bool {
 	if w.accelKeyTable == 0 {
 		return false
 	}
-	ok, err := win32.TranslateAcceleratorW(w.hwnd, w.accelKeyTable, p)
-	if err != nil {
+	hwnd := w.hwnd
+	ok, err := win32.TranslateAcceleratorW(hwnd, w.accelKeyTable, p)
+	// TranslateAcceleratorW can send WM_COMMAND where the handler may destroy the window,
+	// causing TranslateAcceleratorW returning ERROR_INVALID_WINDOW_HANDLE.
+	if err != nil && !errors.Is(err, windows.ERROR_INVALID_WINDOW_HANDLE) {
 		panic(err)
 	}
 	return ok

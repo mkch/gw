@@ -16,7 +16,7 @@ import (
 //go:generate rsrc -arch amd64 -ico main.ico -manifest manifest.xml
 //go:generate rsrc -arch 386 -ico main.ico -manifest manifest.xml
 
-var app *gwapp.ExternalApp
+var app *gwapp.BareApp
 
 func main() {
 	runtime.LockOSThread()
@@ -25,7 +25,7 @@ func main() {
 	const TickerDuration = time.Millisecond * 100
 	ticker := time.NewTicker(TickerDuration)
 
-	app = gwapp.NewExternal(false)
+	app = gwapp.NewBare()
 
 	mainWindow := gg.Must(window.New(&window.Spec{
 		Text:      "Hello, World!",
@@ -66,9 +66,6 @@ func main() {
 			continue // Messages not associated with a window cannot be dispatched
 		}
 
-		if app.PreTranslateMessage(&msg) {
-			continue
-		}
 		win32.TranslateMessage(&msg)
 		win32.DispatchMessageW(&msg)
 	}

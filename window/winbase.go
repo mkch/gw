@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gw/internal/app"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -19,59 +20,16 @@ var CW_USEDEFAULT = metrics.Px(win32.CW_USEDEFAULT)
 
 type msgProc func(msg *win32.MSG) bool
 
-var msgPreTranslatorMap = make(map[win32.HWND]msgProc)
-
-func PreTranslateMessage(msg *win32.MSG) bool {
-	if p := msgPreTranslatorMap[msg.Hwnd]; p != nil {
-		if translated := p(msg); translated {
-			return true
-		}
-	}
-	if p := msgPreTranslatorMap[win32.GetActiveWindow()]; p != nil {
-		return p(msg)
-	}
-	return false
-}
+var winBaseProp = win32util.NewWindowProp[WindowBase]("github.com/mkch/gw#WinBaseProp")
 
 // LookupWindowBase looks up the WindowBase associated with hwnd.
 // It returns nil if not found.
 func LookupWindowBase(hwnd win32.HWND) *WindowBase {
-	return windowBaseMap[hwnd]
-}
-
-var windowBaseMap = make(map[win32.HWND]*WindowBase)
-
-type MessageRetListener func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT)
-
-type MessageRetListenerKey struct{ p *MessageRetListener }
-
-var messageRetListeners map[MessageRetListenerKey]MessageRetListener
-
-// AddMessageRetListener adds a listener that is called after a message is processed in any window procedure.
-// The returned [MessageRetListenerKey] can be used to remove the listener by calling [RemoveMessageRetListener].
-func AddMessageRetListener(listener MessageRetListener) MessageRetListenerKey {
-	if listener == nil {
-		panic("nil listener")
-	}
-	if messageRetListeners == nil {
-		messageRetListeners = make(map[MessageRetListenerKey]MessageRetListener)
-	}
-	key := MessageRetListenerKey{p: &listener}
-	messageRetListeners[key] = listener
-	return key
-}
-
-// RemoveMessageRetListener removes the listener added by AddMessageRetListener.
-func RemoveMessageRetListener(key MessageRetListenerKey) {
-	delete(messageRetListeners, key)
+	return winBaseProp.Get(hwnd)
 }
 
 var wndProc = windows.NewCallback(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) (result win32.LRESULT) {
-	result = windowBaseMap[hwnd].realWndProc(hwnd, message, wParam, lParam)
-	for _, listener := range messageRetListeners {
-		listener(hwnd, message, wParam, lParam, result)
-	}
-	return
+	return LookupWindowBase(hwnd).realWndProc(hwnd, message, wParam, lParam)
 })
 
 type WndProc func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT
@@ -117,9 +75,10 @@ func (w *WindowBase) Destroy() error {
 // A nil p removes the pre-translator.
 func (w *WindowBase) setMsgPreTranslator(p msgProc) {
 	if p == nil {
-		delete(msgPreTranslatorMap, w.hwnd)
+		app.RemoveMsgPreTranslator(app.ThreadLocalApp(), w.hwnd)
+	} else {
+		app.AddMsgPreTranslator(app.ThreadLocalApp(), w.hwnd, p)
 	}
-	msgPreTranslatorMap[w.hwnd] = p
 }
 
 // SetWndProc sets the window procedure of w.
@@ -181,15 +140,15 @@ func (w *WindowBase) realWndProc(hwnd win32.HWND, message win32.UINT, wParam win
 			win32.SetMenu(w.hwnd, 0)
 			// Manually destroy the menu to avoid resource leak in menuMap.
 			w.menu.Destroy()
-			w.hwnd = 0
 		}
-	case win32.WM_NCDESTROY:
+		w.setMsgPreTranslator(nil)
 		if w.accelKeyTable != 0 {
 			win32.DestroyAcceleratorTable(w.accelKeyTable)
 			w.accelKeyTable = 0
 		}
-		delete(windowBaseMap, hwnd)
-		delete(msgPreTranslatorMap, hwnd)
+	case win32.WM_NCDESTROY:
+		winBaseProp.Set(hwnd, nil)
+		w.hwnd = 0
 	}
 	return w.wndProc(hwnd, message, wParam, lParam, w.prevWndProc)
 }
@@ -205,6 +164,7 @@ func (w *Window) setMenu(menu *menu.Menu) error {
 	if w.menu != nil {
 		w.menu.OnAccelKeyChanged = nil
 	}
+	hasOldMenu := w.menu != nil
 	w.menu = menu
 	if w.menu != nil {
 		var err error
@@ -222,7 +182,9 @@ func (w *Window) setMenu(menu *menu.Menu) error {
 		}
 		w.setMsgPreTranslator(w.preTranslateMessage)
 	} else {
-		w.setMsgPreTranslator(nil)
+		if hasOldMenu {
+			w.setMsgPreTranslator(nil)
+		}
 		w.menuAccel = nil
 	}
 
@@ -354,12 +316,8 @@ func (w *WindowBase) InvalidateRect(rect *win32.RECT, eraseBk bool) error {
 // is already attached.
 var ErrAlreadyAttached = errors.New("already attached")
 
-func Query(hwnd win32.HWND) *WindowBase {
-	return windowBaseMap[hwnd]
-}
-
 func Attach(hwnd win32.HWND, window *WindowBase) error {
-	if Query(hwnd) != nil {
+	if LookupWindowBase(hwnd) != nil {
 		return ErrAlreadyAttached
 	}
 	if proc, err := win32.GetWindowLongPtrW(hwnd, win32.GWLP_WNDPROC); err != nil {
@@ -371,7 +329,7 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 	if oldProc, err := win32.SetWindowLongPtrW(hwnd, win32.GWLP_WNDPROC, win32.LONG_PTR(wndProc)); err != nil {
 		return err
 	} else {
-		windowBaseMap[hwnd] = window
+		winBaseProp.Set(hwnd, window)
 		window.nativeWndProc = uintptr(oldProc)
 		window.prevWndProc = func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 			if window.msgListeners != nil {
@@ -392,6 +350,7 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 				} else {
 					menu.OnWmCommand(win32.LOWORD(wParam))
 				}
+				return 0
 			case win32.WM_LBUTTONUP:
 				if window.OnLButtonUp != nil {
 					window.OnLButtonUp(MouseClickOpt(wParam), int(win32.GET_X_LPARAM(lParam)), int(win32.GET_Y_LPARAM(lParam)))

@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <stdio.h>
 
 #define ID_BTN_SHOW_MESSAGE 1001
 
@@ -13,9 +14,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		case WM_CREATE:
             GW_Show(hwnd);
 			break;
-
 		case WM_DESTROY:
 			PostQuitMessage(0);
+			printf("WM_DESTROY received, exiting message loop.\n");
 			return 0;
 	}
 
@@ -79,6 +80,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		TranslateMessage(&msg);
 		DispatchMessageW(&msg);
 	}
+
+	printf("Message loop exited, performing cleanup.\n");
 
     GW_Cleanup();
     FreeLibrary(hDll);

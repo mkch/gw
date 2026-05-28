@@ -1,6 +1,8 @@
 package panel
 
 import (
+	"sync"
+
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/control"
 	"github.com/mkch/gw/metrics"
@@ -19,7 +21,22 @@ var defClassSpec = win32util.WndClass{
 	Cursor: gg.Must(win32.LoadImageW_uintptr[win32.HCURSOR](0, uintptr(win32.OCR_NORMAL), win32.IMAGE_CURSOR, 0, 0, win32.LR_DEFAULTSIZE|win32.LR_SHARED)),
 }
 
-var registeredClasses gg.Set[string]
+// classRegistered is a function that returns two functions: setRegistered and registered.
+// setRegistered marks a class name as registered, and registered checks if a class name is marked as registered.
+// The returned functions are concurrency-safe.
+var classRegistered = sync.OnceValues(func() (func(string), func(string) bool) {
+	var lock sync.RWMutex
+	var registeredClasses = make(gg.Set[string])
+	return func(s string) {
+			lock.Lock()
+			defer lock.Unlock()
+			registeredClasses.Add(s)
+		}, func(s string) bool {
+			lock.RLock()
+			defer lock.RUnlock()
+			return registeredClasses.Contains(s)
+		}
+})
 
 type Spec struct {
 	ClassName string // Custom class name. If empty, the default class will be used.
@@ -42,16 +59,14 @@ func New(parent win32.HWND, spec *Spec) (*Panel, error) {
 		// Use default class name.
 		className = defClassName
 	}
-	if registeredClasses == nil {
-		registeredClasses = make(gg.Set[string])
-	}
-	if !registeredClasses.Contains(className) {
+	setRegistered, registered := classRegistered()
+	if !registered(className) {
 		cls := new(defClassSpec)
 		cls.ClassName = className
 		if _, err := win32util.RegisterClass(cls); err != nil {
 			return nil, err
 		}
-		registeredClasses.Add(className)
+		setRegistered(className)
 	}
 
 	dpi := gg.Must(win32.GetDpiForWindow(parent))

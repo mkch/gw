@@ -326,18 +326,16 @@ func SetPropW(hwnd HWND, key *WCHAR, data HANDLE) error {
 
 var lzRemovePropW = lzUser32.NewProc("RemovePropW")
 
-func RemovePropW(hwnd HWND, key *WCHAR) (HANDLE, error) {
-	return sysutil.MustNotZero[HANDLE](lzRemovePropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key))))
+func RemovePropW(hwnd HWND, key *WCHAR) HANDLE {
+	r, _, _ := lzRemovePropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key)))
+	return HANDLE(r)
 }
 
 var lzGetPropW = lzUser32.NewProc("GetPropW")
 
-func GetPropW(hwnd HWND, key *WCHAR) (HANDLE, error) {
-	r, _, err := lzGetPropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key)))
-	if r != 0 || sysutil.IsNoError(err) {
-		err = nil
-	}
-	return HANDLE(r), err
+func GetPropW(hwnd HWND, key *WCHAR) HANDLE {
+	r, _, _ := lzGetPropW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(key)))
+	return HANDLE(r)
 }
 
 var lzCallWindowProcW = lzUser32.NewProc("CallWindowProcW")
@@ -1768,6 +1766,14 @@ type CWPRETSTRUCT struct {
 	Message UINT
 	Hwnd    HWND
 }
+type CWPSTRUCT struct {
+	_       structs.HostLayout
+	LResult LRESULT
+	LParam  LPARAM
+	WPparam WPARAM
+	Message UINT
+	Hwnd    HWND
+}
 
 type MOUSEHOOKSTRUCT struct {
 	_           structs.HostLayout
@@ -1794,4 +1800,37 @@ const (
 
 func SetLayeredWindowAttributes(hwnd HWND, crKey COLORREF, bAlpha BYTE, dwFlags LayeredWindowFlag) error {
 	return sysutil.MustTrue(lzSetLayeredWindowAttributes.Call(uintptr(hwnd), uintptr(crKey), uintptr(bAlpha), uintptr(dwFlags)))
+}
+
+var lzTlsAlloc = lzKernel32.NewProc("TlsAlloc")
+
+const TLS_OUT_OF_INDEXES = 0xFFFFFFFF
+
+func TlsAlloc() (DWORD, error) {
+	return sysutil.MustNotEqual[DWORD](TLS_OUT_OF_INDEXES)(lzTlsAlloc.Call())
+}
+
+var lzTlsFree = lzKernel32.NewProc("TlsFree")
+
+func TlsFree(dwTlsIndex DWORD) error {
+	return sysutil.MustTrue(lzTlsFree.Call(uintptr(dwTlsIndex)))
+}
+
+var lzTlsGetValue = lzKernel32.NewProc("TlsGetValue")
+
+func TlsGetValue(dwTlsIndex DWORD) (PVOID, error) {
+	r, _, err := lzTlsGetValue.Call(uintptr(dwTlsIndex))
+	if r == 0 {
+		// Check failure or NULL value.
+		if sysutil.IsNoError(err) {
+			return PVOID(unsafe.Add(nil, r)), nil
+		}
+	}
+	return PVOID(unsafe.Add(nil, r)), nil
+}
+
+var lzTlsSetValue = lzKernel32.NewProc("TlsSetValue")
+
+func TlsSetValue(dwTlsIndex DWORD, lpTlsValue PVOID) error {
+	return sysutil.MustTrue(lzTlsSetValue.Call(uintptr(dwTlsIndex), uintptr(lpTlsValue)))
 }

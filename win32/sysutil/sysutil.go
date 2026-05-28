@@ -15,6 +15,16 @@ func IsNoError(err error) bool {
 	return errors.Is(err, syscall.Errno(0))
 }
 
+// MustNotEqual returns a function f which returns (r1, nil) if r1 is not equal to r, (r1, err) otherwise.
+func MustNotEqual[T constraints.Integer](r T) (f func(r1 uintptr, r2 uintptr, err error) (T, error)) {
+	return func(r1 uintptr, r2 uintptr, err error) (T, error) {
+		if T(r1) != r {
+			return T(r1), nil
+		}
+		return T(r1), err
+	}
+}
+
 // MustZero returns nil if r1 is 0, err otherwise.
 func MustZero(r1 uintptr, r2 uintptr, err error) error {
 	if r1 == 0 {

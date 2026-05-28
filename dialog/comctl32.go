@@ -1,11 +1,12 @@
 package dialog
 
 import (
+	"runtime"
 	"unsafe"
 
-	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/paint/font"
 	"github.com/mkch/gw/win32"
+	"github.com/mkch/gw/win32/win32util"
 	"golang.org/x/sys/windows"
 )
 
@@ -46,14 +47,7 @@ type chooseFontCustomData struct {
 	onApply func(*FontChosen)
 }
 
-var chooseFontCustomDataMap = objectmap.New[*chooseFontCustomData](0, 0xFF)
-
-type chooseFontData struct {
-	*chooseFontCustomData
-	*win32.CHOOSEFONTW
-}
-
-var chooseFontHwndMap = make(map[win32.HWND]*chooseFontData)
+var chooseFontProp = win32util.NewWindowProp[win32.CHOOSEFONTW]("github.com/mkch/gw#ChooseFontProp")
 
 const WM_CHOOSEFONT_GETLOGFONT = (win32.WM_USER + 1)
 
@@ -61,19 +55,17 @@ var hookProc = windows.NewCallback(
 	func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.UINT_PTR {
 		switch message {
 		case win32.WM_INITDIALOG:
-			cf := (*win32.CHOOSEFONTW)(unsafe.Pointer(uintptr(unsafe.Pointer(nil)) + uintptr(lParam)))
-			if customData, ok := chooseFontCustomDataMap.Value(objectmap.Handle(cf.CustomData)); ok {
-				chooseFontHwndMap[hwnd] = &chooseFontData{chooseFontCustomData: customData, CHOOSEFONTW: cf}
-			}
+			cf := (*win32.CHOOSEFONTW)(unsafe.Add(nil, lParam))
+			chooseFontProp.Set(hwnd, cf)
 		case win32.WM_NCDESTROY:
-			delete(chooseFontHwndMap, hwnd)
+			chooseFontProp.Set(hwnd, nil)
 		case win32.WM_COMMAND:
 			id := win32.LOWORD(wParam)
 			if id == 1026 { // What is the const name for 1026??
-				data := chooseFontHwndMap[hwnd]
-				cf := *data.CHOOSEFONTW
+				cf := *chooseFontProp.Get(hwnd)
 				cf.LogFont = &win32.LOGFONTW{}
 				win32.SendMessageW(hwnd, WM_CHOOSEFONT_GETLOGFONT, 0, win32.LPARAM(uintptr(unsafe.Pointer(cf.LogFont))))
+				data := (*chooseFontCustomData)(unsafe.Pointer(uintptr(unsafe.Pointer(nil)) + uintptr(cf.CustomData)))
 				data.onApply(newFontChosen(&cf, data.dpi))
 			}
 		}
@@ -120,9 +112,11 @@ func ChooseFont(spec *ChooseFontSpec) (*FontChosen, error) {
 	if spec.OnApply != nil {
 		cf.Flags |= (win32.CF_APPLY | win32.CF_ENABLEHOOK)
 		cf.Hook = hookProc
-		h := chooseFontCustomDataMap.Add(&chooseFontCustomData{dpi: dpi, onApply: spec.OnApply})
-		defer chooseFontCustomDataMap.Remove(h)
-		cf.CustomData = win32.LPARAM(h)
+		p := &chooseFontCustomData{dpi: dpi, onApply: spec.OnApply}
+		var pinner runtime.Pinner
+		pinner.Pin(p)
+		defer pinner.Unpin()
+		cf.CustomData = win32.LPARAM(uintptr(unsafe.Pointer(p)))
 	}
 
 	if ok, err := win32.ChooseFontW(&cf); err != nil {

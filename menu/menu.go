@@ -11,24 +11,53 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
-	"github.com/mkch/gw/internal"
+	"github.com/mkch/gw/internal/app"
 	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
 )
 
-var itemMap = objectmap.New[*Item](internal.MinMenuItemID, internal.MaxMenuItemID)
+func itemMap_Value(h objectmap.Handle) (*Item, bool) {
+	m := app.MenuItemMap(app.ThreadLocalApp())
+	if p, ok := m.Value(h); ok {
+		return (*Item)(p), true
+	}
+	return nil, false
+}
+
+func itemMap_Add(item *Item) objectmap.Handle {
+	m := app.MenuItemMap(app.ThreadLocalApp())
+	return m.Add(unsafe.Pointer(item))
+}
+
+func itemMap_Remove(h objectmap.Handle) {
+	m := app.MenuItemMap(app.ThreadLocalApp())
+	m.Remove(h)
+}
+
+func menuMap_Value(h win32.HMENU) *Menu {
+	m := app.MenuMap(app.ThreadLocalApp())
+	return (*Menu)(m[h])
+}
+
+func menuMap_Add(menu *Menu) {
+	m := app.MenuMap(app.ThreadLocalApp())
+	m[menu.h] = unsafe.Pointer(menu)
+}
+
+func menuMap_Remove(h win32.HMENU) {
+	m := app.MenuMap(app.ThreadLocalApp())
+	delete(m, h)
+}
 
 // OnWmCommand handles menu commands.
 // Called by the default WndProc of window.
 func OnWmCommand(id win32.WORD) bool {
-	if item, ok := itemMap.Value(objectmap.Handle(id)); ok {
+	if item, ok := itemMap_Value(objectmap.Handle(id)); ok {
 		return item.CallOnClick()
 	}
 	return false
 }
-
-var menuMap = make(map[win32.HMENU]*Menu)
 
 type Menu struct {
 	// OnAccelKeyChanged is called when the accelerator key of any item
@@ -93,7 +122,7 @@ func New(popup bool) *Menu {
 		h:      gg.If(popup, gg.Must(win32.CreatePopupMenu()), gg.Must(win32.CreateMenu())),
 		parent: nil,
 		popup:  popup}
-	menuMap[r.h] = r
+	menuMap_Add(r)
 	return r
 }
 
@@ -121,7 +150,7 @@ func (m *Menu) Item(i int) (*Item, error) {
 	if err := win32.GetMenuItemInfoW(m.h, win32.UINT(i), true, &mii); err != nil {
 		return nil, err
 	}
-	if item, ok := itemMap.Value(objectmap.Handle(mii.ID)); !ok {
+	if item, ok := itemMap_Value(objectmap.Handle(mii.ID)); !ok {
 		panic("no this item")
 	} else {
 		return item, nil
@@ -149,7 +178,7 @@ func (m *Menu) DeleteItem(item *Item) error {
 		return err
 	}
 
-	itemMap.Remove(objectmap.Handle(item.ID()))
+	itemMap_Remove(objectmap.Handle(item.ID()))
 	item.invalidate()
 	return nil
 }
@@ -162,7 +191,7 @@ func (m *Menu) DeleteItemIndex(index int) error {
 	if err := win32.GetMenuItemInfoW(m.h, win32.UINT(index), true, &mii); err != nil {
 		return err
 	}
-	item, _ := itemMap.Value(objectmap.Handle(mii.ID))
+	item, _ := itemMap_Value(objectmap.Handle(mii.ID))
 	return m.DeleteItem(item)
 }
 
@@ -186,7 +215,7 @@ func (m *Menu) Destroy() error {
 	if err := win32.DestroyMenu(m.h); err != nil {
 		return err
 	}
-	delete(menuMap, m.h)
+	menuMap_Remove(m.h)
 	m.h = 0
 
 	return nil
@@ -219,10 +248,9 @@ func (m *Menu) InsertItem(indexBefore int, spec *ItemSpec) (*Item, error) {
 	}
 
 	var item = &Item{OnClick: spec.OnClick, title: spec.Title, menu: m}
-	item.id = win32.WORD(itemMap.Add(item))
-	for item.id == win32.IDTIMEOUT {
-		itemMap.Remove(objectmap.Handle(item.id))
-		item.id = win32.WORD(itemMap.Add(item))
+	item.id = win32.WORD(itemMap_Add(item))
+	for item.id == win32.IDTIMEOUT { // Skip win32.IDTIMEOUT because it is used by system.
+		item.id = win32.WORD(itemMap_Add(item))
 	}
 
 	if err = win32.InsertMenuItemW(m.h, win32.UINT(indexBefore), true, &win32.MENUITEMINFOW{
@@ -468,7 +496,7 @@ func (item *Item) Submenu() (*Menu, error) {
 	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
 		return nil, err
 	}
-	return menuMap[mii.SubMenu], nil
+	return menuMap_Value(mii.SubMenu), nil
 }
 
 func (item *Item) SetSubmenu(menu *Menu) error {

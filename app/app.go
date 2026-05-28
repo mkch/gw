@@ -1,5 +1,7 @@
-// Package app implements application initialization and message loop that
-// can be used in main goroutine only.
+// Package app initializes application and message loop in main goroutine.
+// Running gw in main goroutine involves importing this package and calling [Run] in main function.
+// This package creates a [GwApp] in initialization and the functions in this package operate on that [GwApp].
+// See [gwapp] for details of application creation in other scenarios.
 package app
 
 import "github.com/mkch/gw/app/gwapp"
@@ -20,4 +22,15 @@ func Post(f func()) error {
 // The exit code will be the return value of Run.
 func Quit(exitCode int) {
 	app.Quit(exitCode)
+}
+
+// AddMessageRetListener adds a listener that is called after a message is processed in any window procedure.
+// The returned key can be used to remove the listener by calling [RemoveMessageRetListener].
+func AddMessageRetListener(listener gwapp.MessageRetListener) (key gwapp.MessageRetListenerKey) {
+	return app.AddMessageRetListener(listener)
+}
+
+// RemoveMessageRetListener removes the listener added by AddMessageRetListener.
+func RemoveMessageRetListener(key gwapp.MessageRetListenerKey) {
+	app.RemoveMessageRetListener(key)
 }
