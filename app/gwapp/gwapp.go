@@ -18,6 +18,8 @@ type app BareApp // Avoid exposing that a [GwApp] is actually an [BaseApp].
 type GwApp app
 
 // New creates a GwApp and do application initialization.
+// The returned app should be destroyed by calling [GwApp.Destroy] after use.
+// No gw operation should be performed after the app is destroyed.
 func New() *GwApp {
 	runtime.LockOSThread()
 	return (*GwApp)(newBare(false))
