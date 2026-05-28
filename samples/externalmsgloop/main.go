@@ -25,7 +25,7 @@ func main() {
 	const TickerDuration = time.Millisecond * 100
 	ticker := time.NewTicker(TickerDuration)
 
-	app = gwapp.NewBare(nil)
+	app = gwapp.NewBare()
 
 	mainWindow := gg.Must(window.New(&window.Spec{
 		Text:      "Hello, World!",
@@ -70,5 +70,6 @@ func main() {
 		win32.DispatchMessageW(&msg)
 	}
 	ticker.Stop()
+	app.Destroy()
 	os.Exit(int(msg.WParam))
 }

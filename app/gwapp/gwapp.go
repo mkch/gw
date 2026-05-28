@@ -18,19 +18,17 @@ type app BareApp // Avoid exposing that a [GwApp] is actually an [BaseApp].
 type GwApp app
 
 // New creates a GwApp and do application initialization.
-// The cleanup function will be called when the application is about to exit, it can be nil if no cleanup is needed.
-func New(cleanup func()) *GwApp {
+func New() *GwApp {
 	runtime.LockOSThread()
-	return (*GwApp)(newBare(false, cleanup))
+	return (*GwApp)(newBare(false))
 }
 
 // Run runs the message loop.
+// This function does not return until the message loop exits.
+// To exit the message loop, call [GwApp.Quit].
 func (app *GwApp) Run() int {
 	defer func() {
-		if app.cleanup != nil {
-			app.cleanup()
-		}
-		(*BareApp)(app).destroy()
+		(*BareApp)(app).Destroy()
 		runtime.UnlockOSThread()
 	}()
 	var msg win32.MSG
@@ -71,7 +69,15 @@ func (app *GwApp) Post(f func()) error {
 }
 
 // Quit calls win32.PostQuitMessage which tells the message loop to exit.
-// The exit code will be the return value of Run.
+// The exit code will be the return value of [GwApp.Run].
 func (app *GwApp) Quit(exitCode int) {
 	(*BareApp)(app).Quit(exitCode)
+}
+
+// Destroy destroys the app for an external message loop.
+// This function must be called in the external message loop before exiting.
+// After calling this function, the app should not be used anymore and no gw
+// operation should be performed after that.
+func (app *GwApp) Destroy() {
+	(*BareApp)(app).Destroy()
 }

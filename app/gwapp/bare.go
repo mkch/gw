@@ -66,17 +66,17 @@ type BareApp struct {
 	msgRetListeners   map[MessageRetListenerKey]MessageRetListener
 	menuMap           map[win32.HMENU]unsafe.Pointer       // unsafe.Pointer is [*github.com/mkch/gw/menu.Menu]
 	menuItemMap       *objectmap.ObjectMap[unsafe.Pointer] // unsafe.Pointer is [*github.com/mkch/gw/menu.MenuItem]
-	cleanup           func()                               // called before the app is destroyed, can be nil.
 }
 
 // NewBare creates a [BareApp] that do not manage the message loop.
-// The cleanup function will be called when the application is about to exit, it can be nil if no cleanup is needed.
-// The external initialization code must call NewBare in the main thread that runs the message loop.
-func NewBare(cleanup func()) (app *BareApp) {
-	return newBare(true, cleanup)
+// The external initialization code must call this function in the main thread that runs the message loop.
+// The returned app should be destroyed by calling [BareApp.Destroy] after the message loop exits and no gw
+// operation should be performed after that.
+func NewBare() (app *BareApp) {
+	return newBare(true)
 }
 
-func newBare(hookGetMsg bool, cleanup func()) (app *BareApp) {
+func newBare(hookGetMsg bool) (app *BareApp) {
 	if threadLocalApp() != nil {
 		panic("app already exists in this thread")
 	}
@@ -87,7 +87,6 @@ func newBare(hookGetMsg bool, cleanup func()) (app *BareApp) {
 		msgRetListeners:   make(map[MessageRetListenerKey]MessageRetListener),
 		menuMap:           make(map[win32.HMENU]unsafe.Pointer),
 		menuItemMap:       objectmap.New[unsafe.Pointer](internal.MinMenuItemID, internal.MaxMenuItemID),
-		cleanup:           cleanup,
 	}
 
 	// Prepare postMap
@@ -103,11 +102,6 @@ func newBare(hookGetMsg bool, cleanup func()) (app *BareApp) {
 			if code >= 0 && win32.PeekMessageFlag(wParam) == win32.PM_REMOVE {
 				msg := (*win32.MSG)(unsafe.Add(nil, lParam))
 				switch msg.Message {
-				case win32.WM_QUIT:
-					if app.cleanup != nil {
-						app.cleanup()
-					}
-					app.destroy() // Destroy the app when the message loop is about to exit.
 				case appmsg.POST:
 					// Handle posted functions
 					app.postMap.Value(objectmap.Handle(msg.WParam))()
@@ -154,12 +148,14 @@ func (app *BareApp) RemoveMessageRetListener(key MessageRetListenerKey) {
 	delete(app.msgRetListeners, key)
 }
 
-// destroy destroys the app for an external message loop.
+// Destroy destroys the app for an external message loop.
 // This function must be called in the external message loop before exiting.
-// After calling this function, the app should not be used anymore.
-func (app *BareApp) destroy() {
+// After calling this function, the app should not be used anymore and no gw
+// function should be called after that.
+func (app *BareApp) Destroy() {
 	gg.MustOK(win32.UnhookWindowsHookEx(app.getMsgHook))
 	gg.MustOK(win32.TlsSetValue(tlsApp, nil))
+	*app = BareApp{} // Clear all fields
 }
 
 // preTranslateMessage should be called in the external message loop before TranslateMessage.
@@ -195,7 +191,7 @@ func (app *BareApp) Post(f func()) error {
 }
 
 // Quit calls win32.PostQuitMessage which tells the message loop to exit.
-// The exit code will be the return value of Run.
+// The exit code will be the return value of [win32.GetMessage].
 func (app *BareApp) Quit(exitCode int) {
 	win32.PostQuitMessage(exitCode)
 }
