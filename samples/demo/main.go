@@ -1,8 +1,10 @@
 package main
 
 import (
+	"os"
 	"time"
 
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/button"
 	"github.com/mkch/gw/menu"
@@ -41,7 +43,7 @@ func createMenu(ticker *time.Ticker, tickerStopped *bool) *menu.Menu {
 	return m
 }
 
-func main() {
+func ui(app *app.App) {
 	ticker := time.NewTicker(TickerDuration)
 	tickerStopped := false
 
@@ -82,5 +84,8 @@ func main() {
 			app.Post(func() { timeStatic.SetText(str) })
 		}
 	}()
-	app.Run()
+}
+
+func main() {
+	os.Exit(gw.Run(ui, nil))
 }

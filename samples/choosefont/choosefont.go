@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
+
 	"github.com/mkch/gg"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/dialog"
 	"github.com/mkch/gw/menu"
@@ -16,7 +19,10 @@ import (
 //go:generate rsrc -arch amd64 -manifest manifest.xml
 //go:generate rsrc -arch 386 -manifest manifest.xml
 
-func main() {
+var lf *font.LogFont
+var textFont *font.Font
+
+func ui(app *app.App) {
 	win := gg.Must(window.New(&window.Spec{
 		Text:      "Test font",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
@@ -27,8 +33,8 @@ func main() {
 	}))
 
 	dpi := gg.Must(win.DPI())
-	lf := font.SysDefault()
-	textFont := gg.Must(font.New(lf, dpi))
+	lf = font.SysDefault()
+	textFont = gg.Must(font.New(lf, dpi))
 	var textColor win32.COLORREF
 
 	win.AddMsgListener(win32.WM_SIZE, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
@@ -92,6 +98,15 @@ func main() {
 	})
 
 	win.Show(win32.SW_SHOW)
-	app.Run()
-	textFont.Release()
+}
+
+func cleanup(app *app.App) {
+	if textFont != nil {
+		textFont.Release()
+	}
+}
+
+func main() {
+	ret := gw.Run(ui, cleanup)
+	os.Exit(ret)
 }

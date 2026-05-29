@@ -9,7 +9,7 @@ import (
 
 	"github.com/mkch/gg"
 	"github.com/mkch/gg/errortrace/chkerr"
-	"github.com/mkch/gw/app/gwapp"
+	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/static"
@@ -20,7 +20,7 @@ import (
 //go:generate rsrc -arch amd64 -ico main.ico -manifest manifest.xml
 //go:generate rsrc -arch 386 -ico main.ico -manifest manifest.xml
 
-var app *gwapp.BareApp
+var gwapp *app.BareApp
 var ticker *time.Ticker
 
 //export Show
@@ -28,7 +28,7 @@ func Show(parent C.HWND) {
 	const TickerDuration = time.Millisecond * 100
 	ticker = time.NewTicker(TickerDuration)
 
-	app = gwapp.NewBare()
+	gwapp = app.NewBare()
 
 	mainWindow := chkerr.Must(window.New(&window.Spec{
 		WndParent: win32.HWND(unsafe.Pointer(parent)),
@@ -67,7 +67,7 @@ func Show(parent C.HWND) {
 		for t := range ticker.C {
 			str := t.Local().Format("15:04:05")
 			// Run SetText() in UI goroutine.
-			app.Post(func() { timeStatic.SetText(str) })
+			gwapp.Post(func() { timeStatic.SetText(str) })
 		}
 	}()
 }
@@ -75,7 +75,7 @@ func Show(parent C.HWND) {
 //export Cleanup
 func Cleanup() {
 	ticker.Stop()
-	app.Destroy()
+	gwapp.Destroy()
 }
 
 func main() {}

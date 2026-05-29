@@ -1,4 +1,4 @@
-package gwapp
+package app
 
 import (
 	"math"
@@ -46,11 +46,11 @@ func app_callMsgRetListeners(app *BareApp, hwnd win32.HWND, message win32.UINT, 
 	app.callMsgRetListeners(hwnd, message, wParam, lParam, result)
 }
 
-// MessageRetListener is a function type used by [BareApp.AddMessageRetListener] and [GwApp.AddMessageRetListener].
+// MessageRetListener is a function type used by [BareApp.AddMessageRetListener] and [App.AddMessageRetListener].
 type MessageRetListener func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT)
 
-// MessageRetListenerKey is the key for a listener added by [BareApp.AddMessageRetListener]  and [GwApp.AddMessageRetListener].
-// It can be used to remove the listener by calling [BareApp.RemoveMessageRetListener] and [GwApp.RemoveMessageRetListener].
+// MessageRetListenerKey is the key for a listener added by [BareApp.AddMessageRetListener]  and [App.AddMessageRetListener].
+// It can be used to remove the listener by calling [BareApp.RemoveMessageRetListener] and [App.RemoveMessageRetListener].
 type MessageRetListenerKey struct{ p *MessageRetListener }
 
 // BareApp is the application for external message loop.

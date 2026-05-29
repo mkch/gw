@@ -1,9 +1,11 @@
 package main
 
 import (
+	"os"
 	"strconv"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -19,7 +21,10 @@ import (
 //go:generate rsrc -arch 386 -manifest manifest.xml
 
 func main() {
+	os.Exit(gw.Run(ui, nil))
+}
 
+func ui(app *app.App) {
 	bkWin := gg.Must(window.New(&window.Spec{
 		Text:      "Full screen",
 		Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,

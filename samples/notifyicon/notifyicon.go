@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"unsafe"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -17,6 +19,10 @@ import (
 //go:generate rsrc -arch 386 -manifest manifest.xml -ico main.ico
 
 func main() {
+	os.Exit(gw.Run(ui, nil))
+}
+
+func ui(app *app.App) {
 	win := gg.Must(window.New(&window.Spec{
 		Text:      "Test Notify Icon",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
@@ -120,6 +126,4 @@ func main() {
 			}
 		},
 	}))
-
-	app.Run()
 }

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"os"
 	"time"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
@@ -18,6 +20,18 @@ import (
 //go:generate rsrc -arch 386 -manifest manifest.xml
 
 func main() {
+	os.Exit(gw.Run(ui, cleanup))
+}
+
+var winBkBrush *brush.Brush
+
+func cleanup(app *app.App) {
+	if winBkBrush != nil {
+		winBkBrush.Release()
+	}
+}
+
+func ui(app *app.App) {
 	win := gg.Must(window.New(&window.Spec{
 		Text:  "Panel demo",
 		Style: win32.WS_OVERLAPPEDWINDOW,
@@ -25,12 +39,11 @@ func main() {
 		Width: metrics.Dip(500), Height: metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
 	}))
-	winBkBrush := gg.Must(brush.New(&win32.LOGBRUSH{
+	winBkBrush = gg.Must(brush.New(&win32.LOGBRUSH{
 		Style: win32.BS_HATCHED,
 		Color: win32.RGB(255, 0, 0),
 		Hatch: win32.HS_DIAGCROSS,
 	}))
-	defer winBkBrush.Release()
 	win.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
 		rect := gg.Must(win.GetClientRect())
 		win32.FillRect(paintData.DC, rect, winBkBrush.HBRUSH())
@@ -62,5 +75,4 @@ func main() {
 	}()
 
 	win.Show(win32.SW_SHOW)
-	app.Run()
 }

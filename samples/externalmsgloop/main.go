@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/mkch/gg"
-	"github.com/mkch/gw/app/gwapp"
+	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/static"
 	"github.com/mkch/gw/win32"
@@ -16,8 +16,6 @@ import (
 //go:generate rsrc -arch amd64 -ico main.ico -manifest manifest.xml
 //go:generate rsrc -arch 386 -ico main.ico -manifest manifest.xml
 
-var app *gwapp.BareApp
-
 func main() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -25,7 +23,7 @@ func main() {
 	const TickerDuration = time.Millisecond * 100
 	ticker := time.NewTicker(TickerDuration)
 
-	app = gwapp.NewBare()
+	app := app.NewBare()
 
 	mainWindow := gg.Must(window.New(&window.Spec{
 		Text:      "Hello, World!",

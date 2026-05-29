@@ -1,9 +1,11 @@
 package main
 
 import (
+	"os"
 	"time"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
@@ -17,6 +19,10 @@ import (
 //go:generate rsrc -arch 386 -manifest manifest.xml
 
 func main() {
+	os.Exit(gw.Run(ui, nil))
+}
+
+func ui(app *app.App) {
 	win := gg.Must(window.New(&window.Spec{
 		Text:  "Static demo",
 		Style: win32.WS_OVERLAPPEDWINDOW,

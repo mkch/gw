@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/panel"
@@ -16,6 +18,10 @@ import (
 //go:generate rsrc -arch 386 -ico main.ico -manifest manifest.xml
 
 func main() {
+	os.Exit(gw.Run(ui, nil))
+}
+
+func ui(app *app.App) {
 	win := gg.Must(window.New(&window.Spec{
 		Text:  "Default Class Window",
 		Style: win32.WS_OVERLAPPEDWINDOW,
@@ -65,6 +71,4 @@ func main() {
 	}
 
 	win2.Show(win32.SW_SHOW)
-
-	app.Run()
 }
