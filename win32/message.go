@@ -23,6 +23,7 @@ const (
 	WM_GETICON                 = 0x007F
 	WM_SETICON                 = 0x0080
 	WM_COMMAND                 = 0x0111
+	WM_MENUCOMMAND             = 0x0126
 	WM_MOUSEFIRST              = 0x0200
 	WM_MOUSEMOVE               = 0x0200
 	WM_LBUTTONDOWN             = 0x0201

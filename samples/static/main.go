@@ -23,19 +23,23 @@ func main() {
 }
 
 func ui(app *app.App) {
-	win := gg.Must(window.New(&window.Spec{
-		Text:  "Static demo",
-		Style: win32.WS_OVERLAPPEDWINDOW,
-		X:     metrics.Px(win32.CW_USEDEFAULT),
-		Width: metrics.Dip(500), Height: metrics.Dip(300),
-		OnDestroy: func() { app.Quit(0) },
-	}))
 	winBkBrush := gg.Must(brush.New(&win32.LOGBRUSH{
 		Style: win32.BS_HATCHED,
 		Color: win32.RGB(255, 0, 0),
 		Hatch: win32.HS_DIAGCROSS,
 	}))
-	defer winBkBrush.Release()
+
+	win := gg.Must(window.New(&window.Spec{
+		Text:  "Static demo",
+		Style: win32.WS_OVERLAPPEDWINDOW,
+		X:     metrics.Px(win32.CW_USEDEFAULT),
+		Width: metrics.Dip(500), Height: metrics.Dip(300),
+		OnDestroy: func() {
+			winBkBrush.Release()
+			app.Quit(0)
+		},
+	}))
+
 	win.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
 		rect := gg.Must(win.GetClientRect())
 		win32.FillRect(paintData.DC, rect, winBkBrush.HBRUSH())
@@ -61,5 +65,4 @@ func ui(app *app.App) {
 	}()
 
 	win.Show(win32.SW_SHOW)
-	app.Run()
 }

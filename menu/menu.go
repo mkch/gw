@@ -6,57 +6,87 @@ package menu
 
 import (
 	"errors"
+	"runtime"
+	"slices"
 	"strings"
 	"unicode"
 	"unsafe"
 
 	"github.com/mkch/gg"
-	"github.com/mkch/gw/internal/app"
-	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
 )
 
-func itemMap_Value(h objectmap.Handle) (*Item, bool) {
-	m := app.MenuItemMap(app.ThreadLocalApp())
-	if p, ok := m.Value(h); ok {
-		return (*Item)(p), true
+type menuPinner struct {
+	runtime.Pinner
+	*Menu
+}
+
+// setMenuData sets m as the menu data of h.
+// If m is nil, the menu data of h will be set to nil.
+func setMenuData(h win32.HMENU, m *Menu) error {
+	var oldData win32.ULONG_PTR
+	mi := &win32.MENUINFO{
+		Size: win32.DWORD(unsafe.Sizeof(win32.MENUINFO{})),
+		Mask: win32.MIM_MENUDATA,
 	}
-	return nil, false
-}
-
-func itemMap_Add(item *Item) objectmap.Handle {
-	m := app.MenuItemMap(app.ThreadLocalApp())
-	return m.Add(unsafe.Pointer(item))
-}
-
-func itemMap_Remove(h objectmap.Handle) {
-	m := app.MenuItemMap(app.ThreadLocalApp())
-	m.Remove(h)
-}
-
-func menuMap_Value(h win32.HMENU) *Menu {
-	m := app.MenuMap(app.ThreadLocalApp())
-	return (*Menu)(m[h])
-}
-
-func menuMap_Add(menu *Menu) {
-	m := app.MenuMap(app.ThreadLocalApp())
-	m[menu.h] = unsafe.Pointer(menu)
-}
-
-func menuMap_Remove(h win32.HMENU) {
-	m := app.MenuMap(app.ThreadLocalApp())
-	delete(m, h)
-}
-
-// OnWmCommand handles menu commands.
-// Called by the default WndProc of window.
-func OnWmCommand(id win32.WORD) bool {
-	if item, ok := itemMap_Value(objectmap.Handle(id)); ok {
-		return item.CallOnClick()
+	if err := win32.GetMenuInfo(h, mi); err != nil {
+		return err
 	}
-	return false
+	oldData = mi.MenuData
+
+	var data win32.ULONG_PTR
+	if m != nil {
+		if oldData != 0 {
+			panic("menu already attached")
+		}
+		p := &menuPinner{Menu: m}
+		p.Pin(p)
+		data = win32.ULONG_PTR(unsafe.Pointer(p))
+	} else if oldData != 0 {
+		(*menuPinner)(unsafe.Add(nil, oldData)).Unpin()
+	} else {
+		return nil // No old data and no new data, do nothing.
+	}
+	return win32.SetMenuInfo(h, &win32.MENUINFO{
+		Size:     win32.DWORD(unsafe.Sizeof(win32.MENUINFO{})),
+		Mask:     win32.MIM_MENUDATA,
+		MenuData: data,
+	})
+}
+
+// lookupMenu looks up the Menu associated with h and returns it.
+// Returns nil if no Menu is associated with h.
+func lookupMenu(h win32.HMENU) *Menu {
+	mi := &win32.MENUINFO{
+		Size: win32.DWORD(unsafe.Sizeof(win32.MENUINFO{})),
+		Mask: win32.MIM_MENUDATA,
+	}
+	if err := win32.GetMenuInfo(h, mi); err != nil {
+		return nil
+	}
+	if mi.MenuData == 0 {
+		return nil
+	}
+	return (*menuPinner)(unsafe.Add(nil, mi.MenuData)).Menu
+}
+
+func setMenuNotifyByPos(h win32.HMENU) error {
+	return win32.SetMenuInfo(h, &win32.MENUINFO{
+		Size:  win32.DWORD(unsafe.Sizeof(win32.MENUINFO{})),
+		Mask:  win32.MIM_STYLE,
+		Style: win32.MNS_NOTIFYBYPOS, // To receive WM_MENUCOMMAND.
+	})
+}
+
+// OnWmMenuCommand handles menu commands.
+// Called by the default WndProc of window when handling WM_MENUCOMMAND.
+func OnWmMenuCommand(wParam win32.WPARAM, lParam win32.LPARAM) bool {
+	menu := lookupMenu(win32.HMENU(lParam))
+	if menu == nil {
+		return false
+	}
+	return menu.Item(int(wParam)).CallOnClick()
 }
 
 type Menu struct {
@@ -65,28 +95,36 @@ type Menu struct {
 	OnAccelKeyChanged func() error
 	h                 win32.HMENU
 	parent            *Item
+	items             []*Item
 	popup             bool
 }
 
+// ItemAccel represents an Item and its accelerator key.
+type ItemAccel struct {
+	Item  *Item
+	Accel win32.ACCEL
+}
+
 // AccelKeyTable returns all accelerator keys in this menu and its submenus.
-// The order of ACCEL is unspecified.
-func (m *Menu) AccelKeyTable() ([]win32.ACCEL, error) {
+// The Cmd fields of Accel in returned ItemAccel are all 0. The caller should set Cmd fields
+// before using the returned accelerator tables.
+// The order of returned [ItemAccel] is unspecified.
+func (m *Menu) AccelKeyTable() ([]ItemAccel, error) {
 	count, err := m.ItemCount()
 	if err != nil {
 		return nil, err
 	}
-	var table []win32.ACCEL
+	var table []ItemAccel
 	for i := 0; i < count; i++ {
-		item, err := m.Item(i)
-		if err != nil {
-			return nil, err
-		}
+		item := m.Item(i)
 		k := item.accelKey
 		if k != (AccelKey{}) {
-			table = append(table, win32.ACCEL{
-				Virt: win32.ACCEL_FVIRT(k.Mod),
-				Key:  k.VKeyCode,
-				Cmd:  item.id,
+			table = append(table, ItemAccel{
+				Item: item,
+				Accel: win32.ACCEL{
+					Virt: win32.ACCEL_FVIRT(k.Mod),
+					Key:  k.VKeyCode,
+				},
 			})
 		}
 
@@ -122,7 +160,12 @@ func New(popup bool) *Menu {
 		h:      gg.If(popup, gg.Must(win32.CreatePopupMenu()), gg.Must(win32.CreateMenu())),
 		parent: nil,
 		popup:  popup}
-	menuMap_Add(r)
+	if err := setMenuData(r.h, r); err != nil {
+		panic(err)
+	}
+	if err := setMenuNotifyByPos(r.h); err != nil {
+		panic(err)
+	}
 	return r
 }
 
@@ -142,28 +185,21 @@ func (m *Menu) ItemCount() (int, error) {
 	}
 }
 
-func (m *Menu) Item(i int) (*Item, error) {
-	var mii = win32.MENUITEMINFOW{
-		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
-		Mask: win32.MIIM_ID,
-	}
-	if err := win32.GetMenuItemInfoW(m.h, win32.UINT(i), true, &mii); err != nil {
-		return nil, err
-	}
-	if item, ok := itemMap_Value(objectmap.Handle(mii.ID)); !ok {
-		panic("no this item")
-	} else {
-		return item, nil
-	}
+func (m *Menu) Item(i int) *Item {
+	return m.items[i]
 }
 
-// DeleteItem deletes an Item and it's submenu if any.
-// Use Item.SetSubmenu(nil) before deleting if the submenu
-// is intended to be used later.
-func (m *Menu) DeleteItem(item *Item) error {
-	if item.Menu() != m {
-		return errors.New("invalid item")
+// itemIndex returns the index of item in m.items.
+// If item is not in m.items, a panic will occur.
+func (m *Menu) itemIndex(item *Item) int {
+	i := slices.Index(m.items, item)
+	if i == -1 {
+		panic("invalid menu item")
 	}
+	return i
+}
+
+func (m *Menu) deleteItem(item *Item, index int) error {
 	if submenu, err := item.Submenu(); err != nil {
 		return err
 	} else if submenu != nil {
@@ -174,25 +210,28 @@ func (m *Menu) DeleteItem(item *Item) error {
 			return err
 		}
 	}
-	if err := win32.RemoveMenu(m.h, win32.UINT(item.ID()), win32.MF_BYCOMMAND); err != nil {
+	if err := win32.RemoveMenu(m.h, win32.UINT(index), win32.MF_BYPOSITION); err != nil {
 		return err
 	}
-
-	itemMap_Remove(objectmap.Handle(item.ID()))
-	item.invalidate()
+	m.items = slices.Delete(m.items, index, index+1)
 	return nil
 }
 
+// DeleteItem deletes an item and destroys its submenu if it has one.
+// Use Item.SetSubmenu(nil) before deleting if the submenu
+// is intended to be used later.
+func (m *Menu) DeleteItem(item *Item) error {
+	return m.deleteItem(item, m.itemIndex(item))
+}
+
+var ErrIndexOutOfRange = errors.New("index out of range")
+
+// DeleteItemIndex deletes a menu item from the menu by index.
 func (m *Menu) DeleteItemIndex(index int) error {
-	var mii = win32.MENUITEMINFOW{
-		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
-		Mask: win32.MIIM_ID,
+	if index < 0 || index >= len(m.items) {
+		return ErrIndexOutOfRange
 	}
-	if err := win32.GetMenuItemInfoW(m.h, win32.UINT(index), true, &mii); err != nil {
-		return err
-	}
-	item, _ := itemMap_Value(objectmap.Handle(mii.ID))
-	return m.DeleteItem(item)
+	return m.deleteItem(m.items[index], index)
 }
 
 // Destroy destroys a Menu and releases all resources it uses.
@@ -212,10 +251,12 @@ func (m *Menu) Destroy() error {
 		}
 	}
 
+	if err := setMenuData(m.h, nil); err != nil {
+		return err
+	}
 	if err := win32.DestroyMenu(m.h); err != nil {
 		return err
 	}
-	menuMap_Remove(m.h)
 	m.h = 0
 
 	return nil
@@ -247,23 +288,19 @@ func (m *Menu) InsertItem(indexBefore int, spec *ItemSpec) (*Item, error) {
 		hSubmenu = spec.Submenu.h
 	}
 
-	var item = &Item{OnClick: spec.OnClick, title: spec.Title, menu: m}
-	item.id = win32.WORD(itemMap_Add(item))
-	for item.id == win32.IDTIMEOUT { // Skip win32.IDTIMEOUT because it is used by system.
-		item.id = win32.WORD(itemMap_Add(item))
-	}
-
 	if err = win32.InsertMenuItemW(m.h, win32.UINT(indexBefore), true, &win32.MENUITEMINFOW{
 		Size:     win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 		Mask:     win32.MIIM_ID | win32.MIIM_STATE | win32.MIIM_FTYPE | win32.MIIM_STRING | win32.MIIM_SUBMENU,
 		Type:     win32.UINT(gg.If(spec.Separator, win32.MFT_SEPARATOR, 0)),
 		State:    win32.UINT(gg.If(spec.Checked, win32.MFS_CHECKED, 0) | gg.If(spec.Disabled, win32.MFS_DISABLED, 0)),
-		ID:       win32.UINT(item.ID()),
 		TypeData: &titleBuf[0],
 		SubMenu:  hSubmenu,
 	}); err != nil {
 		return nil, err
 	}
+
+	var item = &Item{separator: spec.Separator, OnClick: spec.OnClick, title: spec.Title, menu: m}
+	m.items = slices.Insert(m.items, indexBefore, item)
 	if spec.Submenu != nil {
 		spec.Submenu.parent = item
 	}
@@ -308,16 +345,18 @@ func (k AccelKey) String() string {
 	if mod := k.Mod.String(); mod != "" {
 		buf = append(buf, mod)
 	}
-	buf = append(buf, string(unicode.ToUpper(rune(k.VKeyCode))))
+	if k.VKeyCode != 0 {
+		buf = append(buf, string(unicode.ToUpper(rune(k.VKeyCode))))
+	}
 	return strings.Join(buf, "+")
 }
 
 type Item struct {
-	OnClick  func()
-	menu     *Menu
-	id       win32.WORD
-	accelKey AccelKey
-	title    string //title without accelerator key
+	separator bool // Whether this item is a separator.
+	OnClick   func()
+	menu      *Menu
+	accelKey  AccelKey
+	title     string //title without accelerator key
 }
 
 func (item *Item) SetAccelKey(accel AccelKey) error {
@@ -345,45 +384,32 @@ func (item *Item) Menu() *Menu {
 	return item.menu
 }
 
-func (item *Item) ID() win32.WORD {
-	return item.id
-}
-
-func (item *Item) invalidate() {
-	item.menu = nil
-	item.id = 0
-}
-
-func (item *Item) Separator() (bool, error) {
-	var mii = win32.MENUITEMINFOW{
-		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
-		Mask: win32.MIIM_FTYPE,
-	}
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
-		return false, err
-	}
-	return mii.Type&win32.MFT_SEPARATOR != 0, nil
+func (item *Item) Separator() bool {
+	return item.separator
 }
 
 // SetSeparator sets whether item is a separator.
 // If SetSeparator(false) is called on a separator item, the
 // item is changed to a disabled string item.
 func (item *Item) SetSeparator(sep bool) error {
-	var mii = win32.MENUITEMINFOW{
+	i := item.menu.itemIndex(item)
+	mii := win32.MENUITEMINFOW{
 		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
-		Mask: win32.MIIM_FTYPE,
 	}
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
+	if sep {
+		mii.Mask = win32.MIIM_FTYPE
+		mii.Type = win32.MFT_SEPARATOR
+	} else {
+		var buf []win32.WCHAR
+		win32util.CString(itemDisplayTitle(item.title, item.accelKey), &buf)
+		mii.Mask = win32.MIIM_FTYPE | win32.MIIM_STRING
+		mii.TypeData = &buf[0]
+	}
+	if err := win32.SetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 		return err
 	}
-	var buf []win32.WCHAR
-	win32util.CString(itemDisplayTitle(item.title, item.accelKey), &buf)
-	if sep {
-		mii.Type |= win32.MFT_SEPARATOR
-	} else {
-		mii.Type &= ^win32.UINT(win32.MFT_SEPARATOR)
-	}
-	return win32.SetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii)
+	item.separator = sep
+	return nil
 }
 
 func (item *Item) CallOnClick() bool {
@@ -400,17 +426,19 @@ func (item *Item) Title() string {
 
 // Title with accelerator key.
 func (item *Item) DisplayTitle() (string, error) {
+	i := item.menu.itemIndex(item)
 	var mii = win32.MENUITEMINFOW{
 		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 		Mask: win32.MIIM_TYPE, // Retrieve Cch.
 	}
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
+	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 		return "", err
 	}
 	var buf = make([]win32.WCHAR, mii.Cch+1)
 	mii.Mask = win32.MIIM_STRING
 	mii.TypeData = &buf[0]
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
+	mii.Cch++ // Include null terminator.
+	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 		return "", err
 	}
 	return win32util.GoString(&buf[0], len(buf)), nil
@@ -421,11 +449,12 @@ func itemDisplayTitle(title string, accelKey AccelKey) string {
 }
 
 func (item *Item) SetTitle(title string) error {
+	i := item.menu.itemIndex(item)
 	item.title = title
 	displayTitle := itemDisplayTitle(item.title, item.accelKey)
 	var buf []win32.WCHAR
 	win32util.CString(displayTitle, &buf)
-	return win32.SetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &win32.MENUITEMINFOW{
+	return win32.SetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &win32.MENUITEMINFOW{
 		Size:     win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 		Mask:     win32.MIIM_STRING,
 		TypeData: &buf[0],
@@ -433,22 +462,24 @@ func (item *Item) SetTitle(title string) error {
 }
 
 func (item *Item) Checked() (bool, error) {
+	i := item.menu.itemIndex(item)
 	var mii = win32.MENUITEMINFOW{
 		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 		Mask: win32.MIIM_STATE,
 	}
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
+	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 		return false, err
 	}
 	return mii.State&win32.MFS_CHECKED != 0, nil
 }
 
 func (item *Item) SetChecked(checked bool) error {
+	i := item.menu.itemIndex(item)
 	var mii = win32.MENUITEMINFOW{
 		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 		Mask: win32.MIIM_STATE,
 	}
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
+	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 		return err
 	}
 	if checked {
@@ -456,15 +487,16 @@ func (item *Item) SetChecked(checked bool) error {
 	} else {
 		mii.State &= ^win32.UINT(win32.MFS_CHECKED)
 	}
-	return win32.SetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii)
+	return win32.SetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii)
 }
 
 func (item *Item) Disabled() (bool, error) {
+	i := item.menu.itemIndex(item)
 	var mii = win32.MENUITEMINFOW{
 		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 		Mask: win32.MIIM_STATE,
 	}
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
+	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 		return false, err
 	}
 	return mii.State&win32.MFS_DISABLED != 0, nil
@@ -473,11 +505,12 @@ func (item *Item) Disabled() (bool, error) {
 // SetDisabled sets the disabled state of item.
 // Has no effect on separators.
 func (item *Item) SetDisabled(disabled bool) error {
+	i := item.menu.itemIndex(item)
 	var mii = win32.MENUITEMINFOW{
 		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 		Mask: win32.MIIM_STATE,
 	}
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
+	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 		return err
 	}
 	if disabled {
@@ -485,21 +518,23 @@ func (item *Item) SetDisabled(disabled bool) error {
 	} else {
 		mii.State &= ^win32.UINT(win32.MFS_DISABLED)
 	}
-	return win32.SetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii)
+	return win32.SetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii)
 }
 
 func (item *Item) Submenu() (*Menu, error) {
+	i := item.menu.itemIndex(item)
 	var mii = win32.MENUITEMINFOW{
 		Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 		Mask: win32.MIIM_SUBMENU,
 	}
-	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &mii); err != nil {
+	if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 		return nil, err
 	}
-	return menuMap_Value(mii.SubMenu), nil
+	return lookupMenu(mii.SubMenu), nil
 }
 
 func (item *Item) SetSubmenu(menu *Menu) error {
+	i := item.menu.itemIndex(item)
 	oldSubmenu, err := item.Submenu()
 	if err != nil {
 		return err
@@ -508,49 +543,38 @@ func (item *Item) SetSubmenu(menu *Menu) error {
 		// Remove the item and insert a new one without the submenu.
 		// SetMenuItemInfoW will destroy the old submenu if it is used
 		// to replace the submenu.
-		count, err := item.menu.ItemCount()
-		if err != nil {
+
+		// Get title string length
+		var mii = win32.MENUITEMINFOW{
+			Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
+			Mask: win32.MIIM_TYPE, // MIIM_TYPE to retrieve Cch
+		}
+		if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 			return err
 		}
-		var index = -1
-		var titleLen win32.UINT
-		for i := 0; i < count; i++ {
-			var mii = win32.MENUITEMINFOW{
-				Size: win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
-				Mask: win32.MIIM_ID | win32.MIIM_TYPE, // MIIM_TYPE to retrieve Cch
-			}
-			if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
-				return err
-			}
-			if mii.ID == win32.UINT(item.id) {
-				index = i
-				titleLen = mii.Cch
-				break
-			}
-		}
-		if index == -1 {
-			panic("no such item") // A item must be in its parent.
-		}
-		var strBuf = make([]win32.WCHAR, titleLen+1)
-		var mii = win32.MENUITEMINFOW{
+
+		// Get old menu item info without submenu
+		var strBuf = make([]win32.WCHAR, mii.Cch+1)
+		mii = win32.MENUITEMINFOW{
 			Size:     win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
-			Mask:     win32.MIIM_BITMAP | win32.MIIM_CHECKMARKS | win32.MIIM_DATA | win32.MIIM_FTYPE | win32.MIIM_ID | win32.MIIM_STATE | win32.MIIM_STRING, // everything except win32.MIIM_SUBMENU
+			Mask:     win32.MIIM_BITMAP | win32.MIIM_CHECKMARKS | win32.MIIM_DATA | win32.MIIM_FTYPE | win32.MIIM_STATE | win32.MIIM_STRING, // everything except win32.MIIM_SUBMENU and win32.MIIM_ID
 			TypeData: &strBuf[0],
 			Cch:      win32.UINT(len(strBuf)),
 		}
-		if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(index), true, &mii); err != nil {
+		if err := win32.GetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 			return err
 		}
-		if err := win32.RemoveMenu(item.menu.h, win32.UINT(index), win32.MF_BYPOSITION); err != nil {
+
+		// Remove the item and insert a new one without the submenu.
+		if err := win32.RemoveMenu(item.menu.h, win32.UINT(i), win32.MF_BYPOSITION); err != nil {
 			return err
 		}
-		mii.Cch = titleLen
-		if err := win32.InsertMenuItemW(item.menu.h, win32.UINT(index), true, &mii); err != nil {
+		if err := win32.InsertMenuItemW(item.menu.h, win32.UINT(i), true, &mii); err != nil {
 			return err
 		}
 	}
 	if menu != nil {
-		if err := win32.SetMenuItemInfoW(item.menu.h, win32.UINT(item.id), false, &win32.MENUITEMINFOW{
+		if err := win32.SetMenuItemInfoW(item.menu.h, win32.UINT(i), true, &win32.MENUITEMINFOW{
 			Size:    win32.UINT(unsafe.Sizeof(win32.MENUITEMINFOW{})),
 			Mask:    win32.MIIM_SUBMENU,
 			SubMenu: menu.h,

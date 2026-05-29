@@ -20,24 +20,25 @@ import (
 //go:generate rsrc -arch 386 -manifest manifest.xml
 
 func main() {
-	os.Exit(gw.Run(ui, cleanup))
-}
-
-var winBkBrush *brush.Brush
-
-func cleanup(app *app.App) {
-	if winBkBrush != nil {
-		winBkBrush.Release()
-	}
+	os.Exit(gw.Run(ui, nil))
 }
 
 func ui(app *app.App) {
+	winBkBrush := gg.Must(brush.New(&win32.LOGBRUSH{
+		Style: win32.BS_HATCHED,
+		Color: win32.RGB(255, 0, 0),
+		Hatch: win32.HS_DIAGCROSS,
+	}))
+
 	win := gg.Must(window.New(&window.Spec{
 		Text:  "Panel demo",
 		Style: win32.WS_OVERLAPPEDWINDOW,
 		X:     metrics.Px(win32.CW_USEDEFAULT),
 		Width: metrics.Dip(500), Height: metrics.Dip(300),
-		OnDestroy: func() { app.Quit(0) },
+		OnDestroy: func() {
+			winBkBrush.Release()
+			app.Quit(0)
+		},
 	}))
 	winBkBrush = gg.Must(brush.New(&win32.LOGBRUSH{
 		Style: win32.BS_HATCHED,

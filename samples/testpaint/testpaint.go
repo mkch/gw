@@ -25,22 +25,26 @@ func main() {
 }
 
 func ui(app *app.App) {
+	linePen := gg.Must(pen.NewCosmetic(win32.PS_SOLID, win32.RGB(255, 0, 0)))
+	var textFont *font.Font
+
 	bkWin := gg.Must(window.New(&window.Spec{
-		Text:      "Full screen",
-		Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
-		X:         metrics.Px(win32.CW_USEDEFAULT),
-		Y:         metrics.Px(win32.INT(win32.SW_SHOWMAXIMIZED)),
-		Width:     metrics.Px(win32.CW_USEDEFAULT),
-		OnDestroy: func() { app.Quit(0) },
+		Text:  "Full screen",
+		Style: win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
+		X:     metrics.Px(win32.CW_USEDEFAULT),
+		Y:     metrics.Px(win32.INT(win32.SW_SHOWMAXIMIZED)),
+		Width: metrics.Px(win32.CW_USEDEFAULT),
+		OnDestroy: func() {
+			linePen.Release()
+			textFont.Release()
+			app.Quit(0)
+		},
 	}))
 
-	linePen := gg.Must(pen.NewCosmetic(win32.PS_SOLID, win32.RGB(255, 0, 0)))
-	defer linePen.Release()
 	dpi := gg.Must(bkWin.DPI())
 	lsf := font.SysDefault().LOGFONTW()
 	lsf.Height = lsf.Height * 2 / 3
-	textFont := gg.Must(font.New(font.NewLogFont(lsf, font.SysDefault().DPI()), dpi))
-	defer textFont.Release()
+	textFont = gg.Must(font.New(font.NewLogFont(lsf, font.SysDefault().DPI()), dpi))
 
 	gridDpi := dpi
 	ctxMenu := menu.New(true)
@@ -116,7 +120,6 @@ func ui(app *app.App) {
 	gg.Must(win32util.MessageBox(bkWin.HWND(), "Use context menu to change display", "Hint", win32.MB_ICONINFORMATION))
 
 	textFontForWin1 := textFont.Clone()
-	defer textFontForWin1.Release()
 
 	win1 := gg.Must(window.New(&window.Spec{
 		WndParent: bkWin.HWND(),
@@ -126,6 +129,7 @@ func ui(app *app.App) {
 		Y:         metrics.Px(win32.INT(win32.SW_SHOWNORMAL)),
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(500),
+		OnDestroy: textFontForWin1.Release,
 	}))
 	win1.OnLButtonDown = func(opt window.MouseClickOpt, x, y int) {
 		gg.Must(win32.SendMessageW(win1.HWND(), win32.WM_NCLBUTTONDOWN, win32.HTCAPTION, 0))
@@ -143,6 +147,4 @@ func ui(app *app.App) {
 		gg.MustOK(textFontForWin1.ChangeDPI(gg.Must(win1.DPI())))
 		win1.InvalidateRect(nil, true)
 	})
-
-	app.Run()
 }

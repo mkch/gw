@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gw/internal"
 	"github.com/mkch/gw/internal/app"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
@@ -50,21 +51,23 @@ func (k MsgListenerKey) Remove() {
 }
 
 type WindowBase struct {
-	OnLButtonUp    func(opt MouseClickOpt, x int, y int)
-	OnLButtonDown  func(opt MouseClickOpt, x int, y int)
-	OnRButtonUp    func(opt MouseClickOpt, x int, y int)
-	OnRButtonDown  func(opt MouseClickOpt, x int, y int)
-	paintCb        *callback.Callback[*paint.PaintData, struct{}]
-	msgListeners   map[win32.UINT]msgListenerMap
-	values         map[any]any
-	hwnd           win32.HWND
-	wndProc        WndProc
-	prevWndProc    win32.WndProc
-	nativeWndProc  uintptr
-	menu           *menu.Menu
-	menuAccel      []win32.ACCEL // Accelerator table of the window menu.
-	popupMenuAccel []win32.ACCEL // Accelerator table of the popup menu(context menu).
-	accelKeyTable  win32.HACCEL
+	OnLButtonUp   func(opt MouseClickOpt, x int, y int)
+	OnLButtonDown func(opt MouseClickOpt, x int, y int)
+	OnRButtonUp   func(opt MouseClickOpt, x int, y int)
+	OnRButtonDown func(opt MouseClickOpt, x int, y int)
+	paintCb       *callback.Callback[*paint.PaintData, struct{}]
+	msgListeners  map[win32.UINT]msgListenerMap
+	values        map[any]any
+	hwnd          win32.HWND
+	wndProc       WndProc
+	prevWndProc   win32.WndProc
+	nativeWndProc uintptr
+	menu          *menu.Menu
+
+	menuAccel          []menu.ItemAccel // Accelerator table of the window menu.
+	popupMenuAccel     []menu.ItemAccel // Accelerator table of the popup menu(context menu).
+	accelKeyTable      win32.HACCEL
+	accelToMenuItemMap map[win32.WORD]*menu.Item // ID of accelerator to the corresponding menu item. Used in WM_COMMAND  handlers to find the menu item of an accelerator command.
 }
 
 func (w *WindowBase) Destroy() error {
@@ -256,18 +259,33 @@ func (w *WindowBase) rebuildAccelTable() error {
 		}
 		w.accelKeyTable = 0
 	}
+	clear(w.accelToMenuItemMap)
 
 	var table []win32.ACCEL
-	table = append(table, w.menuAccel...)
-	table = append(table, w.popupMenuAccel...)
+	id := internal.MinMenuItemID
 
-	if w.menu != nil {
-		mt, err := w.menu.AccelKeyTable()
-		if err != nil {
-			return err
+	// Fill table and w.accelToMenuItemMap from t.
+	// A unique ID is assigned to each accelerator.
+	processMenuItemAccelTable := func(t []menu.ItemAccel) {
+		for _, accel := range t {
+			if id > internal.MaxMenuItemID {
+				panic("out of menu item IDs")
+			}
+			accel.Accel.Cmd = win32.WORD(id)
+			table = append(table, accel.Accel)
+			if w.accelToMenuItemMap == nil {
+				w.accelToMenuItemMap = make(map[win32.WORD]*menu.Item)
+			}
+			w.accelToMenuItemMap[accel.Accel.Cmd] = accel.Item
+			id++
+			if id == win32.IDTIMEOUT {
+				id++
+			}
 		}
-		table = append(table, mt...)
 	}
+	processMenuItemAccelTable(w.menuAccel)
+	processMenuItemAccelTable(w.popupMenuAccel)
+
 	if len(table) > 0 {
 		h, err := win32.CreateAcceleratorTableW(table)
 		if err != nil {
@@ -347,11 +365,18 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 					return ret
 				}
 			case win32.WM_COMMAND:
-				if lParam != 0 {
+				if lParam != 0 { // Control command
 					win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_COMMAND, wParam, lParam)
-				} else {
-					menu.OnWmCommand(win32.LOWORD(wParam))
+				} else { // Menu or accelerator command
+					// Because all the menus are notified by position,
+					// only accelerator commands goes here.
+					if item, ok := window.accelToMenuItemMap[win32.LOWORD(wParam)]; ok {
+						item.OnClick()
+					}
 				}
+				return 0
+			case win32.WM_MENUCOMMAND:
+				menu.OnWmMenuCommand(wParam, lParam)
 				return 0
 			case win32.WM_LBUTTONUP:
 				if window.OnLButtonUp != nil {

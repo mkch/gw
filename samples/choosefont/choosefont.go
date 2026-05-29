@@ -19,10 +19,10 @@ import (
 //go:generate rsrc -arch amd64 -manifest manifest.xml
 //go:generate rsrc -arch 386 -manifest manifest.xml
 
-var lf *font.LogFont
 var textFont *font.Font
 
 func ui(app *app.App) {
+
 	win := gg.Must(window.New(&window.Spec{
 		Text:      "Test font",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
@@ -33,7 +33,7 @@ func ui(app *app.App) {
 	}))
 
 	dpi := gg.Must(win.DPI())
-	lf = font.SysDefault()
+	lf := font.SysDefault()
 	textFont = gg.Must(font.New(lf, dpi))
 	var textColor win32.COLORREF
 

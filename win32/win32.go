@@ -586,6 +586,50 @@ func DrawMenuBar(hwnd HWND) error {
 
 var lzGetMenu = lzUser32.NewProc("GetMenu")
 
+type MenuInfoMask DWORD
+
+const (
+	MIM_APPLYTOSUBMENUS MenuInfoMask = 0x80000000
+	MIM_BACKGROUND      MenuInfoMask = 0x00000002
+	MIM_HELPID          MenuInfoMask = 0x00000004
+	MIM_MAXHEIGHT       MenuInfoMask = 0x00000001
+	MIM_MENUDATA        MenuInfoMask = 0x00000008
+	MIM_STYLE           MenuInfoMask = 0x00000010
+)
+
+type MenuInfoStyle DWORD
+
+const (
+	MNS_AUTODISMISS MenuInfoStyle = 0x10000000
+	MNS_CHECKORBMP  MenuInfoStyle = 0x04000000
+	MNS_DRAGDROP    MenuInfoStyle = 0x20000000
+	MNS_MODELESS    MenuInfoStyle = 0x40000000
+	MNS_NOCHECK     MenuInfoStyle = 0x80000000
+	MNS_NOTIFYBYPOS MenuInfoStyle = 0x08000000
+)
+
+type MENUINFO struct {
+	_             structs.HostLayout
+	Size          DWORD
+	Mask          MenuInfoMask
+	Style         MenuInfoStyle
+	CyMax         UINT
+	HbrBack       HBRUSH
+	ContextHelpID DWORD
+	MenuData      ULONG_PTR
+}
+
+var lzGetMenuInfo = lzUser32.NewProc("GetMenuInfo")
+
+func GetMenuInfo(menu HMENU, mi *MENUINFO) error {
+	return sysutil.MustTrue(lzGetMenuInfo.Call(uintptr(menu), uintptr(unsafe.Pointer(mi))))
+}
+
+var lzSetMenuInfo = lzUser32.NewProc("SetMenuInfo")
+
+func SetMenuInfo(menu HMENU, mi *MENUINFO) error {
+	return sysutil.MustTrue(lzSetMenuInfo.Call(uintptr(menu), uintptr(unsafe.Pointer(mi))))
+}
 func GetMenu(hwnd HWND) (HMENU, error) {
 	return sysutil.MustNotZero[HMENU](lzGetMenu.Call(uintptr(hwnd)))
 }
@@ -633,6 +677,7 @@ const (
 )
 
 type ACCEL struct {
+	structs.HostLayout
 	Virt ACCEL_FVIRT
 	Key  WORD
 	Cmd  WORD

@@ -14,10 +14,10 @@ import "github.com/mkch/gw/app"
 func Run(initUI func(app *app.App), cleanup func(app *app.App)) int {
 	app := app.New()
 	defer app.Destroy()
+	if cleanup != nil {
+		defer cleanup(app)
+	}
 	initUI(app)
 	ret := app.Run()
-	if cleanup != nil {
-		cleanup(app)
-	}
 	return ret
 }

@@ -6,7 +6,6 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
-	"github.com/mkch/gw/internal"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/win32"
@@ -29,16 +28,6 @@ func app_AddMsgPreTranslator(app *BareApp, hwnd win32.HWND, translator func(msg 
 //go:linkname app_RemoveMsgPreTranslator github.com/mkch/gw/internal/app.RemoveMsgPreTranslator
 func app_RemoveMsgPreTranslator(app *BareApp, hwnd win32.HWND) {
 	delete(app.msgPreTranslators, hwnd)
-}
-
-//go:linkname app_MenuMap github.com/mkch/gw/internal/app.MenuMap
-func app_MenuMap(app *BareApp) map[win32.HMENU]unsafe.Pointer {
-	return app.menuMap
-}
-
-//go:linkname app_MenuItemMap github.com/mkch/gw/internal/app.MenuItemMap
-func app_MenuItemMap(app *BareApp) *objectmap.ObjectMap[unsafe.Pointer] {
-	return app.menuItemMap
 }
 
 //go:linkname app_callMsgRetListeners github.com/mkch/gw/internal/app.CallMsgRetListeners
@@ -64,8 +53,6 @@ type BareApp struct {
 	getMsgHook        win32.HHOOK
 	msgPreTranslators map[win32.HWND]func(msg *win32.MSG) bool
 	msgRetListeners   map[MessageRetListenerKey]MessageRetListener
-	menuMap           map[win32.HMENU]unsafe.Pointer       // unsafe.Pointer is [*github.com/mkch/gw/menu.Menu]
-	menuItemMap       *objectmap.ObjectMap[unsafe.Pointer] // unsafe.Pointer is [*github.com/mkch/gw/menu.MenuItem]
 }
 
 // NewBare creates a [BareApp] that do not manage the message loop.
@@ -85,8 +72,6 @@ func newBare(hookGetMsg bool) (app *BareApp) {
 		postMap:           safeMap{ObjectMap: objectmap.New[func()](1, math.MaxUint)},
 		msgPreTranslators: make(map[win32.HWND]func(msg *win32.MSG) bool),
 		msgRetListeners:   make(map[MessageRetListenerKey]MessageRetListener),
-		menuMap:           make(map[win32.HMENU]unsafe.Pointer),
-		menuItemMap:       objectmap.New[unsafe.Pointer](internal.MinMenuItemID, internal.MaxMenuItemID),
 	}
 
 	// Prepare postMap
