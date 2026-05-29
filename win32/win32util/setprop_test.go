@@ -26,12 +26,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func cString(str string) []win32.WCHAR {
-	var buf []win32.WCHAR
-	win32util.CString(str, &buf)
-	return buf
-}
-
 func mustCreateTestWindow(t *testing.T) win32.HWND {
 	t.Helper()
 
