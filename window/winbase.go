@@ -5,7 +5,6 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
-	"github.com/mkch/gw/internal"
 	"github.com/mkch/gw/internal/app"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
@@ -62,28 +61,10 @@ type WindowBase struct {
 	wndProc       WndProc
 	prevWndProc   win32.WndProc
 	nativeWndProc uintptr
-	menu          *menu.Menu
-
-	menuAccel          []menu.ItemAccel // Accelerator table of the window menu.
-	popupMenuAccel     []menu.ItemAccel // Accelerator table of the popup menu(context menu).
-	accelKeyTable      win32.HACCEL
-	accelToMenuItemMap map[win32.WORD]*menu.Item // ID of accelerator to the corresponding menu item. Used in WM_COMMAND  handlers to find the menu item of an accelerator command.
 }
 
 func (w *WindowBase) Destroy() error {
 	return win32.DestroyWindow(w.hwnd)
-}
-
-// setMsgPreTranslator sets a MsgProc to process a message sent to this window
-// before TranslateMessage is called in the message loop.
-// If p returns true, no further processing will be performed.
-// A nil p removes the pre-translator.
-func (w *WindowBase) setMsgPreTranslator(p msgProc) {
-	if p == nil {
-		app.RemoveMsgPreTranslator(app.ThreadLocalApp(), w.hwnd)
-	} else {
-		app.AddMsgPreTranslator(app.ThreadLocalApp(), w.hwnd, p)
-	}
 }
 
 // SetWndProc sets the window procedure of w.
@@ -135,22 +116,6 @@ func (mk MouseClickOpt) XButton2() bool {
 
 func (w *WindowBase) realWndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 	switch message {
-	case win32.WM_DESTROY:
-		if w.menu != nil {
-			// Although the menu is automatically destroyed by the system when the window is destroyed,
-			// the cleanup for menuMap is not called then.
-
-			// Don't do this after WM_DESTROY because SetMenu(0) causes WM_SIZE and related messages
-			// to be sent which may cause problems in event handlers if the window handle is already destroyed.
-			win32.SetMenu(w.hwnd, 0)
-			// Manually destroy the menu to avoid resource leak in menuMap.
-			w.menu.Destroy()
-		}
-		w.setMsgPreTranslator(nil)
-		if w.accelKeyTable != 0 {
-			win32.DestroyAcceleratorTable(w.accelKeyTable)
-			w.accelKeyTable = 0
-		}
 	case win32.WM_NCDESTROY:
 		winBaseProp.Set(hwnd, nil)
 		w.hwnd = 0
@@ -238,62 +203,8 @@ func (w *WindowBase) TrackPopupMenu(menu *menu.Menu, spec *PopupMenuSpec) error 
 	// to win32.TrackPopupMenuEx which results an error of "1446 Popup menu already active".
 	flags |= win32.TPM_RIGHTBUTTON
 
-	if t, err := menu.AccelKeyTable(); err != nil {
-		return err
-	} else {
-		w.popupMenuAccel = t
-		w.rebuildAccelTable()
-		defer func() {
-			w.popupMenuAccel = nil
-			w.rebuildAccelTable()
-		}()
-	}
 	_, err := win32.TrackPopupMenuEx(menu.HMENU(), flags, win32.INT(pt.X), win32.INT(pt.Y), w.HWND(), params)
 	return err
-}
-
-func (w *WindowBase) rebuildAccelTable() error {
-	if w.accelKeyTable != 0 {
-		if err := win32.DestroyAcceleratorTable(w.accelKeyTable); err != nil {
-			return err
-		}
-		w.accelKeyTable = 0
-	}
-	clear(w.accelToMenuItemMap)
-
-	var table []win32.ACCEL
-	id := internal.MinMenuItemID
-
-	// Fill table and w.accelToMenuItemMap from t.
-	// A unique ID is assigned to each accelerator.
-	processMenuItemAccelTable := func(t []menu.ItemAccel) {
-		for _, accel := range t {
-			if id > internal.MaxMenuItemID {
-				panic("out of menu item IDs")
-			}
-			accel.Accel.Cmd = win32.WORD(id)
-			table = append(table, accel.Accel)
-			if w.accelToMenuItemMap == nil {
-				w.accelToMenuItemMap = make(map[win32.WORD]*menu.Item)
-			}
-			w.accelToMenuItemMap[accel.Accel.Cmd] = accel.Item
-			id++
-			if id == win32.IDTIMEOUT {
-				id++
-			}
-		}
-	}
-	processMenuItemAccelTable(w.menuAccel)
-	processMenuItemAccelTable(w.popupMenuAccel)
-
-	if len(table) > 0 {
-		h, err := win32.CreateAcceleratorTableW(table)
-		if err != nil {
-			return err
-		}
-		w.accelKeyTable = h
-	}
-	return nil
 }
 
 func (w *WindowBase) Show(cmd win32.SHOW_WINDOW_CMD) {
@@ -364,20 +275,6 @@ func Attach(hwnd win32.HWND, window *WindowBase) error {
 				if ret, err := win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_CTLCOLORSTATIC, wParam, lParam); err == nil && ret != 0 {
 					return ret
 				}
-			case win32.WM_COMMAND:
-				if lParam != 0 { // Control command
-					win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_COMMAND, wParam, lParam)
-				} else { // Menu or accelerator command
-					// Because all the menus are notified by position,
-					// only accelerator commands goes here.
-					if item, ok := window.accelToMenuItemMap[win32.LOWORD(wParam)]; ok {
-						item.OnClick()
-					}
-				}
-				return 0
-			case win32.WM_MENUCOMMAND:
-				menu.OnWmMenuCommand(wParam, lParam)
-				return 0
 			case win32.WM_LBUTTONUP:
 				if window.OnLButtonUp != nil {
 					window.OnLButtonUp(MouseClickOpt(wParam), int(win32.GET_X_LPARAM(lParam)), int(win32.GET_Y_LPARAM(lParam)))

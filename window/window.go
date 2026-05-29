@@ -5,6 +5,9 @@ import (
 	"sync"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gw/internal"
+	"github.com/mkch/gw/internal/app"
+	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
@@ -61,6 +64,13 @@ type Window struct {
 	OnCreate  func()
 	OnClose   func() bool
 	OnDestroy func()
+
+	menu *menu.Menu
+
+	menuAccel          []menu.ItemAccel // Accelerator table of the window menu.
+	popupMenuAccel     []menu.ItemAccel // Accelerator table of the popup menu(context menu).
+	accelKeyTable      win32.HACCEL
+	accelToMenuItemMap map[win32.WORD]*menu.Item // ID of accelerator to the corresponding menu item. Used in WM_COMMAND  handlers to find the menu item of an accelerator command.
 }
 
 func New(spec *Spec) (*Window, error) {
@@ -156,6 +166,20 @@ func New(spec *Spec) (*Window, error) {
 
 	win.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {
 		switch message {
+		case win32.WM_COMMAND:
+			if lParam != 0 { // Control command
+				win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_COMMAND, wParam, lParam)
+			} else { // Menu or accelerator command
+				// Because all the menus are notified by position,
+				// only accelerator commands goes here.
+				if item, ok := win.accelToMenuItemMap[win32.LOWORD(wParam)]; ok {
+					item.OnClick()
+				}
+			}
+			return 0
+		case win32.WM_MENUCOMMAND:
+			menu.OnWmMenuCommand(wParam, lParam)
+			return 0
 		case win32.WM_CLOSE:
 			if win.OnClose != nil {
 				if !win.OnClose() {
@@ -163,6 +187,22 @@ func New(spec *Spec) (*Window, error) {
 				}
 			}
 		case win32.WM_DESTROY:
+			win.setMsgPreTranslator(nil)
+			if win.menu != nil {
+				// Although the menu is automatically destroyed by the system when the window is destroyed,
+				// the cleanup for menuMap is not called then.
+
+				// Don't do this after WM_DESTROY because SetMenu(0) causes WM_SIZE and related messages
+				// to be sent which may cause problems in event handlers if the window handle is already destroyed.
+				win32.SetMenu(win.hwnd, 0)
+				// Manually destroy the menu to avoid resource leak in menuMap.
+				win.menu.Destroy()
+			}
+			if win.accelKeyTable != 0 {
+				win32.DestroyAcceleratorTable(win.accelKeyTable)
+				win.accelKeyTable = 0
+			}
+
 			if win.OnDestroy != nil {
 				win.OnDestroy()
 			}
@@ -173,6 +213,62 @@ func New(spec *Spec) (*Window, error) {
 		win.SetMenu(spec.Menu)
 	}
 	return win, nil
+}
+
+func (w *Window) rebuildAccelTable() error {
+	if w.accelKeyTable != 0 {
+		if err := win32.DestroyAcceleratorTable(w.accelKeyTable); err != nil {
+			return err
+		}
+		w.accelKeyTable = 0
+	}
+	clear(w.accelToMenuItemMap)
+
+	var table []win32.ACCEL
+	id := internal.MinMenuItemID
+
+	// Fill table and w.accelToMenuItemMap from t.
+	// A unique ID is assigned to each accelerator.
+	processMenuItemAccelTable := func(t []menu.ItemAccel) {
+		for _, accel := range t {
+			if id > internal.MaxMenuItemID {
+				panic("out of menu item IDs")
+			}
+			accel.Accel.Cmd = win32.WORD(id)
+			table = append(table, accel.Accel)
+			if w.accelToMenuItemMap == nil {
+				w.accelToMenuItemMap = make(map[win32.WORD]*menu.Item)
+			}
+			w.accelToMenuItemMap[accel.Accel.Cmd] = accel.Item
+			id++
+			if id == win32.IDTIMEOUT {
+				id++
+			}
+		}
+	}
+	processMenuItemAccelTable(w.menuAccel)
+	processMenuItemAccelTable(w.popupMenuAccel)
+
+	if len(table) > 0 {
+		h, err := win32.CreateAcceleratorTableW(table)
+		if err != nil {
+			return err
+		}
+		w.accelKeyTable = h
+	}
+	return nil
+}
+
+// setMsgPreTranslator sets a MsgProc to process a message sent to this window
+// before TranslateMessage is called in the message loop.
+// If p returns true, no further processing will be performed.
+// A nil p removes the pre-translator.
+func (w *Window) setMsgPreTranslator(p msgProc) {
+	if p == nil {
+		app.RemoveMsgPreTranslator(app.ThreadLocalApp(), w.hwnd)
+	} else {
+		app.AddMsgPreTranslator(app.ThreadLocalApp(), w.hwnd, p)
+	}
 }
 
 func (w *Window) SetMenu(menu *menu.Menu) error {
