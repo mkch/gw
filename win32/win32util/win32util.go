@@ -1,6 +1,7 @@
 package win32util
 
 import (
+	"slices"
 	"unicode/utf16"
 	"unsafe"
 
@@ -17,6 +18,24 @@ func CString(str string, p *[]win32.WCHAR) {
 		*p = append(*p, a...)
 	}
 	*p = append(*p, 0) // 0 terminated.
+}
+
+// CStrLen returns the length of a null terminated C string, not including the terminating 0.
+// Parameter str is a pointer to the C string, and bufSize is the maximum buffer size(in unit of win32.WCHAR),
+// including the terminating 0.
+// If str is nil and bufSize is zero, CStrLen returns 0.
+// If there's no 0 terminator within the first bufSize elements, a run-time panic occurs.
+// if bufSize is negative, or if str is nil and bufSize is not zero, a run-time panic occurs
+func CStrLen(str *win32.WCHAR, bufSize int) int {
+	if str == nil && bufSize == 0 {
+		return 0
+	}
+	s := unsafe.Slice((*win32.WCHAR)(unsafe.Pointer(str)), bufSize)
+	i := slices.Index(s, 0)
+	if i == -1 {
+		panic("no 0 terminator in c string")
+	}
+	return i
 }
 
 // GoString converts a null terminated C string to go string.
