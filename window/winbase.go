@@ -123,44 +123,6 @@ func (w *WindowBase) realWndProc(hwnd win32.HWND, message win32.UINT, wParam win
 	return w.wndProc(hwnd, message, wParam, lParam, w.prevWndProc)
 }
 
-func (w *Window) setMenu(menu *menu.Menu) error {
-	var hMenu win32.HMENU
-	if menu != nil {
-		hMenu = menu.HMENU()
-	}
-	if err := win32.SetMenu(w.hwnd, hMenu); err != nil {
-		return err
-	}
-	if w.menu != nil {
-		w.menu.OnAccelKeyChanged = nil
-	}
-	hasOldMenu := w.menu != nil
-	w.menu = menu
-	if w.menu != nil {
-		var err error
-		if w.menuAccel, err = w.menu.AccelKeyTable(); err != nil {
-			return err
-		}
-		w.menu.OnAccelKeyChanged = func() (err error) {
-			if w.menuAccel, err = w.menu.AccelKeyTable(); err != nil {
-				return
-			}
-			if err = w.rebuildAccelTable(); err != nil {
-				return
-			}
-			return
-		}
-		w.setMsgPreTranslator(w.preTranslateMessage)
-	} else {
-		if hasOldMenu {
-			w.setMsgPreTranslator(nil)
-		}
-		w.menuAccel = nil
-	}
-
-	return w.rebuildAccelTable()
-}
-
 type PopupMenuSpec struct {
 	Flags   win32.TRACK_POPUP_MENU_FLAG
 	X, Y    win32.LONG // Screen coordinates.
@@ -197,12 +159,14 @@ func (w *WindowBase) TrackPopupMenu(menu *menu.Menu, spec *PopupMenuSpec) error 
 		flags = gg.If(win32.GetSystemMetrics(win32.SM_MENUDROPALIGNMENT) != 0, win32.TPM_RIGHTALIGN, win32.TPM_LEFTALIGN)
 	}
 
+	// In case the keyboard layout is changed since the menu is created.
+	menu.OnKeyboardLayoutChange(win32.GetKeyboardLayout(0))
+
 	// TPM_RIGHTBUTTON makes right clicking select the menu item.
 	// If not set, right clicking(releasing right mouse button) of a menu item will post a WM_RBUTTONUP message to the window.
 	// If win32.TrackPopupMenuEx is called in a WM_RBUTTONUP handler, the extra WM_RBUTTONUP message will cause a recursive call
 	// to win32.TrackPopupMenuEx which results an error of "1446 Popup menu already active".
 	flags |= win32.TPM_RIGHTBUTTON
-
 	_, err := win32.TrackPopupMenuEx(menu.HMENU(), flags, win32.INT(pt.X), win32.INT(pt.Y), w.HWND(), params)
 	return err
 }

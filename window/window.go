@@ -208,7 +208,7 @@ func New(spec *Spec) (*Window, error) {
 			}
 		case win32.WM_INPUTLANGCHANGE:
 			if win.menu != nil {
-				win.menu.RefreshDisplayTitle()
+				win.menu.OnKeyboardLayoutChange(win32.HKL(lParam))
 			}
 		}
 		return prevWndProc(hwnd, message, wParam, lParam)
@@ -276,7 +276,46 @@ func (w *Window) setMsgPreTranslator(p msgProc) {
 }
 
 func (w *Window) SetMenu(menu *menu.Menu) error {
-	return w.setMenu(menu)
+	if menu == w.menu {
+		return nil
+	}
+	var hMenu win32.HMENU
+	if menu != nil {
+		// In case the keyboard layout has been changed since the menu is created.
+		menu.OnKeyboardLayoutChange(win32.GetKeyboardLayout(0))
+		hMenu = menu.HMENU()
+	}
+	if err := win32.SetMenu(w.hwnd, hMenu); err != nil {
+		return err
+	}
+	if w.menu != nil {
+		w.menu.OnAccelKeyChanged = nil
+	}
+	hasOldMenu := w.menu != nil
+	w.menu = menu
+	if w.menu != nil {
+		var err error
+		if w.menuAccel, err = w.menu.AccelKeyTable(); err != nil {
+			return err
+		}
+		w.menu.OnAccelKeyChanged = func() (err error) {
+			if w.menuAccel, err = w.menu.AccelKeyTable(); err != nil {
+				return
+			}
+			if err = w.rebuildAccelTable(); err != nil {
+				return
+			}
+			return
+		}
+		w.setMsgPreTranslator(w.preTranslateMessage)
+	} else {
+		if hasOldMenu {
+			w.setMsgPreTranslator(nil)
+		}
+		w.menuAccel = nil
+	}
+
+	return w.rebuildAccelTable()
 }
 
 func (w *Window) preTranslateMessage(p *win32.MSG) bool {

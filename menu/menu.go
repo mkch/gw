@@ -154,16 +154,23 @@ func (m *Menu) callAccelKeyChanged() error {
 	return nil
 }
 
-// RefreshDisplayTitle refreshes the display title of all items in this menu and its submenus.
-func (m *Menu) RefreshDisplayTitle() error {
+// OnKeyboardLayoutChange handles the keyboard layout change event.
+// It refreshes the display title of all items in this menu and its submenus
+// if needed.
+func (m *Menu) OnKeyboardLayoutChange(hkl win32.HKL) error {
 	for _, item := range m.items {
-		if err := item.SetTitle(item.title); err != nil {
-			return err
+		if item.hkl != hkl {
+			item.hkl = hkl
+			if item.AccelKey() != (AccelKey{}) {
+				if err := item.SetTitle(item.title); err != nil {
+					return err
+				}
+			}
 		}
 		if submenu, err := item.Submenu(); err != nil {
 			return err
 		} else if submenu != nil {
-			if err := submenu.RefreshDisplayTitle(); err != nil {
+			if err := submenu.OnKeyboardLayoutChange(hkl); err != nil {
 				return err
 			}
 		}
@@ -315,7 +322,7 @@ func (m *Menu) InsertItem(indexBefore int, spec *ItemSpec) (*Item, error) {
 		return nil, err
 	}
 
-	var item = &Item{separator: spec.Separator, OnClick: spec.OnClick, title: spec.Title, menu: m}
+	var item = &Item{separator: spec.Separator, OnClick: spec.OnClick, title: spec.Title, menu: m, hkl: win32.GetKeyboardLayout(0)}
 	m.items = slices.Insert(m.items, indexBefore, item)
 	if spec.Submenu != nil {
 		spec.Submenu.parent = item
@@ -384,7 +391,8 @@ type Item struct {
 	OnClick   func()
 	menu      *Menu
 	accelKey  AccelKey
-	title     string //title without accelerator key
+	title     string    //title without accelerator key
+	hkl       win32.HKL // The input locale identifier used to display the accelerator key of this item.
 }
 
 func (item *Item) SetAccelKey(accel AccelKey) error {
