@@ -1879,3 +1879,113 @@ var lzTlsSetValue = lzKernel32.NewProc("TlsSetValue")
 func TlsSetValue(dwTlsIndex DWORD, lpTlsValue PVOID) error {
 	return sysutil.MustTrue(lzTlsSetValue.Call(uintptr(dwTlsIndex), uintptr(lpTlsValue)))
 }
+
+var lzMapVirtualKeyW = lzUser32.NewProc("MapVirtualKeyW")
+
+type MapVirtualKeyType UINT
+
+const (
+	MAPVK_VK_TO_VSC    MapVirtualKeyType = 0
+	MAPVK_VSC_TO_VK    MapVirtualKeyType = 1
+	MAPVK_VK_TO_CHAR   MapVirtualKeyType = 2
+	MAPVK_VSC_TO_VK_EX MapVirtualKeyType = 3
+	MAPVK_VK_TO_VSC_EX MapVirtualKeyType = 4
+)
+
+func MapVirtualKeyW(code UINT, mapType MapVirtualKeyType) UINT {
+	return sysutil.As[UINT](lzMapVirtualKeyW.Call(uintptr(code), uintptr(mapType)))
+}
+
+var lzMapVirtualKeyExW = lzUser32.NewProc("MapVirtualKeyExW")
+
+func MapVirtualKeyExW(code UINT, mapType MapVirtualKeyType, dwhkl HKL) UINT {
+	return sysutil.As[UINT](lzMapVirtualKeyExW.Call(uintptr(code), uintptr(mapType), uintptr(dwhkl)))
+}
+
+var lzGetKeyNameTextW = lzUser32.NewProc("GetKeyNameTextW")
+
+func GetKeyNameTextW(lParam LONG, buf *WCHAR, size int) (INT, error) {
+	return sysutil.MustNotZero[INT](lzGetKeyNameTextW.Call(uintptr(lParam), uintptr(unsafe.Pointer(buf)), uintptr(size)))
+}
+
+var lzSetProcessPreferredUILanguages = lzKernel32.NewProc("SetProcessPreferredUILanguages")
+
+type MUIFlag DWORD
+
+const (
+	MUI_LANGUAGE_ID                    MUIFlag = 0x4  // Use traditional language ID convention
+	MUI_LANGUAGE_NAME                  MUIFlag = 0x8  // Use ISO language (culture) name convention
+	MUI_MERGE_SYSTEM_FALLBACK          MUIFlag = 0x10 // GetThreadPreferredUILanguages merges in parent and base languages
+	MUI_MERGE_USER_FALLBACK            MUIFlag = 0x20 // GetThreadPreferredUILanguages merges in user preferred languages
+	MUI_UI_FALLBACK                    MUIFlag = MUI_MERGE_SYSTEM_FALLBACK | MUI_MERGE_USER_FALLBACK
+	MUI_THREAD_LANGUAGES               MUIFlag = 0x40  // GetThreadPreferredUILanguages merges in user preferred languages
+	MUI_CONSOLE_FILTER                 MUIFlag = 0x100 // SetThreadPreferredUILanguages takes on console specific behavior
+	MUI_COMPLEX_SCRIPT_FILTER          MUIFlag = 0x200 // SetThreadPreferredUILanguages takes on complex script specific behavior
+	MUI_RESET_FILTERS                  MUIFlag = 0x001 // Reset MUI_CONSOLE_FILTER and MUI_COMPLEX_SCRIPT_FILTER
+	MUI_USER_PREFERRED_UI_LANGUAGES    MUIFlag = 0x10  // GetFileMUIPath returns the MUI files for the languages in the fallback list
+	MUI_USE_INSTALLED_LANGUAGES        MUIFlag = 0x20  // GetFileMUIPath returns all the MUI files installed in the machine
+	MUI_USE_SEARCH_ALL_LANGUAGES       MUIFlag = 0x40  // GetFileMUIPath returns all the MUI files irrespective of whether language is installed
+	MUI_LANG_NEUTRAL_PE_FILE           MUIFlag = 0x100 // GetFileMUIPath returns target file with .mui extension
+	MUI_NON_LANG_NEUTRAL_FILE          MUIFlag = 0x200 // GetFileMUIPath returns target file with same name as source
+	MUI_MACHINE_LANGUAGE_SETTINGS      MUIFlag = 0x400
+	MUI_FILETYPE_NOT_LANGUAGE_NEUTRAL  MUIFlag = 0x001 // GetFileMUIInfo found a non-split resource file
+	MUI_FILETYPE_LANGUAGE_NEUTRAL_MAIN MUIFlag = 0x002 // GetFileMUIInfo found a LN main module resource file
+	MUI_FILETYPE_LANGUAGE_NEUTRAL_MUI  MUIFlag = 0x004 // GetFileMUIInfo found a LN MUI module resource file
+	MUI_QUERY_TYPE                     MUIFlag = 0x001 // GetFileMUIInfo will look for the type of the resource file
+	MUI_QUERY_CHECKSUM                 MUIFlag = 0x002 // GetFileMUIInfo will look for the checksum of the resource file
+	MUI_QUERY_LANGUAGE_NAME            MUIFlag = 0x004 // GetFileMUIInfo will look for the culture of the resource file
+	MUI_QUERY_RESOURCE_TYPES           MUIFlag = 0x008 // GetFileMUIInfo will look for the resource types of the resource file
+	MUI_FILEINFO_VERSION               MUIFlag = 0x001 // Version of FILEMUIINFO structure used with GetFileMUIInfo
+
+	MUI_FULL_LANGUAGE      MUIFlag = 0x01
+	MUI_PARTIAL_LANGUAGE   MUIFlag = 0x02
+	MUI_LIP_LANGUAGE       MUIFlag = 0x04
+	MUI_LANGUAGE_INSTALLED MUIFlag = 0x20
+	MUI_LANGUAGE_LICENSED  MUIFlag = 0x40
+)
+
+func SetProcessPreferredUILanguages(flags MUIFlag, languages *WCHAR, numLanguages *ULONG) error {
+	return sysutil.MustTrue(lzSetProcessPreferredUILanguages.Call(uintptr(flags), uintptr(unsafe.Pointer(languages)), uintptr(unsafe.Pointer(numLanguages))))
+}
+
+var lzGetProcessPreferredUILanguages = lzKernel32.NewProc("GetProcessPreferredUILanguages")
+
+func GetProcessPreferredUILanguages(flags MUIFlag, numLanguages *ULONG, languages *WCHAR, lagBufSize *ULONG) error {
+	return sysutil.MustTrue(lzGetProcessPreferredUILanguages.Call(uintptr(flags), uintptr(unsafe.Pointer(numLanguages)), uintptr(unsafe.Pointer(languages)), uintptr(unsafe.Pointer(lagBufSize))))
+}
+
+var lzGetKeyboardLayout = lzUser32.NewProc("GetKeyboardLayout")
+
+func GetKeyboardLayout(idThread DWORD) HKL {
+	return sysutil.As[HKL](lzGetKeyboardLayout.Call(uintptr(idThread)))
+}
+
+var lzLoadKeyboardLayoutW = lzUser32.NewProc("LoadKeyboardLayoutW")
+
+type KLF UINT
+
+const (
+	KLF_ACTIVATE      KLF = 0x00000001
+	KLF_SUBSTITUTE_OK KLF = 0x00000002
+	KLF_REORDER       KLF = 0x00000008
+	KLF_NOTELLSHELL   KLF = 0x00000080
+	KLF_REPLACELANG   KLF = 0x00000010
+	KLF_SETFORPROCESS KLF = 0x00000100
+	KLF_RESET         KLF = 0x40000000
+	KLF_SHIFTLOCK     KLF = 0x00010000
+)
+
+const (
+	HKL_NEXT HKL = 1
+	HKL_PREV HKL = 0
+)
+
+func LoadKeyboardLayoutW(klid *WCHAR, flags KLF) (HKL, error) {
+	return sysutil.MustNotZero[HKL](lzLoadKeyboardLayoutW.Call(uintptr(unsafe.Pointer(klid)), uintptr(flags)))
+}
+
+var lzActivateKeyboardLayout = lzUser32.NewProc("ActivateKeyboardLayout")
+
+func ActivateKeyboardLayout(hkl HKL, flags KLF) (HKL, error) {
+	return sysutil.MustNotZero[HKL](lzActivateKeyboardLayout.Call(uintptr(hkl), uintptr(flags)))
+}

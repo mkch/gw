@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	"unicode"
 	"unsafe"
 
 	"github.com/mkch/gg"
@@ -123,7 +122,7 @@ func (m *Menu) AccelKeyTable() ([]ItemAccel, error) {
 				Item: item,
 				Accel: win32.ACCEL{
 					Virt: win32.ACCEL_FVIRT(k.Mod),
-					Key:  k.VKeyCode,
+					Key:  win32.WORD(k.VKeyCode),
 				},
 			})
 		}
@@ -151,6 +150,23 @@ func (m *Menu) callAccelKeyChanged() error {
 	}
 	if m.parent != nil && m.parent.menu != nil {
 		return m.parent.menu.callAccelKeyChanged()
+	}
+	return nil
+}
+
+// RefreshDisplayTitle refreshes the display title of all items in this menu and its submenus.
+func (m *Menu) RefreshDisplayTitle() error {
+	for _, item := range m.items {
+		if err := item.SetTitle(item.title); err != nil {
+			return err
+		}
+		if submenu, err := item.Submenu(); err != nil {
+			return err
+		} else if submenu != nil {
+			if err := submenu.RefreshDisplayTitle(); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -317,15 +333,25 @@ type AccelMod win32.ACCEL_FVIRT
 func (a AccelMod) String() string {
 	var modKeys = make([]string, 0, 3)
 	if a&ModShift == ModShift {
-		modKeys = append(modKeys, "Shift")
+		modKeys = append(modKeys, keyName(win32.VK_SHIFT, "Shift"))
 	}
 	if a&ModCtrl == ModCtrl {
-		modKeys = append(modKeys, "Ctrl")
+		modKeys = append(modKeys, keyName(win32.VK_CONTROL, "Ctrl"))
 	}
 	if a&ModAlt == ModAlt {
-		modKeys = append(modKeys, "Alt")
+		modKeys = append(modKeys, keyName(win32.VK_MENU, "Alt"))
 	}
 	return strings.Join(modKeys, "+")
+}
+
+// keyName returns the localized name of the key specified by vkCode.
+// If the name cannot be retrieved, fallback is returned.
+func keyName(vkCode win32.VKCode, fallback string) string {
+	name, err := win32util.KeyName(vkCode, true, 0)
+	if err != nil {
+		return fallback
+	}
+	return name
 }
 
 const (
@@ -336,8 +362,10 @@ const (
 
 // AccelKey is an accelerator key
 type AccelKey struct {
-	Mod      AccelMod
-	VKeyCode win32.WORD // Virtual key code. 'A', 'b' for example.
+	Mod AccelMod
+	// Virtual key code.
+	// For alphanumeric keys, the value is the ASCII code of digit or uppercase letter: 'A', '0', etc.
+	VKeyCode win32.VKCode
 }
 
 func (k AccelKey) String() string {
@@ -346,7 +374,7 @@ func (k AccelKey) String() string {
 		buf = append(buf, mod)
 	}
 	if k.VKeyCode != 0 {
-		buf = append(buf, string(unicode.ToUpper(rune(k.VKeyCode))))
+		buf = append(buf, keyName(k.VKeyCode, string(rune(k.VKeyCode))))
 	}
 	return strings.Join(buf, "+")
 }

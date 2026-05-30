@@ -61,6 +61,7 @@ type HICON HANDLE   // DestroyIcon
 type HCURSOR HANDLE // DestroyCursor
 
 type HHOOK HANDLE
+type HKL HANDLE // Keyboard Layout handle
 
 func RGB(r, g, b byte) COLORREF {
 	return COLORREF(r) | (COLORREF(g) << 8) | (COLORREF(b) << 16)

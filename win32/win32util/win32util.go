@@ -1,6 +1,8 @@
 package win32util
 
 import (
+	"errors"
+	"fmt"
 	"slices"
 	"unicode/utf16"
 	"unsafe"
@@ -273,4 +275,185 @@ func CopyWindowClass(src win32.ATOM, newClassName string) (win32.ATOM, error) {
 	cls.ClassName = &classNameBuf[0]
 	// Register the new class
 	return win32.RegisterClassExW(&cls)
+}
+
+// KeyMessageLParam represents the lParam of keyboard messages (WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP).
+// See https://learn.microsoft.com/en-us/windows/win32/inputdev/about-keyboard-input#keystroke-message-flags
+type KeyMessageLParam win32.LPARAM
+
+func (l KeyMessageLParam) String() string {
+	return fmt.Sprintf("RepeatCount: %d, ScanCode: 0x%02X, Extended: %t, DialogMode: %t, MenuMode: %t, AltDown: %t, PreviousDown: %t, KeyUp: %t",
+		l.RepeatCount(), l.ScanCode(), l.Extended(), l.DialogMode(), l.MenuMode(), l.AltDown(), l.PreviousDown(), l.KeyUp())
+}
+
+// RepeatCount returns the repeat count of the key message,
+// which is the number of times the keystroke message should be sent while the user holds down the key.
+func (l KeyMessageLParam) RepeatCount() uint16 {
+	return uint16(l & 0xFFFF)
+}
+
+// SetRepeatCount sets the repeat count of the key message.
+func (l *KeyMessageLParam) SetRepeatCount(count uint16) {
+	*l = KeyMessageLParam((*l &^ 0xFFFF) | KeyMessageLParam(count))
+}
+
+// ScanCode returns the scan code of the key message.
+// https://learn.microsoft.com/en-us/windows/win32/inputdev/about-keyboard-input#scan-codes
+func (l KeyMessageLParam) ScanCode() uint16 {
+	return uint16((l >> 16) & 0xFF)
+}
+
+// SetScanCode sets the scan code of the key message.
+func (l *KeyMessageLParam) SetScanCode(code uint16) {
+	*l = KeyMessageLParam((*l &^ (0xFF << 16)) | (KeyMessageLParam(code) << 16))
+}
+
+// Extended returns the `Extended Key` flag in l.
+// The `Extended Key` flag indicates whether the key is an extended key.
+// See https://learn.microsoft.com/en-us/windows/win32/inputdev/about-keyboard-input#extended-key-flag
+func (l KeyMessageLParam) Extended() bool {
+	return l.bit(24)
+}
+
+// SetExtended sets the `Extended Key` flag in l.
+func (l *KeyMessageLParam) SetExtended(extended bool) {
+	l.setBit(24, extended)
+}
+
+// DialogMode returns whether a dialog box is active when the keystroke message was generated.
+func (l KeyMessageLParam) DialogMode() bool {
+	return l.bit(27)
+}
+
+// SetDialogMode sets whether a dialog box is active when the keystroke message was generated.
+func (l *KeyMessageLParam) SetDialogMode(dialogMode bool) {
+	l.setBit(27, dialogMode)
+}
+
+// MenuMode returns whether a menu is active when the keystroke message was generated.
+func (l KeyMessageLParam) MenuMode() bool {
+	return l.bit(28)
+}
+
+// SetMenuMode sets whether a menu is active when the keystroke message was generated.
+func (l *KeyMessageLParam) SetMenuMode(menuMode bool) {
+	l.setBit(28, menuMode)
+}
+
+// AltDown returns the `Context Code` flag in l.
+// The `Context Code` flag indicates whether the Alt key was down when the keystroke message was generated.
+// See https://learn.microsoft.com/en-us/windows/win32/inputdev/about-keyboard-input#context-code
+func (l KeyMessageLParam) AltDown() bool {
+	return l.bit(29)
+}
+
+// SetAltDown sets the `Context Code` flag in l.
+func (l *KeyMessageLParam) SetAltDown(altDown bool) {
+	l.setBit(29, altDown)
+}
+
+// PreviousDown returns the `Previous Key-State Flag` flag in l.
+// The `Previous Key-State Flag` flag indicates whether the key was down before the message was sent.
+// See https://learn.microsoft.com/en-us/windows/win32/inputdev/about-keyboard-input#previous-key-state-flag
+func (l KeyMessageLParam) PreviousDown() bool {
+	return l.bit(30)
+}
+
+// SetPreviousDown sets the `Previous Key-State Flag` flag in l.
+func (l *KeyMessageLParam) SetPreviousDown(previousDown bool) {
+	l.setBit(30, previousDown)
+}
+
+// KeyUp returns the `Transition-State Flag` flag in l.
+// The `Transition-State Flag` flag indicates whether pressing a key generated the keystroke message.
+// True for WM_KEYUP and WM_SYSKEYUP messages; false for WM_KEYDOWN and WM_SYSKEYDOWN messages;
+// See https://learn.microsoft.com/en-us/windows/win32/inputdev/about-keyboard-input#transition-state-flag
+func (l KeyMessageLParam) KeyUp() bool {
+	return l.bit(31)
+}
+
+// SetKeyUp sets the 'KeyUp' flag in l.
+func (l *KeyMessageLParam) SetKeyUp(keyUp bool) {
+	l.setBit(31, keyUp)
+}
+
+// bit is a helper method to check if the i-th bit is set in l.
+func (l KeyMessageLParam) bit(i int) bool {
+	return (l & (1 << i)) != 0
+}
+
+// setBit is a helper method to set the i-th bit in l.
+func (l *KeyMessageLParam) setBit(i int, value bool) {
+	if value {
+		*l |= KeyMessageLParam(1 << i)
+	} else {
+		*l &^= KeyMessageLParam(1 << i)
+	}
+}
+
+// KeyName returns the localized string representation of vk.
+// If doNotCareLeftRight is true, left and right modifier keys will not be distinguished.
+// If keyboardLayout is not 0, the name will be obtained according to the specified keyboard layout;
+// otherwise, the layout of current thread will be used.
+func KeyName(vk win32.VKCode, doNotCareLeftRight bool, keyboardLayout win32.HKL) (string, error) {
+	if keyboardLayout == 0 {
+		keyboardLayout = win32.GetKeyboardLayout(0)
+	}
+	// Get complete scan code (with E0/E1 extended key flag)
+
+	// Here are the special cases for keys with non-standard scan code mappings.
+	// For most keys, MapVirtualKeyW with MAPVK_VK_TO_VSC_EX can be used to get the complete scan code.
+	var fullScanCode win32.UINT
+	switch vk {
+	case win32.VK_PAUSE:
+		// VK_PAUSE has a compound scan code (E1-1D-45); MapVirtualKeyW returns
+		// 0xE11D, which causes GetKeyNameTextW to return "Right Ctrl" when the
+		// extended bit is set. The correct lParam to obtain "Pause" is scan
+		// code 0x45 without the extended bit.
+		fullScanCode = 0x45
+	case win32.VK_NUMLOCK:
+		// MapVirtualKeyW omits the E0 prefix for VK_NUMLOCK; supply it manually.
+		fullScanCode = 0xE045
+	case win32.VK_SNAPSHOT:
+		// MapVirtualKeyW maps VK_SNAPSHOT to scan code 0x54 (Sys Req), causing
+		// GetKeyNameTextW to return "Sys Req". Print Screen is scan code E0-37.
+		fullScanCode = 0xE037
+	default:
+		fullScanCode = win32.MapVirtualKeyExW(win32.UINT(vk), win32.MAPVK_VK_TO_VSC_EX, keyboardLayout)
+		if fullScanCode == 0 {
+			return "", errors.New("invalid virtual key code")
+		}
+		switch vk {
+		case win32.VK_PRIOR, win32.VK_NEXT, win32.VK_END, win32.VK_HOME, win32.VK_LEFT, win32.VK_UP, win32.VK_RIGHT, win32.VK_DOWN, win32.VK_INSERT, win32.VK_DELETE:
+			fullScanCode |= 0xE000 // These keys have the E0 extended key flag.
+
+		}
+	}
+	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getkeynametextw
+	// 16-23	The scan code. The value depends on the OEM.
+	lParam := (fullScanCode & 0xFF) << 16
+	highByte := (fullScanCode >> 8) & 0xFF
+	// MapVirtualKeyW(MAPVK_VK_TO_VSC_EX):
+	// If the scan code is an extended scan code, the high byte of the returned value will contain either 0xe0 or 0xe1
+	if highByte == 0xE0 || highByte == 0xE1 {
+		// GetKeyNameTextW:
+		// 24	Indicates whether the key is an extended key
+		lParam |= 1 << 24
+	}
+	if doNotCareLeftRight {
+		// GetKeyNameTextW:
+		// 25	"Do not care" bit. ... should not distinguish between left and right CTRL and SHIFT keys, for example.
+		lParam |= 1 << 25
+	}
+
+	var nameBuf [32]win32.WCHAR
+	n, err := win32.GetKeyNameTextW(win32.LONG(lParam), &nameBuf[0], len(nameBuf))
+	if err != nil {
+		return "", err
+	} else if n <= 0 {
+		return "", errors.New("win32.GetKeyNameTextW failed")
+	} else if n == win32.INT(len(nameBuf)) {
+		panic("buffer too small")
+	}
+	return GoString(&nameBuf[0], int(n+1)), nil
 }

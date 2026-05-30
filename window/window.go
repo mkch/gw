@@ -206,6 +206,10 @@ func New(spec *Spec) (*Window, error) {
 			if win.OnDestroy != nil {
 				win.OnDestroy()
 			}
+		case win32.WM_INPUTLANGCHANGE:
+			if win.menu != nil {
+				win.menu.RefreshDisplayTitle()
+			}
 		}
 		return prevWndProc(hwnd, message, wParam, lParam)
 	})
