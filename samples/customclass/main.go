@@ -22,18 +22,19 @@ func main() {
 }
 
 func ui(app *app.App) {
-	win := gg.Must(window.New(&window.Spec{
+	win := window.New(&window.Spec{
 		Text:  "Default Class Window",
 		Style: win32.WS_OVERLAPPEDWINDOW,
 		X:     metrics.Px(win32.CW_USEDEFAULT),
 		Width: metrics.Dip(500), Height: metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	}))
+	})
 
-	panel1 := gg.Must(panel.New(win.HWND(), &panel.Spec{
-		X: metrics.Dip(20), Y: metrics.Dip(20),
+	panel1 := panel.New(&panel.Spec{
+		Parent: win,
+		X:      metrics.Dip(20), Y: metrics.Dip(20),
 		Width: metrics.Dip(200), Height: metrics.Dip(100),
-	}))
+	})
 
 	panel1.SetBackgroundColor(win32.COLORREF(0x00FF0000))
 
@@ -42,14 +43,14 @@ func ui(app *app.App) {
 	const windowClassName = "my window class name"
 	const panelClassName = "my panel class name"
 
-	win2 := gg.Must(window.New(&window.Spec{
+	win2 := window.New(&window.Spec{
 		ClassName: windowClassName,
 		Text:      fmt.Sprintf("Window Class Name: %q", windowClassName),
 		Style:     win32.WS_OVERLAPPEDWINDOW,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
 		Width:     metrics.Dip(400), Height: metrics.Dip(200),
 		OnDestroy: func() { app.Quit(0) },
-	}))
+	})
 
 	var nameBuffer [256]win32.WCHAR
 	n := gg.Must(win32.GetClassNameW(win2.HWND(), &nameBuffer[0], len(nameBuffer)))
@@ -57,11 +58,12 @@ func ui(app *app.App) {
 		panic("unexpected class name")
 	}
 
-	panel2 := gg.Must(panel.New(win2.HWND(), &panel.Spec{
+	panel2 := panel.New(&panel.Spec{
+		Parent:    win2,
 		ClassName: panelClassName,
 		X:         metrics.Dip(20), Y: metrics.Dip(20),
 		Width: metrics.Dip(200), Height: metrics.Dip(100),
-	}))
+	})
 
 	panel2.SetBackgroundColor(win32.COLORREF(0x0000FF00))
 

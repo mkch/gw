@@ -16,38 +16,35 @@ import (
 var tlsApp = gg.Must(win32.TlsAlloc())
 
 //go:linkname threadLocalApp github.com/mkch/gw/internal/app.ThreadLocalApp
-func threadLocalApp() *BareApp {
-	return (*BareApp)(win32.PVOID(unsafe.Pointer(gg.Must(win32.TlsGetValue(tlsApp)))))
+func threadLocalApp() *BaseApp {
+	return (*BaseApp)(win32.PVOID(unsafe.Pointer(gg.Must(win32.TlsGetValue(tlsApp)))))
 }
 
 //go:linkname app_AddMsgPreTranslator github.com/mkch/gw/internal/app.AddMsgPreTranslator
-func app_AddMsgPreTranslator(app *BareApp, hwnd win32.HWND, translator func(msg *win32.MSG) bool) {
+func app_AddMsgPreTranslator(app *BaseApp, hwnd win32.HWND, translator func(msg *win32.MSG) bool) {
 	app.msgPreTranslators[hwnd] = translator
 }
 
 //go:linkname app_RemoveMsgPreTranslator github.com/mkch/gw/internal/app.RemoveMsgPreTranslator
-func app_RemoveMsgPreTranslator(app *BareApp, hwnd win32.HWND) {
+func app_RemoveMsgPreTranslator(app *BaseApp, hwnd win32.HWND) {
 	delete(app.msgPreTranslators, hwnd)
 }
 
 //go:linkname app_callMsgRetListeners github.com/mkch/gw/internal/app.CallMsgRetListeners
-func app_callMsgRetListeners(app *BareApp, hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT) {
+func app_callMsgRetListeners(app *BaseApp, hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT) {
 	app.callMsgRetListeners(hwnd, message, wParam, lParam, result)
 }
 
-// MessageRetListener is a function type used by [BareApp.AddMessageRetListener] and [App.AddMessageRetListener].
+// MessageRetListener is a function type used by [BaseApp.AddMessageRetListener] and [App.AddMessageRetListener].
 type MessageRetListener func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT)
 
-// MessageRetListenerKey is the key for a listener added by [BareApp.AddMessageRetListener]  and [App.AddMessageRetListener].
-// It can be used to remove the listener by calling [BareApp.RemoveMessageRetListener] and [App.RemoveMessageRetListener].
+// MessageRetListenerKey is the key for a listener added by [BaseApp.AddMessageRetListener]  and [App.AddMessageRetListener].
+// It can be used to remove the listener by calling [BaseApp.RemoveMessageRetListener] and [App.RemoveMessageRetListener].
 type MessageRetListenerKey struct{ p *MessageRetListener }
 
-// BareApp is the application for external message loop.
-// When integrating with external code that already has a message loop, call [NewBare] to create a
-// [BareApp] and then operate gw in that goroutine.
-// Any other gw functionalities must be used in the same goroutine as the one that creates the BareApp.
-// See [NewBare] for details.
-type BareApp struct {
+// BaseApp provides basic functionalities for managing the gw application.
+// Usually [App] is sufficient for most use cases.
+type BaseApp struct {
 	uiThreadId        win32.DWORD
 	postMap           safeMap
 	getMsgHook        win32.HHOOK
@@ -55,24 +52,25 @@ type BareApp struct {
 	msgRetListeners   map[MessageRetListenerKey]MessageRetListener
 }
 
-// NewBare creates a [BareApp] that do not manage the message loop.
+// NewBase creates a [BaseApp] that do not manage the message loop.
+// When integrating with external code that already has a message loop, call this function to create a
+// [BaseApp] and then operate gw in that goroutine.
+// Any other gw functionalities must be used in the same goroutine as the one that calls this function.
 // The external initialization code must call this function in the main thread that runs the message loop.
-// The returned app should be destroyed by calling [BareApp.Destroy] after the message loop exits and no gw
+// The returned app should be destroyed by calling [BaseApp.Destroy] after the message loop exits and no gw
 // operation should be performed after that.
-func NewBare() (app *BareApp) {
-	return newBare(true)
+func NewBase() (app *BaseApp) {
+	return (&BaseApp{}).init(true)
 }
 
-func newBare(hookGetMsg bool) (app *BareApp) {
+func (b *BaseApp) init(hookGetMsg bool) *BaseApp {
 	if threadLocalApp() != nil {
 		panic("app already exists in this thread")
 	}
-	app = &BareApp{
-		uiThreadId:        win32.DWORD(windows.GetCurrentThreadId()),
-		postMap:           safeMap{ObjectMap: objectmap.New[func()](1, math.MaxUint)},
-		msgPreTranslators: make(map[win32.HWND]func(msg *win32.MSG) bool),
-		msgRetListeners:   make(map[MessageRetListenerKey]MessageRetListener),
-	}
+	b.uiThreadId = win32.DWORD(windows.GetCurrentThreadId())
+	b.postMap = safeMap{ObjectMap: objectmap.New[func()](1, math.MaxUint)}
+	b.msgPreTranslators = make(map[win32.HWND]func(msg *win32.MSG) bool)
+	b.msgRetListeners = make(map[MessageRetListenerKey]MessageRetListener)
 
 	// Prepare postMap
 	// See https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagew#remarks
@@ -89,69 +87,69 @@ func newBare(hookGetMsg bool) (app *BareApp) {
 				switch msg.Message {
 				case appmsg.POST:
 					// Handle posted functions
-					app.postMap.Value(objectmap.Handle(msg.WParam))()
+					b.postMap.Value(objectmap.Handle(msg.WParam))()
 					msg.Message = win32.WM_NULL // Stop WNDPROC processing
 					return 0                    // Stop other hook processing
 				default:
-					if app.preTranslateMessage(msg) {
+					if b.preTranslateMessage(msg) {
 						msg.Message = win32.WM_NULL // Stop WNDPROC processing
 						return 0                    // Stop other hook processing
 					}
 				}
 			}
-			return win32.CallNextHookEx(app.getMsgHook, code, wParam, lParam)
+			return win32.CallNextHookEx(b.getMsgHook, code, wParam, lParam)
 		}
 	} else {
 		msgHookProc = func(code win32.HookCode, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 			if code >= 0 && win32.PeekMessageFlag(wParam) == win32.PM_REMOVE {
 				if msg := (*win32.MSG)(unsafe.Add(nil, lParam)); msg.Message == appmsg.POST {
 					// Handle posted functions
-					app.postMap.Value(objectmap.Handle(msg.WParam))()
+					b.postMap.Value(objectmap.Handle(msg.WParam))()
 					msg.Message = win32.WM_NULL // Stop WNDPROC processing
 					return 0                    // Stop other hook processing
 				}
 			}
-			return win32.CallNextHookEx(app.getMsgHook, code, wParam, lParam)
+			return win32.CallNextHookEx(b.getMsgHook, code, wParam, lParam)
 		}
 	}
-	app.getMsgHook = gg.Must(win32.SetWindowsHookExW(win32.WH_GETMESSAGE, windows.NewCallback(msgHookProc), 0, app.uiThreadId))
+	b.getMsgHook = gg.Must(win32.SetWindowsHookExW(win32.WH_GETMESSAGE, windows.NewCallback(msgHookProc), 0, b.uiThreadId))
 
-	gg.MustOK(win32.TlsSetValue(tlsApp, win32.PVOID(unsafe.Pointer(app))))
-	return
+	gg.MustOK(win32.TlsSetValue(tlsApp, win32.PVOID(unsafe.Pointer(b))))
+	return b
 }
 
 // AddMessageRetListener adds a listener that is called after a message is processed in any window procedure.
 // The returned key can be used to remove the listener by calling [RemoveMessageRetListener].
-func (app *BareApp) AddMessageRetListener(listener MessageRetListener) (key MessageRetListenerKey) {
+func (b *BaseApp) AddMessageRetListener(listener MessageRetListener) (key MessageRetListenerKey) {
 	key = MessageRetListenerKey{p: &listener}
-	app.msgRetListeners[key] = listener
+	b.msgRetListeners[key] = listener
 	return
 }
 
 // RemoveMessageRetListener removes the listener added by AddMessageRetListener.
-func (app *BareApp) RemoveMessageRetListener(key MessageRetListenerKey) {
-	delete(app.msgRetListeners, key)
+func (b *BaseApp) RemoveMessageRetListener(key MessageRetListenerKey) {
+	delete(b.msgRetListeners, key)
 }
 
 // Destroy destroys the app for an external message loop.
 // This function must be called in the external message loop before exiting.
 // After calling this function, the app should not be used anymore and no gw
 // function should be called after that.
-func (app *BareApp) Destroy() {
-	gg.MustOK(win32.UnhookWindowsHookEx(app.getMsgHook))
+func (b *BaseApp) Destroy() {
+	gg.MustOK(win32.UnhookWindowsHookEx(b.getMsgHook))
 	gg.MustOK(win32.TlsSetValue(tlsApp, nil))
-	*app = BareApp{} // Clear all fields
+	*b = BaseApp{} // Clear all fields
 }
 
 // preTranslateMessage should be called in the external message loop before TranslateMessage.
 // If it returns true, the message must not be passed to TranslateMessage and DispatchMessage.
-func (app *BareApp) preTranslateMessage(msg *win32.MSG) (processed bool) {
-	for _, translator := range app.msgPreTranslators {
+func (b *BaseApp) preTranslateMessage(msg *win32.MSG) (processed bool) {
+	for _, translator := range b.msgPreTranslators {
 		if translator(msg) {
 			return true
 		}
 	}
-	if p := app.msgPreTranslators[win32.GetActiveWindow()]; p != nil {
+	if p := b.msgPreTranslators[win32.GetActiveWindow()]; p != nil {
 		return p(msg)
 	}
 	return false
@@ -159,25 +157,25 @@ func (app *BareApp) preTranslateMessage(msg *win32.MSG) (processed bool) {
 
 // callMsgRetListeners calls all message return listeners with the given parameters.
 // It should be called in the WNDPROC after processing a message and before returning the result.
-func (app *BareApp) callMsgRetListeners(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT) {
-	for _, listener := range app.msgRetListeners {
+func (b *BaseApp) callMsgRetListeners(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT) {
+	for _, listener := range b.msgRetListeners {
 		listener(hwnd, message, wParam, lParam, result)
 	}
 }
 
 // Post put f into the UI message queue, f will run in the UI thread ASAP.
-func (app *BareApp) Post(f func()) error {
+func (b *BaseApp) Post(f func()) error {
 	var h objectmap.Handle
-	h = app.postMap.Add(func() {
+	h = b.postMap.Add(func() {
 		f()
-		app.postMap.Remove(h)
+		b.postMap.Remove(h)
 	})
-	return win32.PostThreadMessageW(app.uiThreadId, appmsg.POST, win32.WPARAM(h), 0)
+	return win32.PostThreadMessageW(b.uiThreadId, appmsg.POST, win32.WPARAM(h), 0)
 }
 
 // Quit calls win32.PostQuitMessage which tells the message loop to exit.
 // The exit code will be the return value of [win32.GetMessage].
-func (app *BareApp) Quit(exitCode int) {
+func (b *BaseApp) Quit(exitCode int) {
 	win32.PostQuitMessage(exitCode)
 }
 

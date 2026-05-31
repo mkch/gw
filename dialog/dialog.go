@@ -6,6 +6,8 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/button"
 	"github.com/mkch/gw/internal"
 	"github.com/mkch/gw/menu"
@@ -53,9 +55,7 @@ var dlgProc = windows.NewCallback(func(hwnd win32.HWND, msg win32.UINT, wParam w
 	case win32.WM_INITDIALOG:
 		// Find the *Dialog set in lParam
 		dialog := (*Dialog)(unsafe.Add(nil, lParam))
-		if err := window.Attach(hwnd, &dialog.WindowBase); err != nil {
-			panic(err)
-		}
+		chkerr.MustOK(gw.Attach(hwnd, dialog))
 		// Put dialog in window property for following messages to retrieve.
 		gg.MustOK(dialogProp.Set(hwnd, dialog))
 		dialog.SetText(dialog.initSpec.Text)

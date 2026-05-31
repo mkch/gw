@@ -4,6 +4,8 @@ import (
 	"sync"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/control"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
@@ -39,6 +41,7 @@ var classRegistered = sync.OnceValues(func() (func(string), func(string) bool) {
 })
 
 type Spec struct {
+	Parent    gw.WindowParent
 	ClassName string // Custom class name. If empty, the default class will be used.
 	X         metrics.Dimension
 	Y         metrics.Dimension
@@ -49,12 +52,40 @@ type Spec struct {
 
 type Panel struct {
 	control.Control
+	// Spec is used to create the window and is cleared after creation.
+	Spec            *Spec
 	backgroundColor win32.COLORREF
 	backgroundBrush *brush.Brush
 }
 
-func New(parent win32.HWND, spec *Spec) (*Panel, error) {
-	className := spec.ClassName
+func (p *Panel) OnInit() {
+	defer func() { p.Spec = nil }()
+	p.Control.OnInit()
+	gg.MustOK(p.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW))))
+}
+
+func (p *Panel) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+	switch message {
+	case win32.WM_NCDESTROY:
+		if p.backgroundBrush != nil {
+			p.backgroundBrush.Release()
+		}
+	}
+	return p.Control.WndProc(hwnd, message, wParam, lParam)
+}
+
+func (p *Panel) OnPaint() {
+	dc := gg.Must(paint.NewPaintDC(p.HWND()))
+	defer func() { gg.MustOK(dc.EndPaint()) }()
+	win32.FillRect(dc.HDC(), dc.Rect(), p.backgroundBrush.HBRUSH())
+}
+
+func (p *Panel) CreateHandle() win32.HWND {
+	if p.Spec == nil {
+		p.Spec = &Spec{}
+	}
+
+	className := p.Spec.ClassName
 	if className == "" {
 		// Use default class name.
 		className = defClassName
@@ -63,50 +94,27 @@ func New(parent win32.HWND, spec *Spec) (*Panel, error) {
 	if !registered(className) {
 		cls := new(defClassSpec)
 		cls.ClassName = className
-		if _, err := win32util.RegisterClass(cls); err != nil {
-			return nil, err
-		}
+		chkerr.Must(win32util.RegisterClass(cls))
 		setRegistered(className)
 	}
 
-	dpi := gg.Must(win32.GetDpiForWindow(parent))
-	hwnd, err := win32util.CreateWindow((&win32util.Wnd{
+	dpi := gg.Must(win32.GetDpiForWindow(p.Spec.Parent.HWND()))
+	return chkerr.Must(win32util.CreateWindow(&win32util.Wnd{
 		ClassName: className,
 		Style:     win32.WS_CHILD | win32.WS_VISIBLE,
-		ExStyle:   spec.ExStyle,
-		X:         spec.X.Px(dpi),
-		Y:         spec.Y.Px(dpi),
-		Width:     spec.Width.Px(dpi),
-		Height:    spec.Height.Px(dpi),
-		WndParent: parent,
+		ExStyle:   p.Spec.ExStyle,
+		X:         p.Spec.X.Px(dpi),
+		Y:         p.Spec.Y.Px(dpi),
+		Width:     p.Spec.Width.Px(dpi),
+		Height:    p.Spec.Height.Px(dpi),
+		WndParent: p.Spec.Parent.HWND(),
 	}))
-	if err != nil {
-		return nil, err
-	}
-	var panel = &Panel{}
-	if err := control.Attach(hwnd, &panel.Control); err != nil {
-		return nil, err
-	}
+}
 
-	if err := panel.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW))); err != nil {
-		return nil, err
-	}
-
-	panel.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {
-		switch message {
-		case win32.WM_NCDESTROY:
-			if panel.backgroundBrush != nil {
-				panel.backgroundBrush.Release()
-			}
-		}
-		return prevWndProc(hwnd, message, wParam, lParam)
-	})
-	panel.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
-		prev(paintData)
-		win32.FillRect(paintData.DC, &paintData.Rect, panel.backgroundBrush.HBRUSH())
-	})
-
-	return panel, nil
+func New(spec *Spec) (panel *Panel) {
+	panel = &Panel{Spec: spec}
+	gw.Init(panel)
+	return
 }
 
 func (p *Panel) BackgroundColor() win32.COLORREF {
@@ -126,5 +134,5 @@ func (p *Panel) SetBackgroundColor(color win32.COLORREF) (err error) {
 		return err
 	}
 
-	return win32.InvalidateRect(p.Control.HWND(), nil, true)
+	return win32.InvalidateRect(p.HWND(), nil, true)
 }

@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/mkch/gg"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/static"
@@ -23,23 +22,24 @@ func main() {
 	const TickerDuration = time.Millisecond * 100
 	ticker := time.NewTicker(TickerDuration)
 
-	app := app.NewBare()
+	app := app.NewBase()
 
-	mainWindow := gg.Must(window.New(&window.Spec{
+	mainWindow := window.New(&window.Spec{
 		Text:      "Hello, World!",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	}))
+	})
 
-	timeStatic := gg.Must(static.New(mainWindow.HWND(), &static.Spec{
-		Text:  "Time",
-		Style: win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
-		X:     metrics.Dip(200), Y: metrics.Dip(30),
+	timeStatic := static.New(&static.Spec{
+		Parent: mainWindow,
+		Text:   "Time",
+		Style:  win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
+		X:      metrics.Dip(200), Y: metrics.Dip(30),
 		Width: metrics.Dip(100), Height: metrics.Dip(60),
-	}))
+	})
 
 	mainWindow.Show(win32.SW_SHOW)
 
@@ -47,7 +47,12 @@ func main() {
 		for t := range ticker.C {
 			str := t.Local().Format("15:04:05")
 			// Run SetText() in UI goroutine.
-			app.Post(func() { timeStatic.SetText(str) })
+			app.Post(func() {
+				if !timeStatic.Valid() {
+					return
+				}
+				timeStatic.SetText(str)
+			})
 		}
 	}()
 

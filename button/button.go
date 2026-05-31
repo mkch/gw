@@ -2,6 +2,8 @@ package button
 
 import (
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/control"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/metrics"
@@ -11,7 +13,19 @@ import (
 
 type Button struct {
 	control.Control
-	OnClick func()
+	// Spec is used to create the window and is set to nil after creation.
+	Spec            *Spec
+	onClickListener func()
+}
+
+func (b *Button) SetOnClickListener(listener func()) {
+	b.onClickListener = listener
+}
+
+func (b *Button) callOnClickListener() {
+	if b.onClickListener != nil {
+		b.onClickListener()
+	}
 }
 
 func (b *Button) SetWindowText(str string) error {
@@ -23,6 +37,7 @@ func (b *Button) GetWindowText() (string, error) {
 }
 
 type Spec struct {
+	Parent  gw.WindowParent
 	Text    string
 	OnClick func()
 	X       metrics.Dimension
@@ -33,34 +48,40 @@ type Spec struct {
 	ExStyle win32.WINDOW_EX_STYLE
 }
 
-func New(parent win32.HWND, spec *Spec) (*Button, error) {
-	dpi := gg.Must(win32.GetDpiForWindow(parent))
-	hwnd, err := win32util.CreateWindow(&win32util.Wnd{
+func (b *Button) OnInit() {
+	defer func() { b.Spec = nil }()
+	b.Control.OnInit()
+	if b.Spec.OnClick != nil {
+		b.SetOnClickListener(b.Spec.OnClick)
+	}
+}
+
+func (b *Button) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+	switch message {
+	case appmsg.REFLECT_COMMAND:
+		b.callOnClickListener()
+	}
+	return b.Control.WndProc(hwnd, message, wParam, lParam)
+}
+
+func (b *Button) CreateHandle() win32.HWND {
+	dpi := gg.Must(win32.GetDpiForWindow(b.Spec.Parent.HWND()))
+	return chkerr.Must(win32util.CreateWindow(&win32util.Wnd{
 		ClassName:  "BUTTON",
-		WndParent:  parent,
-		WindowName: spec.Text,
-		X:          spec.X.Px(dpi),
-		Y:          spec.Y.Px(dpi),
-		Width:      spec.Width.Px(dpi),
-		Height:     spec.Height.Px(dpi),
-		Style:      spec.Style | win32.WS_CHILD,
-		ExStyle:    spec.ExStyle,
-	})
-	if err != nil {
-		return nil, err
-	}
-	var button = Button{OnClick: spec.OnClick}
-	if err := control.Attach(hwnd, &button.Control); err != nil {
-		return nil, err
-	}
-	button.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prev win32.WndProc) win32.LRESULT {
-		switch message {
-		case appmsg.REFLECT_COMMAND:
-			if button.OnClick != nil {
-				button.OnClick()
-			}
-		}
-		return prev(hwnd, message, wParam, lParam)
-	})
-	return &button, nil
+		WndParent:  b.Spec.Parent.HWND(),
+		WindowName: b.Spec.Text,
+		X:          b.Spec.X.Px(dpi),
+		Y:          b.Spec.Y.Px(dpi),
+		Width:      b.Spec.Width.Px(dpi),
+		Height:     b.Spec.Height.Px(dpi),
+		Style:      b.Spec.Style | win32.WS_CHILD,
+		ExStyle:    b.Spec.ExStyle,
+	}))
+}
+
+// New creates a new Button control with the specified specification.
+func New(spec *Spec) (button *Button) {
+	button = &Button{Spec: spec}
+	gw.Init(button)
+	return
 }

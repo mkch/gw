@@ -2,6 +2,8 @@ package static
 
 import (
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/control"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/metrics"
@@ -47,6 +49,8 @@ const (
 
 type Static struct {
 	control.Control
+	// Spec is the specification used to create the Static control. It is set to nil after the control is created.
+	Spec            *Spec
 	backgroundColor win32.COLORREF
 	backgroundBrush *brush.Brush // can't bi nil
 }
@@ -81,6 +85,7 @@ func createBackgroundBrush(color win32.COLORREF) (*brush.Brush, error) {
 }
 
 type Spec struct {
+	Parent  gw.WindowParent
 	Text    string
 	X       metrics.Dimension
 	Y       metrics.Dimension
@@ -90,37 +95,44 @@ type Spec struct {
 	ExStyle win32.WINDOW_EX_STYLE
 }
 
-func New(parent win32.HWND, spec *Spec) (*Static, error) {
-	dpi := gg.Must(win32.GetDpiForWindow(parent))
-	hwnd, err := win32util.CreateWindow(&win32util.Wnd{
-		ClassName:  "STATIC",
-		WndParent:  parent,
-		WindowName: spec.Text,
-		X:          spec.X.Px(dpi),
-		Y:          spec.Y.Px(dpi),
-		Width:      spec.Width.Px(dpi),
-		Height:     spec.Height.Px(dpi),
-		Style:      spec.Style | win32.WS_CHILD,
-		ExStyle:    spec.ExStyle,
-	})
-	if err != nil {
-		return nil, err
-	}
-	var static Static
-	if err := control.Attach(hwnd, &static.Control); err != nil {
-		return nil, err
-	}
+func (s *Static) OnInit() {
+	defer func() { s.Spec = nil }()
+	s.Control.OnInit()
+	s.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW)))
+}
 
-	static.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW)))
-	static.SetWndProc(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, prevWndProc win32.WndProc) win32.LRESULT {
-		switch message {
-		case win32.WM_DESTROY:
-			static.backgroundBrush.Release()
-		case appmsg.REFLECT_CTLCOLORSTATIC:
-			win32.SetBkMode(win32.HDC(wParam), win32.TRANSPARENT) // The *text* background is transparent.
-			return win32.LRESULT(static.backgroundBrush.HBRUSH())
-		}
-		return prevWndProc(hwnd, message, wParam, lParam)
-	})
-	return &static, nil
+func (s *Static) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+	switch message {
+	case win32.WM_DESTROY:
+		s.backgroundBrush.Release()
+	case appmsg.REFLECT_CTLCOLORSTATIC:
+		win32.SetBkMode(win32.HDC(wParam), win32.TRANSPARENT) // The *text* background is transparent.
+		return win32.LRESULT(s.backgroundBrush.HBRUSH())
+	}
+	return s.Control.WndProc(hwnd, message, wParam, lParam)
+}
+
+func (s *Static) CreateHandle() win32.HWND {
+	if s.Spec == nil {
+		s.Spec = &Spec{}
+	}
+	dpi := gg.Must(win32.GetDpiForWindow(s.Spec.Parent.HWND()))
+	return chkerr.Must(win32util.CreateWindow(&win32util.Wnd{
+		ClassName:  "STATIC",
+		WndParent:  s.Spec.Parent.HWND(),
+		WindowName: s.Spec.Text,
+		X:          s.Spec.X.Px(dpi),
+		Y:          s.Spec.Y.Px(dpi),
+		Width:      s.Spec.Width.Px(dpi),
+		Height:     s.Spec.Height.Px(dpi),
+		Style:      s.Spec.Style | win32.WS_CHILD,
+		ExStyle:    s.Spec.ExStyle,
+	}))
+}
+
+// New creates a new Static control with the specified specification.
+func New(spec *Spec) (static *Static) {
+	static = &Static{Spec: spec}
+	gw.Init(static)
+	return
 }

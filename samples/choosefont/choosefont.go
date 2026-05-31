@@ -19,38 +19,79 @@ import (
 //go:generate rsrc -arch amd64 -manifest manifest.xml
 //go:generate rsrc -arch 386 -manifest manifest.xml
 
-var textFont *font.Font
+type MainWindow struct {
+	window.Window
+	logFont   *font.LogFont
+	textFont  *font.Font
+	textBuf   []win32.WCHAR
+	dpi       win32.UINT
+	textColor win32.COLORREF
+}
+
+func (w *MainWindow) TextFont() *font.LogFont {
+	return w.logFont
+}
+
+func (w *MainWindow) TextColor() win32.COLORREF {
+	return w.textColor
+}
+
+func (w *MainWindow) SetTextFont(f *dialog.FontChosen) {
+	w.logFont = f.Font
+	w.textFont.Release()
+	w.textFont = gg.Must(font.New(w.logFont, w.dpi))
+	w.textColor = f.Color
+	w.InvalidateRect(nil, true)
+}
+
+func (w *MainWindow) OnInit() {
+	w.Window.OnInit()
+	w.dpi = gg.Must(w.DPI())
+	lf := font.SysDefault()
+	w.textFont = gg.Must(font.New(lf, w.dpi))
+	win32util.CString("微软中文软件 Test font", &w.textBuf)
+
+	w.AddMsgListener(win32.WM_SIZE, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
+		w.InvalidateRect(nil, true)
+	})
+
+	w.AddMsgListener(win32.WM_DPICHANGED, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
+		w.dpi = gg.Must(w.DPI())
+		gg.MustOK(w.textFont.ChangeDPI(w.dpi))
+		w.InvalidateRect(nil, true)
+	})
+}
+
+func (w *MainWindow) OnDestroy() {
+	w.textFont.Release()
+	w.Window.OnDestroy()
+}
+
+func (w *MainWindow) OnPaint() {
+	dc := gg.Must(paint.NewPaintDC(w.HWND()))
+	defer func() { gg.MustOK(dc.EndPaint()) }()
+	defer gg.Must(paint.SelectObject(dc.HDC(), w.textFont.HFONT())).Restore()
+	gg.Must(win32.SetTextColor(dc.HDC(), w.textColor))
+	rcClient, _ := w.GetClientRect()
+	win32.DrawTextExW(dc.HDC(), &w.textBuf[0], -1, rcClient, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE, nil)
+}
+
+func NewMainWindow(spec *window.Spec) (win *MainWindow) {
+	win = &MainWindow{Window: window.Window{Spec: spec}}
+	gw.Init(win)
+	return
+}
 
 func ui(app *app.App) {
 
-	win := gg.Must(window.New(&window.Spec{
+	win := NewMainWindow(&window.Spec{
 		Text:      "Test font",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	}))
-
-	dpi := gg.Must(win.DPI())
-	lf := font.SysDefault()
-	textFont = gg.Must(font.New(lf, dpi))
-	var textColor win32.COLORREF
-
-	win.AddMsgListener(win32.WM_SIZE, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
-		win.InvalidateRect(nil, true)
 	})
-
-	win.AddMsgListener(win32.WM_DPICHANGED, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
-		dpi = gg.Must(win.DPI())
-		gg.MustOK(textFont.ChangeDPI(dpi))
-		win.InvalidateRect(nil, true)
-	})
-
-	updateFont := func() {
-		textFont.Release()
-		textFont = gg.Must(font.New(lf, dpi))
-	}
 
 	fontMenu := menu.New(false)
 	fontMenu.InsertItem(-1, &menu.ItemSpec{
@@ -59,23 +100,17 @@ func ui(app *app.App) {
 			r, err := dialog.ChooseFont(&dialog.ChooseFontSpec{
 				Owner:   win.HWND(),
 				Flags:   win32.CF_EFFECTS,
-				Color:   &textColor,
-				LogFont: lf,
+				Color:   new(win.TextColor()),
+				LogFont: win.TextFont(),
 				OnApply: func(curFont *dialog.FontChosen) {
-					lf = curFont.Font
-					textColor = curFont.Color
-					updateFont()
-					win.InvalidateRect(nil, true)
+					win.SetTextFont(curFont)
 				},
 			})
 			if err != nil {
 				panic(err)
 			}
 			if r != nil {
-				lf = r.Font
-				textColor = r.Color
-				updateFont()
-				win.InvalidateRect(nil, true)
+				win.SetTextFont(r)
 			}
 		},
 	})
@@ -87,26 +122,10 @@ func ui(app *app.App) {
 
 	win.SetMenu(mainMenu)
 
-	const text = "微软中文软件 Test font"
-	var textBuf []win32.WCHAR
-	win32util.CString(text, &textBuf)
-	win.AddPaintCallback(func(paintData *paint.PaintData, prev func(*paint.PaintData)) {
-		defer gg.Must(paint.SelectObject(paintData.DC, textFont.HFONT())).Restore()
-		gg.Must(win32.SetTextColor(paintData.DC, textColor))
-		rcClient, _ := win.GetClientRect()
-		win32.DrawTextExW(paintData.DC, &textBuf[0], -1, rcClient, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE, nil)
-	})
-
 	win.Show(win32.SW_SHOW)
 }
 
-func cleanup(app *app.App) {
-	if textFont != nil {
-		textFont.Release()
-	}
-}
-
 func main() {
-	ret := gw.Run(ui, cleanup)
+	ret := gw.Run(ui, nil)
 	os.Exit(ret)
 }

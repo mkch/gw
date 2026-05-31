@@ -52,9 +52,3 @@ func NewPaintDC(hwnd win32.HWND) (dc *PaintDC, err error) {
 	dc.hwnd = hwnd
 	return
 }
-
-type PaintData struct {
-	DC    win32.HDC
-	Erase bool
-	Rect  win32.RECT
-}

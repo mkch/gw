@@ -14,7 +14,7 @@ type LogFont struct {
 
 // NewLogFont creates a LogFont.
 func NewLogFont(logFont *win32.LOGFONTW, DPI win32.UINT) *LogFont {
-	return &LogFont{*withdpi.NewLogStruct[win32.LOGFONTW, win32.HFONT](logFont, DPI,
+	return &LogFont{*withdpi.NewLogStruct(logFont, DPI,
 		func(l *win32.LOGFONTW, oldDPI, newDIP win32.UINT) {
 			l.Height = metrics.DPIConv(l.Height, oldDPI, newDIP)
 		}, win32.CreateFontIndirectW)}

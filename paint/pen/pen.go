@@ -21,7 +21,7 @@ func NewExtLogPen(l *win32.EXTLOGPEN, DPI win32.UINT) *LogPen {
 		(l.PenStyle&win32.PS_GEOMETRIC == 0) { // Not GEOMETRIC
 		DPI = withdpi.DPI_INDEPENDENT
 	}
-	return &LogPen{*withdpi.NewLogStruct[win32.EXTLOGPEN, win32.HPEN](l, DPI, func(l *win32.EXTLOGPEN, oldDPI, newDPI win32.UINT) {
+	return &LogPen{*withdpi.NewLogStruct(l, DPI, func(l *win32.EXTLOGPEN, oldDPI, newDPI win32.UINT) {
 		if oldDPI != withdpi.DPI_INDEPENDENT {
 			l.Width = metrics.DPIConv(l.Width, oldDPI, newDPI)
 			for i, entry := range l.StyleEntry {

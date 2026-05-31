@@ -4,11 +4,11 @@ package main
 import "C"
 
 import (
+	"fmt"
 	"time"
 	"unsafe"
 
-	"github.com/mkch/gg"
-	"github.com/mkch/gg/errortrace/chkerr"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -20,7 +20,7 @@ import (
 //go:generate rsrc -arch amd64 -ico main.ico -manifest manifest.xml
 //go:generate rsrc -arch 386 -ico main.ico -manifest manifest.xml
 
-var gwapp *app.BareApp
+var gwapp *app.BaseApp
 var ticker *time.Ticker
 
 //export Show
@@ -28,16 +28,21 @@ func Show(parent C.HWND) {
 	const TickerDuration = time.Millisecond * 100
 	ticker = time.NewTicker(TickerDuration)
 
-	gwapp = app.NewBare()
+	gwapp = app.NewBase()
 
-	mainWindow := chkerr.Must(window.New(&window.Spec{
-		WndParent: win32.HWND(unsafe.Pointer(parent)),
-		Text:      "GW window",
-		Style:     win32.WS_OVERLAPPEDWINDOW,
-		X:         metrics.Px(win32.CW_USEDEFAULT),
-		Width:     metrics.Dip(500),
-		Height:    metrics.Dip(300),
-	}))
+	mainWindow := window.New(&window.Spec{
+		Parent: gw.RawParent(win32.HWND(unsafe.Pointer(parent))),
+		Text:   "GW window",
+		Style:  win32.WS_OVERLAPPEDWINDOW,
+		X:      metrics.Px(win32.CW_USEDEFAULT),
+		Width:  metrics.Dip(500),
+		Height: metrics.Dip(300),
+	})
+
+	mainWindow.SetOnDestroyListener(func() {
+		fmt.Println("Main window destroyed")
+		ticker.Stop()
+	})
 
 	fileMenu := menu.New(true)
 	fileMenu.InsertItem(-1, &menu.ItemSpec{
@@ -54,12 +59,13 @@ func Show(parent C.HWND) {
 
 	mainWindow.SetMenu(mainMenu)
 
-	timeStatic := gg.Must(static.New(mainWindow.HWND(), &static.Spec{
-		Text:  "Time",
-		Style: win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
-		X:     metrics.Dip(200), Y: metrics.Dip(30),
+	timeStatic := static.New(&static.Spec{
+		Parent: mainWindow,
+		Text:   "Time",
+		Style:  win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
+		X:      metrics.Dip(200), Y: metrics.Dip(30),
 		Width: metrics.Dip(100), Height: metrics.Dip(60),
-	}))
+	})
 
 	mainWindow.Show(win32.SW_SHOW)
 
@@ -67,7 +73,12 @@ func Show(parent C.HWND) {
 		for t := range ticker.C {
 			str := t.Local().Format("15:04:05")
 			// Run SetText() in UI goroutine.
-			gwapp.Post(func() { timeStatic.SetText(str) })
+			gwapp.Post(func() {
+				if !timeStatic.Valid() {
+					return
+				}
+				timeStatic.SetText(str)
+			})
 		}
 	}()
 }

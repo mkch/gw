@@ -47,7 +47,7 @@ func ui(app *app.App) {
 	ticker := time.NewTicker(TickerDuration)
 	tickerStopped := false
 
-	win, _ := window.New(&window.Spec{
+	win := window.New(&window.Spec{
 		Text:  "Hello, Go!",
 		Style: win32.WS_OVERLAPPEDWINDOW,
 		X:     metrics.Px(win32.CW_USEDEFAULT),
@@ -56,17 +56,19 @@ func ui(app *app.App) {
 	})
 	win.SetMenu(createMenu(ticker, &tickerStopped))
 
-	timeStatic, _ := static.New(win.HWND(), &static.Spec{
-		Text:  "Time",
-		Style: win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
-		X:     metrics.Dip(200), Y: metrics.Dip(30),
+	timeStatic := static.New(&static.Spec{
+		Parent: win,
+		Text:   "Time",
+		Style:  win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
+		X:      metrics.Dip(200), Y: metrics.Dip(30),
 		Width: metrics.Dip(100), Height: metrics.Dip(60),
 	})
 
-	button.New(win.HWND(), &button.Spec{
-		Text:  "Hello",
-		Style: win32.WS_VISIBLE,
-		X:     metrics.Dip(200), Y: metrics.Dip(120),
+	button.New(&button.Spec{
+		Parent: win,
+		Text:   "Hello",
+		Style:  win32.WS_VISIBLE,
+		X:      metrics.Dip(200), Y: metrics.Dip(120),
 		Width: metrics.Dip(100), Height: metrics.Dip(60),
 		OnClick: func() {
 			win32util.MessageBox(win.HWND(),
@@ -81,7 +83,12 @@ func ui(app *app.App) {
 		for {
 			str := (<-ticker.C).Local().Format("15:04:05")
 			// Run SetText() in UI goroutine.
-			app.Post(func() { timeStatic.SetText(str) })
+			app.Post(func() {
+				if !timeStatic.Valid() {
+					return
+				}
+				timeStatic.SetText(str)
+			})
 		}
 	}()
 }

@@ -2,6 +2,8 @@ package edit
 
 import (
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/control"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
@@ -70,9 +72,12 @@ const (
 
 type Edit struct {
 	control.Control
+	// Spec is used to create the window and is cleared after creation.
+	Spec *Spec
 }
 
 type Spec struct {
+	Parent  gw.WindowParent
 	Text    string
 	X       metrics.Dimension
 	Y       metrics.Dimension
@@ -82,25 +87,29 @@ type Spec struct {
 	ExStyle win32.WINDOW_EX_STYLE
 }
 
-func New(parent win32.HWND, spec *Spec) (*Edit, error) {
-	dpi := gg.Must(win32.GetDpiForWindow(parent))
-	hwnd, err := win32util.CreateWindow(&win32util.Wnd{
-		ClassName:  "Edit",
-		WndParent:  parent,
-		WindowName: spec.Text,
-		X:          spec.X.Px(dpi),
-		Y:          spec.Y.Px(dpi),
-		Width:      spec.Width.Px(dpi),
-		Height:     spec.Height.Px(dpi),
-		Style:      spec.Style | win32.WS_CHILD,
-		ExStyle:    spec.ExStyle,
-	})
-	if err != nil {
-		return nil, err
-	}
-	var edit Edit
-	if err := control.Attach(hwnd, &edit.Control); err != nil {
-		return nil, err
-	}
-	return &edit, nil
+func (e *Edit) OnInit() {
+	defer func() { e.Spec = nil }()
+	e.Control.OnInit()
+}
+
+func (e *Edit) CreateHandle() win32.HWND {
+	dpi := gg.Must(win32.GetDpiForWindow(e.Spec.Parent.HWND()))
+	return chkerr.Must(win32util.CreateWindow(&win32util.Wnd{
+		ClassName:  "EDIT",
+		WndParent:  e.Spec.Parent.HWND(),
+		WindowName: e.Spec.Text,
+		X:          e.Spec.X.Px(dpi),
+		Y:          e.Spec.Y.Px(dpi),
+		Width:      e.Spec.Width.Px(dpi),
+		Height:     e.Spec.Height.Px(dpi),
+		Style:      e.Spec.Style | win32.WS_CHILD,
+		ExStyle:    e.Spec.ExStyle,
+	}))
+}
+
+// New creates a new Edit control with the specified specification.
+func New(spec *Spec) (edit *Edit) {
+	edit = &Edit{Spec: spec}
+	gw.Init(edit)
+	return
 }
