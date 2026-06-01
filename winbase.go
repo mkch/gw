@@ -6,6 +6,7 @@ import (
 
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/app"
+	"github.com/mkch/gw/events"
 	internal_app "github.com/mkch/gw/internal/app"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
@@ -102,6 +103,18 @@ type BaseWindow interface {
 	// OnPaint is called when the window needs to be repainted, when WM_PAINT message is received.
 	// The default implementation calls the native window procedure to process the message.
 	OnPaint()
+	// OnKeyDown is called when WM_KEYDOWN message is received.
+	// The default implementation calls the native window procedure to process the message.
+	OnKeyDown(event *events.KeyEvent)
+	// OnKeyUp is called when WM_KEYUP message is received.
+	// The default implementation calls the native window procedure to process the message.
+	OnKeyUp(event *events.KeyEvent)
+	// OnSysKeyDown is called when WM_SYSKEYDOWN message is received.
+	// The default implementation calls the native window procedure to process the message.
+	OnSysKeyDown(event *events.KeyEvent)
+	// OnSysKeyUp is called when WM_SYSKEYUP message is received.
+	// The default implementation calls the native window procedure to process the message.
+	OnSysKeyUp(event *events.KeyEvent)
 
 	setHWND(hwnd win32.HWND)
 	setOldWndProc(oldWndProc uintptr)
@@ -285,6 +298,30 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 		w.callOnRButtonUpListener(MouseClickOpt(wParam), int(win32.GET_X_LPARAM(lParam)), int(win32.GET_Y_LPARAM(lParam)))
 	case win32.WM_RBUTTONDOWN:
 		w.callOnRButtonDownListener(MouseClickOpt(wParam), int(win32.GET_X_LPARAM(lParam)), int(win32.GET_Y_LPARAM(lParam)))
+	case win32.WM_KEYDOWN:
+		LookupWindow(hwnd).OnKeyDown(&events.KeyEvent{
+			VKCode: wParam,
+			State:  events.KeyMessageLParam(lParam),
+		})
+		return 0
+	case win32.WM_SYSKEYDOWN:
+		LookupWindow(hwnd).OnSysKeyDown(&events.KeyEvent{
+			VKCode: wParam,
+			State:  events.KeyMessageLParam(lParam),
+		})
+		return 0
+	case win32.WM_KEYUP:
+		LookupWindow(hwnd).OnKeyUp(&events.KeyEvent{
+			VKCode: wParam,
+			State:  events.KeyMessageLParam(lParam),
+		})
+		return 0
+	case win32.WM_SYSKEYUP:
+		LookupWindow(hwnd).OnSysKeyUp(&events.KeyEvent{
+			VKCode: wParam,
+			State:  events.KeyMessageLParam(lParam),
+		})
+		return 0
 	case win32.WM_PAINT:
 		LookupWindow(hwnd).OnPaint()
 		return 0 // Not calling default.
@@ -308,6 +345,22 @@ var wndProc = windows.NewCallback(func(hwnd win32.HWND, message win32.UINT, wPar
 	internal_app.CallMsgRetListeners(internal_app.ThreadLocalApp(), hwnd, message, wParam, lParam, result)
 	return
 })
+
+func (w *BaseWindowImpl) OnKeyDown(event *events.KeyEvent) {
+	w.defWndProc(w.hwnd, win32.WM_KEYDOWN, event.VKCode, win32.LPARAM(event.State))
+}
+
+func (w *BaseWindowImpl) OnSysKeyDown(event *events.KeyEvent) {
+	w.defWndProc(w.hwnd, win32.WM_SYSKEYDOWN, event.VKCode, win32.LPARAM(event.State))
+}
+
+func (w *BaseWindowImpl) OnKeyUp(event *events.KeyEvent) {
+	w.defWndProc(w.hwnd, win32.WM_KEYUP, event.VKCode, win32.LPARAM(event.State))
+}
+
+func (w *BaseWindowImpl) OnSysKeyUp(event *events.KeyEvent) {
+	w.defWndProc(w.hwnd, win32.WM_SYSKEYUP, event.VKCode, win32.LPARAM(event.State))
+}
 
 type PopupMenuSpec struct {
 	Flags   win32.TRACK_POPUP_MENU_FLAG

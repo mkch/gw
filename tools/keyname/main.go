@@ -7,6 +7,7 @@ import (
 	"github.com/mkch/gg"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
+	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/static"
 	"github.com/mkch/gw/win32"
@@ -38,17 +39,21 @@ func (w *MainWindow) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.W
 		padding := metrics.Dip(5).Px(dpi)
 		h := metrics.Dip(100).Px(dpi)
 		win32.SetWindowPos(w.label.HWND(), 0, padding, padding, winWidth-padding*2, h, win32.SWP_NOZORDER)
-	case win32.WM_KEYDOWN:
-		var buf [32]win32.WCHAR
-		_, err := win32.GetKeyNameTextW(win32.LONG(lParam), &buf[0], len(buf))
-		if err != nil {
-			w.label.SetText("Error: " + err.Error())
-			break
-		}
-		keyName := win32util.GoString(&buf[0], win32util.CStrLen(&buf[0], len(buf))+1)
-		w.label.SetText(fmt.Sprintf("Virtual Key: 0x%02X('%s')\n Key: %s\n lParam: %s", wParam, string(rune(wParam)), keyName, win32util.KeyMessageLParam(lParam)))
 	}
 	return w.Window.WndProc(hwnd, message, wParam, lParam)
+}
+
+func (w *MainWindow) OnKeyDown(event *events.KeyEvent) {
+	w.Window.OnKeyDown(event)
+
+	var buf [32]win32.WCHAR
+	_, err := win32.GetKeyNameTextW(win32.LONG(event.State), &buf[0], len(buf))
+	if err != nil {
+		w.label.SetText("Error: " + err.Error())
+		return
+	}
+	keyName := win32util.GoString(&buf[0], win32util.CStrLen(&buf[0], len(buf))+1)
+	w.label.SetText(fmt.Sprintf("Virtual Key: 0x%02X('%s')\n Key: %s\n lParam: %s", event.VKCode, string(rune(event.VKCode)), keyName, event.State))
 }
 
 func NewMainWindow(spec *window.Spec) *MainWindow {
