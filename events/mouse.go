@@ -68,7 +68,7 @@ func (m *MouseClickOpt) SetXButton2(down bool) {
 	m.set(win32.MK_XBUTTON2, down)
 }
 
-// MouseClickEvent is the event for mouse click messages, including WM_LBUTTONDOWN, WM_LBUTTONUP, WM_RBUTTONDOWN, and WM_RBUTTONUP.
+// MouseClickEvent is the event for mouse click messages.
 type MouseClickEvent struct {
 	Opt MouseClickOpt
 	X   int
