@@ -76,8 +76,10 @@ type Window struct {
 	onDestroyHandler func()
 }
 
-func (w *Window) Close() {
-	win32.SendMessageW(w.HWND(), win32.WM_CLOSE, 0, 0)
+func (w *Window) Close() bool {
+	ret, _ := win32.SendMessageW(w.HWND(), win32.WM_CLOSE, 0, 0)
+	// If the WM_CLOSE handler allows, it returns 0. Otherwise -1.
+	return ret == 0
 }
 
 // SetOnCloseListener sets a listener for the close event of the popup window.
@@ -316,11 +318,11 @@ func (w *Window) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARA
 		menu.OnWmMenuCommand(wParam, lParam)
 		return 0
 	case win32.WM_CLOSE:
-		base := gw.LookupWindow(w.HWND())
-		if oc, ok := base.(interface{ OnClose() bool }); ok {
-			if !oc.OnClose() {
-				return 0
-			}
+		// If code reaches here, the window associated with w.HWND() must have embedded *Window,
+		// so the type assertion must succeed.
+		oc := gw.LookupWindow(w.HWND()).(interface{ OnClose() bool })
+		if !oc.OnClose() {
+			return -1 // prevent the window from closing. Used by [Window.Close].
 		}
 	case win32.WM_DESTROY:
 		w.setMsgPreTranslator(nil)

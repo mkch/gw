@@ -118,7 +118,10 @@ func TestClose(t *testing.T) {
 			return false // prevent the window from closing
 		})
 
-		w.Close() // should not close the window
+		ret := w.Close() // should not close the window
+		if ret {
+			t.Fatal("Expected Close() to return false when OnCloseListener returns false, but got true")
+		}
 
 		if !w.Valid() {
 			t.Fatal("Window should still be valid after Close() with OnCloseListener returning false")
@@ -147,14 +150,20 @@ func TestClosableWindow(t *testing.T) {
 
 		w.SetOnDestroyListener(func() { app.Quit(0) })
 
-		w.Close() // should not close the window
+		ret := w.Close() // should not close the window
+		if ret {
+			t.Fatal("Expected Close() to return false when OnCloseListener returns false, but got true")
+		}
 
 		if !w.Valid() {
 			t.Fatal("Window should still be valid after Close() with OnCloseListener returning false")
 		}
 
 		w.canClose = true
-		w.Close() // should close the window
+		ret = w.Close() // should close the window
+		if !ret {
+			t.Fatal("Expected Close() to return true when OnCloseListener returns true, but got false")
+		}
 
 		if w.Valid() {
 			t.Fatal("Window should be invalid after Close() with OnCloseListener returning true")
