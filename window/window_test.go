@@ -70,7 +70,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestWrapper(t *testing.T) {
-	gw.Run(func(app *app.App) {
+	ret := gw.Run(func(app *app.App) {
 		w := gw.Init(&MyWindow{
 			window.Window{
 				Spec: &window.Spec{
@@ -98,6 +98,67 @@ func TestWrapper(t *testing.T) {
 		}
 
 		w.Close()
+
+	}, nil)
+
+	if ret != 1 {
+		t.Fatalf("Expected app to quit with code 1, got %d", ret)
+	}
+}
+
+func TestClose(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		w := window.New(&window.Spec{
+			Text:      "Hello, World!",
+			Style:     win32.WS_OVERLAPPEDWINDOW,
+			OnDestroy: func() { app.Quit(0) },
+		})
+
+		w.SetOnCloseListener(func() bool {
+			return false // prevent the window from closing
+		})
+
+		w.Close() // should not close the window
+
+		if !w.Valid() {
+			t.Fatal("Window should still be valid after Close() with OnCloseListener returning false")
+		}
+
+		w.Destroy()
+
+	}, nil)
+}
+
+type ClosableWindow struct {
+	window.Window
+	canClose bool
+}
+
+func (w *ClosableWindow) OnClose() bool {
+	return w.canClose
+}
+
+func TestClosableWindow(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		w := gw.Init(&ClosableWindow{
+			Window:   window.Window{},
+			canClose: false,
+		})
+
+		w.SetOnDestroyListener(func() { app.Quit(0) })
+
+		w.Close() // should not close the window
+
+		if !w.Valid() {
+			t.Fatal("Window should still be valid after Close() with OnCloseListener returning false")
+		}
+
+		w.canClose = true
+		w.Close() // should close the window
+
+		if w.Valid() {
+			t.Fatal("Window should be invalid after Close() with OnCloseListener returning true")
+		}
 
 	}, nil)
 }
