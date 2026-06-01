@@ -8,7 +8,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -31,7 +30,7 @@ func Show(parent C.HWND) {
 	gwapp = app.NewBase()
 
 	mainWindow := window.New(&window.Spec{
-		Parent: gw.RawParent(win32.HWND(unsafe.Pointer(parent))),
+		Parent: win32.HWND(unsafe.Pointer(parent)),
 		Text:   "GW window",
 		Style:  win32.WS_OVERLAPPEDWINDOW,
 		X:      metrics.Px(win32.CW_USEDEFAULT),

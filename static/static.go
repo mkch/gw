@@ -85,7 +85,7 @@ func createBackgroundBrush(color win32.COLORREF) (*brush.Brush, error) {
 }
 
 type Spec struct {
-	Parent  gw.WindowParent
+	Parent  gw.BaseWindow
 	Text    string
 	X       metrics.Dimension
 	Y       metrics.Dimension

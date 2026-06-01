@@ -181,7 +181,7 @@ func ui(app *app.App) {
 	gg.Must(win32util.MessageBox(bkWin.HWND(), "Use context menu to change display", "Hint", win32.MB_ICONINFORMATION))
 
 	win1 := window.New(&window.Spec{
-		Parent: bkWin,
+		Parent: bkWin.HWND(),
 		Text:   "500 X 500",
 		Style:  win32.WS_POPUP | win32.WS_CAPTION | win32.WS_VISIBLE,
 		X:      metrics.Px(win32.CW_USEDEFAULT),

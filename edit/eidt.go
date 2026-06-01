@@ -77,7 +77,7 @@ type Edit struct {
 }
 
 type Spec struct {
-	Parent  gw.WindowParent
+	Parent  gw.BaseWindow
 	Text    string
 	X       metrics.Dimension
 	Y       metrics.Dimension

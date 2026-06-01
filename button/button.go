@@ -14,7 +14,8 @@ import (
 type Button struct {
 	control.Control
 	// Spec is used to create the window and is set to nil after creation.
-	Spec            *Spec
+	Spec *Spec
+
 	onClickListener func()
 }
 
@@ -37,7 +38,7 @@ func (b *Button) GetWindowText() (string, error) {
 }
 
 type Spec struct {
-	Parent  gw.WindowParent
+	Parent  gw.BaseWindow
 	Text    string
 	OnClick func()
 	X       metrics.Dimension
@@ -56,10 +57,17 @@ func (b *Button) OnInit() {
 	}
 }
 
+// OnClick is called when the button is clicked.
+// The default implementation calls the on-click listener if it is set.
+func (b *Button) OnClick() {
+	b.callOnClickListener()
+}
+
 func (b *Button) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 	switch message {
 	case appmsg.REFLECT_COMMAND:
-		b.callOnClickListener()
+		gw.LookupWindow(b.HWND()).(interface{ OnClick() }).OnClick()
+		return 0
 	}
 	return b.Control.WndProc(hwnd, message, wParam, lParam)
 }

@@ -43,7 +43,7 @@ var classRegistered = sync.OnceValues(func() (func(string), func(string) bool) {
 })
 
 type Spec struct {
-	Parent    gw.WindowParent
+	Parent    win32.HWND
 	ClassName string // Custom class name. If empty, the default class will be used.
 	Text      string
 	Style     win32.WINDOW_STYLE
@@ -259,7 +259,7 @@ func (w *Window) CreateHandle() win32.HWND {
 	}
 
 	hwnd := chkerr.Must(win32util.CreateWindow((&win32util.Wnd{
-		WndParent:  gg.IfFunc(w.Spec.Parent != nil, func() win32.HWND { return w.Spec.Parent.HWND() }, func() win32.HWND { return 0 }),
+		WndParent:  w.Spec.Parent,
 		ClassName:  className,
 		WindowName: w.Spec.Text,
 		Style:      style,

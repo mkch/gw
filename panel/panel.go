@@ -41,7 +41,7 @@ var classRegistered = sync.OnceValues(func() (func(string), func(string) bool) {
 })
 
 type Spec struct {
-	Parent    gw.WindowParent
+	Parent    gw.BaseWindow
 	ClassName string // Custom class name. If empty, the default class will be used.
 	X         metrics.Dimension
 	Y         metrics.Dimension
