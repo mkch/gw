@@ -8,6 +8,7 @@ import (
 	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
+	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
@@ -169,7 +170,7 @@ func ui(app *app.App) {
 		},
 	}))
 
-	bkWin.SetOnRButtonDownListener(func(opt gw.MouseClickOpt, x, y int) {
+	bkWin.SetOnRButtonDownListener(func(event events.MouseClickEvent) {
 		gg.MustOK(bkWin.TrackPopupMenu(ctxMenu, nil))
 	})
 
@@ -189,7 +190,7 @@ func ui(app *app.App) {
 		Width:  metrics.Dip(500),
 		Height: metrics.Dip(500),
 	})
-	win1.SetOnLButtonDownListener(func(opt gw.MouseClickOpt, x, y int) {
+	win1.SetOnLButtonDownListener(func(event events.MouseClickEvent) {
 		gg.Must(win32.SendMessageW(win1.HWND(), win32.WM_NCLBUTTONDOWN, win32.HTCAPTION, 0))
 	})
 }
