@@ -80,8 +80,6 @@ func (b *Button) CreateHandle() win32.HWND {
 }
 
 // New creates a new Button control with the specified specification.
-func New(spec *Spec) (button *Button) {
-	button = &Button{Spec: spec}
-	gw.Init(button)
-	return
+func New(spec *Spec) *Button {
+	return gw.Init(&Button{Spec: spec})
 }

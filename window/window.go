@@ -361,8 +361,6 @@ func (w *Window) OnInit() {
 	}
 }
 
-func New(spec *Spec) (window *Window) {
-	window = &Window{Spec: spec}
-	gw.Init(window)
-	return
+func New(spec *Spec) *Window {
+	return gw.Init(&Window{Spec: spec})
 }

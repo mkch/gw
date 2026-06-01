@@ -78,7 +78,7 @@ func TestWrapper(t *testing.T) {
 		})
 		defer parent.Close()
 
-		ctrl := &MyEdit{Edit: edit.Edit{Spec: &edit.Spec{
+		ctrl := gw.Init(&MyEdit{Edit: edit.Edit{Spec: &edit.Spec{
 			Parent: parent,
 			Text:   "Hello",
 			X:      metrics.Px(10),
@@ -86,8 +86,7 @@ func TestWrapper(t *testing.T) {
 			Width:  metrics.Px(100),
 			Height: metrics.Px(50),
 			Style:  edit.ES_LEFT,
-		}}}
-		gw.Init(ctrl)
+		}}})
 
 		hwnd := ctrl.HWND()
 		if hwnd == 0 {

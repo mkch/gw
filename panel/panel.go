@@ -111,10 +111,8 @@ func (p *Panel) CreateHandle() win32.HWND {
 	}))
 }
 
-func New(spec *Spec) (panel *Panel) {
-	panel = &Panel{Spec: spec}
-	gw.Init(panel)
-	return
+func New(spec *Spec) *Panel {
+	return gw.Init(&Panel{Spec: spec})
 }
 
 func (p *Panel) BackgroundColor() win32.COLORREF {

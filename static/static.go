@@ -131,8 +131,6 @@ func (s *Static) CreateHandle() win32.HWND {
 }
 
 // New creates a new Static control with the specified specification.
-func New(spec *Spec) (static *Static) {
-	static = &Static{Spec: spec}
-	gw.Init(static)
-	return
+func New(spec *Spec) *Static {
+	return gw.Init(&Static{Spec: spec})
 }

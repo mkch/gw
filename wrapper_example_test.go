@@ -22,14 +22,12 @@ func (w *MainWindow) OnDestroy() {
 
 // NewMainWindow creates and initializes a MainWindow instance.
 func NewMainWindow() *MainWindow {
-	w := &MainWindow{window.Window{Spec: &window.Spec{
+	return gw.Init(&MainWindow{Window: window.Window{Spec: &window.Spec{
 		X:      metrics.Dip(100),
 		Y:      metrics.Dip(100),
 		Width:  metrics.Dip(500),
 		Height: metrics.Dip(300),
-	}}}
-	gw.Init(w)
-	return w
+	}}})
 }
 
 func Example_wrapper() {

@@ -81,7 +81,7 @@ func TestWrapper(t *testing.T) {
 		})
 		defer parent.Close()
 
-		btn := &MyButton{Button: button.Button{Spec: &button.Spec{
+		btn := gw.Init(&MyButton{Button: button.Button{Spec: &button.Spec{
 			Parent:  parent,
 			Text:    "Click me",
 			X:       metrics.Px(10),
@@ -90,8 +90,7 @@ func TestWrapper(t *testing.T) {
 			Height:  metrics.Px(50),
 			Style:   win32.BS_LEFT,
 			OnClick: func() { onClickCalled = true },
-		}}}
-		gw.Init(btn)
+		}}})
 
 		hwnd := btn.HWND()
 		if hwnd == 0 {

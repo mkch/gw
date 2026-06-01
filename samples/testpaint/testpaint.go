@@ -95,10 +95,8 @@ func (w *MainWindow) CloneTextFont() *font.Font {
 	return w.textFont.Clone()
 }
 
-func NewMainWindow(spec *window.Spec) (win *MainWindow) {
-	win = &MainWindow{Window: window.Window{Spec: spec}}
-	gw.Init(win)
-	return
+func NewMainWindow(spec *window.Spec) *MainWindow {
+	return gw.Init(&MainWindow{Window: window.Window{Spec: spec}})
 }
 
 type Window1 struct {
@@ -129,10 +127,8 @@ func (w *Window1) OnDestroy() {
 	w.textFont.Release()
 }
 
-func NewWindow1(spec *window.Spec, textFont *font.Font) (win *Window1) {
-	win = &Window1{Window: window.Window{Spec: spec}, textFont: textFont}
-	gw.Init(win)
-	return
+func NewWindow1(spec *window.Spec, textFont *font.Font) *Window1 {
+	return gw.Init(&Window1{Window: window.Window{Spec: spec}, textFont: textFont})
 }
 
 func main() {

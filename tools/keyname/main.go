@@ -51,10 +51,8 @@ func (w *MainWindow) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.W
 	return w.Window.WndProc(hwnd, message, wParam, lParam)
 }
 
-func NewMainWindow(spec *window.Spec) (win *MainWindow) {
-	win = &MainWindow{Window: window.Window{Spec: spec}}
-	gw.Init(win)
-	return
+func NewMainWindow(spec *window.Spec) *MainWindow {
+	return gw.Init(&MainWindow{Window: window.Window{Spec: spec}})
 }
 
 func ui(app *app.App) {

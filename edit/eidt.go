@@ -109,7 +109,5 @@ func (e *Edit) CreateHandle() win32.HWND {
 
 // New creates a new Edit control with the specified specification.
 func New(spec *Spec) (edit *Edit) {
-	edit = &Edit{Spec: spec}
-	gw.Init(edit)
-	return
+	return gw.Init(&Edit{Spec: spec})
 }

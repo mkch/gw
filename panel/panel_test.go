@@ -71,15 +71,14 @@ func TestWrapper(t *testing.T) {
 		defer parent.Close()
 
 		const panelClassName = "my panel class name"
-		ctrl := &MyPanel{Panel: panel.Panel{Spec: &panel.Spec{
+		ctrl := gw.Init(&MyPanel{Panel: panel.Panel{Spec: &panel.Spec{
 			Parent:    parent,
 			ClassName: panelClassName,
 			X:         metrics.Px(10),
 			Y:         metrics.Px(11),
 			Width:     metrics.Px(100),
 			Height:    metrics.Px(50),
-		}}}
-		gw.Init(ctrl)
+		}}})
 
 		hwnd := ctrl.HWND()
 		if hwnd == 0 {

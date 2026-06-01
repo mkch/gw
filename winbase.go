@@ -460,11 +460,12 @@ func Attach(hwnd win32.HWND, window BaseWindow) error {
 }
 
 // Init creates and initializes the window.
+// The return value is the same as the window parameter.
 // It panics if the window is already initialized or if creating or initializing the window fails.
 // Only [BaseWindow] instances initialized by this function can be retrieved by [LookupWindow].
 // One can wrap an uninitialized [BaseWindow] instance to crate a new window type, and then call this
 // function to initialize the instance of the new type. See Wrapper example for details.
-func Init(window BaseWindow) {
+func Init[T BaseWindow](window T) T {
 	if window.initialized() {
 		panic("window is already initialized")
 	}
@@ -472,4 +473,5 @@ func Init(window BaseWindow) {
 		panic(err)
 	}
 	window.OnInit()
+	return window
 }

@@ -51,10 +51,8 @@ func (w *MyWindow) OnPaint() {
 	win32.FillRect(dc.HDC(), dc.Rect(), w.bkBrush.HBRUSH())
 }
 
-func NewMyWindow(spec *window.Spec) (win *MyWindow) {
-	win = &MyWindow{Window: window.Window{Spec: spec}}
-	gw.Init(win)
-	return
+func NewMyWindow(spec *window.Spec) *MyWindow {
+	return gw.Init(&MyWindow{Window: window.Window{Spec: spec}})
 }
 
 func ui(app *app.App) {

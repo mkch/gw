@@ -76,10 +76,8 @@ func (w *MainWindow) OnPaint() {
 	win32.DrawTextExW(dc.HDC(), &w.textBuf[0], -1, rcClient, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE, nil)
 }
 
-func NewMainWindow(spec *window.Spec) (win *MainWindow) {
-	win = &MainWindow{Window: window.Window{Spec: spec}}
-	gw.Init(win)
-	return
+func NewMainWindow(spec *window.Spec) *MainWindow {
+	return gw.Init(&MainWindow{Window: window.Window{Spec: spec}})
 }
 
 func ui(app *app.App) {

@@ -90,7 +90,7 @@ func TestWrapper(t *testing.T) {
 		})
 		defer parent.Close()
 
-		ctrl := &MyStatic{Static: static.Static{Spec: &static.Spec{
+		ctrl := gw.Init(&MyStatic{Static: static.Static{Spec: &static.Spec{
 			Parent: parent,
 			Text:   "Hello",
 			X:      metrics.Px(10),
@@ -98,8 +98,7 @@ func TestWrapper(t *testing.T) {
 			Width:  metrics.Px(100),
 			Height: metrics.Px(50),
 			Style:  static.SS_CENTER,
-		}}}
-		gw.Init(ctrl)
+		}}})
 
 		hwnd := ctrl.HWND()
 		if hwnd == 0 {

@@ -71,16 +71,14 @@ func TestSimple(t *testing.T) {
 
 func TestWrapper(t *testing.T) {
 	gw.Run(func(app *app.App) {
-		w := &MyWindow{
+		w := gw.Init(&MyWindow{
 			window.Window{
 				Spec: &window.Spec{
-					Text:      "Hello, World!",
-					Style:     win32.WS_OVERLAPPEDWINDOW,
-					OnDestroy: func() { app.Quit(0) },
+					Text:  "Hello, World!",
+					Style: win32.WS_OVERLAPPEDWINDOW,
 				},
 			},
-		}
-		gw.Init(w)
+		})
 
 		hwnd := w.HWND()
 		if hwnd == 0 {
