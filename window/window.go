@@ -318,10 +318,8 @@ func (w *Window) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARA
 		menu.OnWmMenuCommand(wParam, lParam)
 		return 0
 	case win32.WM_CLOSE:
-		// If code reaches here, the window associated with w.HWND() must have embedded *Window,
-		// so the type assertion must succeed.
-		oc := gw.LookupWindow(w.HWND()).(interface{ OnClose() bool })
-		if !oc.OnClose() {
+		oc, ok := gw.LookupWindow(w.HWND()).(interface{ OnClose() bool })
+		if ok && !oc.OnClose() {
 			return -1 // prevent the window from closing. Used by [Window.Close].
 		}
 	case win32.WM_DESTROY:
