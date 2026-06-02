@@ -58,10 +58,12 @@ type Panel struct {
 	backgroundBrush *brush.Brush
 }
 
-func (p *Panel) OnInit() {
+func (p *Panel) OnInit() error {
 	defer func() { p.Spec = nil }()
-	p.Control.OnInit()
-	gg.MustOK(p.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW))))
+	if err := p.Control.OnInit(); err != nil {
+		return err
+	}
+	return p.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW)))
 }
 
 func (p *Panel) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
@@ -80,7 +82,7 @@ func (p *Panel) OnPaint() {
 	win32.FillRect(dc.HDC(), dc.Rect(), p.backgroundBrush.HBRUSH())
 }
 
-func (p *Panel) CreateHandle() win32.HWND {
+func (p *Panel) CreateHandle() (win32.HWND, error) {
 	if p.Spec == nil {
 		p.Spec = &Spec{}
 	}
@@ -98,8 +100,11 @@ func (p *Panel) CreateHandle() win32.HWND {
 		setRegistered(className)
 	}
 
-	dpi := gg.Must(win32.GetDpiForWindow(p.Spec.Parent.HWND()))
-	return chkerr.Must(win32util.CreateWindow(&win32util.Wnd{
+	dpi, err := win32.GetDpiForWindow(p.Spec.Parent.HWND())
+	if err != nil {
+		return 0, err
+	}
+	return win32util.CreateWindow(&win32util.Wnd{
 		ClassName: className,
 		Style:     win32.WS_CHILD | win32.WS_VISIBLE,
 		ExStyle:   p.Spec.ExStyle,
@@ -108,10 +113,10 @@ func (p *Panel) CreateHandle() win32.HWND {
 		Width:     p.Spec.Width.Px(dpi),
 		Height:    p.Spec.Height.Px(dpi),
 		WndParent: p.Spec.Parent.HWND(),
-	}))
+	})
 }
 
-func New(spec *Spec) *Panel {
+func New(spec *Spec) (*Panel, error) {
 	return gw.Init(&Panel{Spec: spec})
 }
 

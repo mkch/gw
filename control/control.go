@@ -12,9 +12,10 @@ type Control struct {
 	font *font.Font
 }
 
-func (c *Control) OnInit() {
+func (c *Control) OnInit() error {
 	c.font = gg.Must(font.New(font.SysDefault(), gg.Must(win32.GetDpiForWindow(c.HWND()))))
 	c.applyFont()
+	return nil
 }
 
 func (c *Control) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {

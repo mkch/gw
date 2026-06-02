@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/events"
@@ -23,12 +24,16 @@ type MainWindow struct {
 	label *static.Static
 }
 
-func (w *MainWindow) OnInit() {
-	w.Window.OnInit()
-	w.label = static.New(&static.Spec{
+func (w *MainWindow) OnInit() (err error) {
+	err = w.Window.OnInit()
+	if err != nil {
+		return err
+	}
+	w.label, err = static.New(&static.Spec{
 		Parent: w,
 		Style:  win32.WS_VISIBLE | win32.WS_BORDER | static.SS_CENTER,
 	})
+	return err
 }
 
 func (w *MainWindow) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
@@ -56,19 +61,19 @@ func (w *MainWindow) OnKeyDown(event *events.KeyEvent) {
 	w.label.SetText(fmt.Sprintf("Virtual Key: 0x%02X('%s')\n Key: %s\n lParam: %s", event.VKCode, string(rune(event.VKCode)), keyName, event.State))
 }
 
-func NewMainWindow(spec *window.Spec) *MainWindow {
+func NewMainWindow(spec *window.Spec) (*MainWindow, error) {
 	return gw.Init(&MainWindow{Window: window.Window{Spec: spec}})
 }
 
 func ui(app *app.App) {
-	win := NewMainWindow(&window.Spec{
+	win := chkerr.Must(NewMainWindow(&window.Spec{
 		Text:      "Key Name",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	})
+	}))
 
 	win.Show(win32.SW_SHOW)
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/dialog"
@@ -44,8 +45,10 @@ func (w *MainWindow) SetTextFont(f *dialog.FontChosen) {
 	w.InvalidateRect(nil, true)
 }
 
-func (w *MainWindow) OnInit() {
-	w.Window.OnInit()
+func (w *MainWindow) OnInit() error {
+	if err := w.Window.OnInit(); err != nil {
+		return err
+	}
 	w.dpi = gg.Must(w.DPI())
 	lf := font.SysDefault()
 	w.textFont = gg.Must(font.New(lf, w.dpi))
@@ -60,6 +63,7 @@ func (w *MainWindow) OnInit() {
 		gg.MustOK(w.textFont.ChangeDPI(w.dpi))
 		w.InvalidateRect(nil, true)
 	})
+	return nil
 }
 
 func (w *MainWindow) OnDestroy() {
@@ -76,20 +80,20 @@ func (w *MainWindow) OnPaint() {
 	win32.DrawTextExW(dc.HDC(), &w.textBuf[0], -1, rcClient, win32.DT_CENTER|win32.DT_VCENTER|win32.DT_SINGLELINE, nil)
 }
 
-func NewMainWindow(spec *window.Spec) *MainWindow {
+func NewMainWindow(spec *window.Spec) (*MainWindow, error) {
 	return gw.Init(&MainWindow{Window: window.Window{Spec: spec}})
 }
 
 func ui(app *app.App) {
 
-	win := NewMainWindow(&window.Spec{
+	win := chkerr.Must(NewMainWindow(&window.Spec{
 		Text:      "Test font",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	})
+	}))
 
 	fontMenu := menu.New(false)
 	fontMenu.InsertItem(-1, &menu.ItemSpec{

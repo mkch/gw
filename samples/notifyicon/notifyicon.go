@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
@@ -23,22 +24,22 @@ func main() {
 }
 
 func ui(app *app.App) {
-	win := window.New(&window.Spec{
+	win := chkerr.Must(window.New(&window.Spec{
 		Text:      "Test Notify Icon",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	})
+	}))
 
-	tooltip := window.New(&window.Spec{
+	tooltip := chkerr.Must(window.New(&window.Spec{
 		Text:    "Tooltip",
 		Style:   win32.WS_POPUP | win32.WS_BORDER | win32.WS_CAPTION,
 		ExStyle: win32.WS_EX_TOOLWINDOW,
 		Width:   metrics.Dip(200),
 		Height:  metrics.Dip(100),
-	})
+	}))
 
 	tooltip.SetOnCloseListener(func() bool {
 		tooltip.Show(win32.SW_HIDE)

@@ -8,6 +8,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -29,14 +30,14 @@ func Show(parent C.HWND) {
 
 	gwapp = app.NewBase()
 
-	mainWindow := window.New(&window.Spec{
+	mainWindow := chkerr.Must(window.New(&window.Spec{
 		Parent: win32.HWND(unsafe.Pointer(parent)),
 		Text:   "GW window",
 		Style:  win32.WS_OVERLAPPEDWINDOW,
 		X:      metrics.Px(win32.CW_USEDEFAULT),
 		Width:  metrics.Dip(500),
 		Height: metrics.Dip(300),
-	})
+	}))
 
 	mainWindow.SetOnDestroyListener(func() {
 		fmt.Println("Main window destroyed")
@@ -58,13 +59,13 @@ func Show(parent C.HWND) {
 
 	mainWindow.SetMenu(mainMenu)
 
-	timeStatic := static.New(&static.Spec{
+	timeStatic := chkerr.Must(static.New(&static.Spec{
 		Parent: mainWindow,
 		Text:   "Time",
 		Style:  win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
 		X:      metrics.Dip(200), Y: metrics.Dip(30),
 		Width: metrics.Dip(100), Height: metrics.Dip(60),
-	})
+	}))
 
 	mainWindow.Show(win32.SW_SHOW)
 

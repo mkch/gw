@@ -3,6 +3,7 @@ package panel_test
 import (
 	"testing"
 
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
@@ -18,18 +19,18 @@ type MyPanel struct {
 
 func TestSimple(t *testing.T) {
 	ret := gw.Run(func(app *app.App) {
-		parent := window.New(&window.Spec{
+		parent := chkerr.Must(window.New(&window.Spec{
 			OnDestroy: func() { app.Quit(1) },
-		})
+		}))
 		defer parent.Close()
 
-		ctrl := panel.New(&panel.Spec{
+		ctrl := chkerr.Must(panel.New(&panel.Spec{
 			Parent: parent,
 			X:      metrics.Px(10),
 			Y:      metrics.Px(11),
 			Width:  metrics.Px(100),
 			Height: metrics.Px(50),
-		})
+		}))
 
 		hwnd := ctrl.HWND()
 		if hwnd == 0 {
@@ -65,20 +66,21 @@ func TestSimple(t *testing.T) {
 
 func TestWrapper(t *testing.T) {
 	ret := gw.Run(func(app *app.App) {
-		parent := window.New(&window.Spec{
+		parent := chkerr.Must(window.New(&window.Spec{
 			OnDestroy: func() { app.Quit(1) },
-		})
+		}))
 		defer parent.Close()
 
 		const panelClassName = "my panel class name"
-		ctrl := gw.Init(&MyPanel{Panel: panel.Panel{Spec: &panel.Spec{
-			Parent:    parent,
-			ClassName: panelClassName,
-			X:         metrics.Px(10),
-			Y:         metrics.Px(11),
-			Width:     metrics.Px(100),
-			Height:    metrics.Px(50),
-		}}})
+		ctrl := chkerr.Must(gw.Init(&MyPanel{
+			Panel: panel.Panel{Spec: &panel.Spec{
+				Parent:    parent,
+				ClassName: panelClassName,
+				X:         metrics.Px(10),
+				Y:         metrics.Px(11),
+				Width:     metrics.Px(100),
+				Height:    metrics.Px(50),
+			}}}))
 
 		hwnd := ctrl.HWND()
 		if hwnd == 0 {

@@ -49,7 +49,7 @@ type BaseWindow interface {
 	// App returns the app that this window belongs to.
 	App() *app.BaseApp
 	// CreateHandle is called to create the window handle in [Init].
-	CreateHandle() win32.HWND
+	CreateHandle() (win32.HWND, error)
 	// HWND returns the HWND of this window. It panics if the window is uninitialized.
 	HWND() win32.HWND
 	// Valid returns whether the window is ready to operate, specifically, whether
@@ -98,7 +98,7 @@ type BaseWindow interface {
 	// The default implementation calls the native window procedure.
 	WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT
 	// OnInit is called when the window is created and fully initialized.
-	OnInit()
+	OnInit() error
 	// OnDestroy is called when the window is being destroyed, when WM_DESTROY message is received.
 	// The window and all its children are still valid when this method is called.
 	// The default implementation calls the destroy listener if it is set, and then calls the
@@ -168,7 +168,7 @@ type BaseWindowImpl struct {
 	oldWndProc                 uintptr // The original window procedure before attaching.
 }
 
-func (w *BaseWindowImpl) CreateHandle() win32.HWND {
+func (w *BaseWindowImpl) CreateHandle() (win32.HWND, error) {
 	panic("CreateHandle must be implemented by concrete window type")
 }
 
@@ -273,7 +273,7 @@ func (w *BaseWindowImpl) callOnDestroyListener() {
 	}
 }
 
-func (w *BaseWindowImpl) OnInit() { /* NOP */ }
+func (w *BaseWindowImpl) OnInit() error { return nil }
 
 func (w *BaseWindowImpl) OnDestroy() {
 	w.callOnDestroyListener()
@@ -553,13 +553,19 @@ func Attach(hwnd win32.HWND, window BaseWindow) error {
 // Only [BaseWindow] instances initialized by this function can be retrieved by [LookupWindow].
 // One can wrap an uninitialized [BaseWindow] instance to crate a new window type, and then call this
 // function to initialize the instance of the new type. See Wrapper example for details.
-func Init[T BaseWindow](window T) T {
+func Init[T BaseWindow](window T) (win T, err error) {
 	if window.Valid() {
 		panic("window is already initialized")
 	}
-	if err := Attach(window.CreateHandle(), window); err != nil {
-		panic(err)
+	hwnd, err := window.CreateHandle()
+	if err != nil {
+		return
 	}
-	window.OnInit()
-	return window
+	if err = Attach(hwnd, window); err != nil {
+		return
+	}
+	if err = window.OnInit(); err != nil {
+		return
+	}
+	return window, nil
 }

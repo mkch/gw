@@ -1,8 +1,6 @@
 package button
 
 import (
-	"github.com/mkch/gg"
-	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/control"
 	"github.com/mkch/gw/internal/appmsg"
@@ -49,12 +47,15 @@ type Spec struct {
 	ExStyle win32.WINDOW_EX_STYLE
 }
 
-func (b *Button) OnInit() {
+func (b *Button) OnInit() error {
 	defer func() { b.Spec = nil }()
-	b.Control.OnInit()
+	if err := b.Control.OnInit(); err != nil {
+		return err
+	}
 	if b.Spec.OnClick != nil {
 		b.SetOnClickListener(b.Spec.OnClick)
 	}
+	return nil
 }
 
 // OnClick is called when the button is clicked.
@@ -72,9 +73,12 @@ func (b *Button) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARA
 	return b.Control.WndProc(hwnd, message, wParam, lParam)
 }
 
-func (b *Button) CreateHandle() win32.HWND {
-	dpi := gg.Must(win32.GetDpiForWindow(b.Spec.Parent.HWND()))
-	return chkerr.Must(win32util.CreateWindow(&win32util.Wnd{
+func (b *Button) CreateHandle() (win32.HWND, error) {
+	dpi, err := win32.GetDpiForWindow(b.Spec.Parent.HWND())
+	if err != nil {
+		return 0, err
+	}
+	return win32util.CreateWindow(&win32util.Wnd{
 		ClassName:  "BUTTON",
 		WndParent:  b.Spec.Parent.HWND(),
 		WindowName: b.Spec.Text,
@@ -84,10 +88,10 @@ func (b *Button) CreateHandle() win32.HWND {
 		Height:     b.Spec.Height.Px(dpi),
 		Style:      b.Spec.Style | win32.WS_CHILD,
 		ExStyle:    b.Spec.ExStyle,
-	}))
+	})
 }
 
 // New creates a new Button control with the specified specification.
-func New(spec *Spec) *Button {
+func New(spec *Spec) (*Button, error) {
 	return gw.Init(&Button{Spec: spec})
 }

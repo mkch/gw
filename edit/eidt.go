@@ -1,8 +1,6 @@
 package edit
 
 import (
-	"github.com/mkch/gg"
-	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/control"
 	"github.com/mkch/gw/metrics"
@@ -87,14 +85,17 @@ type Spec struct {
 	ExStyle win32.WINDOW_EX_STYLE
 }
 
-func (e *Edit) OnInit() {
+func (e *Edit) OnInit() error {
 	defer func() { e.Spec = nil }()
-	e.Control.OnInit()
+	return e.Control.OnInit()
 }
 
-func (e *Edit) CreateHandle() win32.HWND {
-	dpi := gg.Must(win32.GetDpiForWindow(e.Spec.Parent.HWND()))
-	return chkerr.Must(win32util.CreateWindow(&win32util.Wnd{
+func (e *Edit) CreateHandle() (win32.HWND, error) {
+	dpi, err := win32.GetDpiForWindow(e.Spec.Parent.HWND())
+	if err != nil {
+		return 0, err
+	}
+	return win32util.CreateWindow(&win32util.Wnd{
 		ClassName:  "EDIT",
 		WndParent:  e.Spec.Parent.HWND(),
 		WindowName: e.Spec.Text,
@@ -104,10 +105,10 @@ func (e *Edit) CreateHandle() win32.HWND {
 		Height:     e.Spec.Height.Px(dpi),
 		Style:      e.Spec.Style | win32.WS_CHILD,
 		ExStyle:    e.Spec.ExStyle,
-	}))
+	})
 }
 
 // New creates a new Edit control with the specified specification.
-func New(spec *Spec) (edit *Edit) {
+func New(spec *Spec) (*Edit, error) {
 	return gw.Init(&Edit{Spec: spec})
 }

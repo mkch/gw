@@ -3,6 +3,7 @@ package button_test
 import (
 	"testing"
 
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/button"
@@ -19,12 +20,12 @@ type MyButton struct {
 func TestSimple(t *testing.T) {
 	ret := gw.Run(func(app *app.App) {
 		var onClickCalled bool
-		parent := window.New(&window.Spec{
+		parent := chkerr.Must(window.New(&window.Spec{
 			OnDestroy: func() { app.Quit(1) },
-		})
+		}))
 		defer parent.Close()
 
-		btn := button.New(&button.Spec{
+		btn := chkerr.Must(button.New(&button.Spec{
 			Parent:  parent,
 			Text:    "Click me",
 			X:       metrics.Px(10),
@@ -33,7 +34,7 @@ func TestSimple(t *testing.T) {
 			Height:  metrics.Px(50),
 			Style:   win32.BS_LEFT,
 			OnClick: func() { onClickCalled = true },
-		})
+		}))
 		hwnd := btn.HWND()
 		if hwnd == 0 {
 			t.Fatal("Button HWND is 0")
@@ -76,12 +77,12 @@ func TestSimple(t *testing.T) {
 func TestWrapper(t *testing.T) {
 	ret := gw.Run(func(app *app.App) {
 		var onClickCalled bool
-		parent := window.New(&window.Spec{
+		parent := chkerr.Must(window.New(&window.Spec{
 			OnDestroy: func() { app.Quit(1) },
-		})
+		}))
 		defer parent.Close()
 
-		btn := gw.Init(&MyButton{Button: button.Button{Spec: &button.Spec{
+		btn := chkerr.Must(gw.Init(&MyButton{Button: button.Button{Spec: &button.Spec{
 			Parent:  parent,
 			Text:    "Click me",
 			X:       metrics.Px(10),
@@ -90,7 +91,7 @@ func TestWrapper(t *testing.T) {
 			Height:  metrics.Px(50),
 			Style:   win32.BS_LEFT,
 			OnClick: func() { onClickCalled = true },
-		}}})
+		}}}))
 
 		hwnd := btn.HWND()
 		if hwnd == 0 {

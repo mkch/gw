@@ -3,6 +3,7 @@ package window_test
 import (
 	"testing"
 
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/win32"
@@ -20,11 +21,11 @@ func (w *MyWindow) OnDestroy() {
 
 func TestSimple(t *testing.T) {
 	gw.Run(func(app *app.App) {
-		w := window.New(&window.Spec{
+		w := chkerr.Must(window.New(&window.Spec{
 			Text:      "Hello, World!",
 			Style:     win32.WS_OVERLAPPEDWINDOW,
 			OnDestroy: func() { app.Quit(0) },
-		})
+		}))
 
 		hwnd := w.HWND()
 		if hwnd == 0 {
@@ -71,14 +72,14 @@ func TestSimple(t *testing.T) {
 
 func TestWrapper(t *testing.T) {
 	ret := gw.Run(func(app *app.App) {
-		w := gw.Init(&MyWindow{
+		w := chkerr.Must(gw.Init(&MyWindow{
 			window.Window{
 				Spec: &window.Spec{
 					Text:  "Hello, World!",
 					Style: win32.WS_OVERLAPPEDWINDOW,
 				},
 			},
-		})
+		}))
 
 		hwnd := w.HWND()
 		if hwnd == 0 {
@@ -108,11 +109,11 @@ func TestWrapper(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	gw.Run(func(app *app.App) {
-		w := window.New(&window.Spec{
+		w := chkerr.Must(window.New(&window.Spec{
 			Text:      "Hello, World!",
 			Style:     win32.WS_OVERLAPPEDWINDOW,
 			OnDestroy: func() { app.Quit(0) },
-		})
+		}))
 
 		w.SetOnCloseListener(func() bool {
 			return false // prevent the window from closing
@@ -143,10 +144,10 @@ func (w *ClosableWindow) OnClose() bool {
 
 func TestClosableWindow(t *testing.T) {
 	gw.Run(func(app *app.App) {
-		w := gw.Init(&ClosableWindow{
+		w := chkerr.Must(gw.Init(&ClosableWindow{
 			Window:   window.Window{},
 			canClose: false,
-		})
+		}))
 
 		w.SetOnDestroyListener(func() { app.Quit(0) })
 

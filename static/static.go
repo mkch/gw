@@ -1,8 +1,6 @@
 package static
 
 import (
-	"github.com/mkch/gg"
-	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/control"
 	"github.com/mkch/gw/internal/appmsg"
@@ -95,10 +93,12 @@ type Spec struct {
 	ExStyle win32.WINDOW_EX_STYLE
 }
 
-func (s *Static) OnInit() {
+func (s *Static) OnInit() error {
 	defer func() { s.Spec = nil }()
-	s.Control.OnInit()
-	s.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW)))
+	if err := s.Control.OnInit(); err != nil {
+		return err
+	}
+	return s.SetBackgroundColor(win32.COLORREF(win32.GetSysColor(win32.COLOR_WINDOW)))
 }
 
 func (s *Static) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
@@ -112,12 +112,15 @@ func (s *Static) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARA
 	return s.Control.WndProc(hwnd, message, wParam, lParam)
 }
 
-func (s *Static) CreateHandle() win32.HWND {
+func (s *Static) CreateHandle() (win32.HWND, error) {
 	if s.Spec == nil {
 		s.Spec = &Spec{}
 	}
-	dpi := gg.Must(win32.GetDpiForWindow(s.Spec.Parent.HWND()))
-	return chkerr.Must(win32util.CreateWindow(&win32util.Wnd{
+	dpi, err := win32.GetDpiForWindow(s.Spec.Parent.HWND())
+	if err != nil {
+		return 0, err
+	}
+	return win32util.CreateWindow(&win32util.Wnd{
 		ClassName:  "STATIC",
 		WndParent:  s.Spec.Parent.HWND(),
 		WindowName: s.Spec.Text,
@@ -127,10 +130,10 @@ func (s *Static) CreateHandle() win32.HWND {
 		Height:     s.Spec.Height.Px(dpi),
 		Style:      s.Spec.Style | win32.WS_CHILD,
 		ExStyle:    s.Spec.ExStyle,
-	}))
+	})
 }
 
 // New creates a new Static control with the specified specification.
-func New(spec *Spec) *Static {
+func New(spec *Spec) (*Static, error) {
 	return gw.Init(&Static{Spec: spec})
 }

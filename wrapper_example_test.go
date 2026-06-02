@@ -17,13 +17,17 @@ type MainWindow struct {
 	bkBrush *brush.Brush
 }
 
-func (w *MainWindow) OnInit() {
-	w.Window.OnInit()
+func (w *MainWindow) OnInit() (err error) {
+	err = w.Window.OnInit()
+	if err != nil {
+		return err
+	}
 	// Create a solid brush with the specified background color.
-	w.bkBrush, _ = brush.New(&win32.LOGBRUSH{
+	w.bkBrush, err = brush.New(&win32.LOGBRUSH{
 		Style: win32.BS_SOLID,
 		Color: w.bkColor,
 	})
+	return
 }
 
 func (w *MainWindow) OnPaint() {
@@ -43,7 +47,7 @@ func (w *MainWindow) OnDestroy() {
 }
 
 // NewMainWindow creates and initializes a MainWindow instance.
-func NewMainWindow(title string, bkColor win32.COLORREF) *MainWindow {
+func NewMainWindow(title string, bkColor win32.COLORREF) (*MainWindow, error) {
 	return gw.Init(&MainWindow{
 		Window: window.Window{
 			Spec: &window.Spec{
@@ -60,7 +64,7 @@ func NewMainWindow(title string, bkColor win32.COLORREF) *MainWindow {
 
 func Example_wrapper() {
 	gw.Run(func(app *app.App) {
-		mainWindow := NewMainWindow("Main Window", win32.RGB(128, 128, 0))
+		mainWindow, _ := NewMainWindow("Main Window", win32.RGB(128, 128, 0))
 		mainWindow.Show(win32.SW_SHOWNORMAL)
 	}, nil)
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/button"
@@ -47,22 +48,22 @@ func ui(app *app.App) {
 	ticker := time.NewTicker(TickerDuration)
 	tickerStopped := false
 
-	win := window.New(&window.Spec{
+	win := chkerr.Must(window.New(&window.Spec{
 		Text:  "Hello, Go!",
 		Style: win32.WS_OVERLAPPEDWINDOW,
 		X:     metrics.Px(win32.CW_USEDEFAULT),
 		Width: metrics.Dip(500), Height: metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	})
+	}))
 	win.SetMenu(createMenu(ticker, &tickerStopped))
 
-	timeStatic := static.New(&static.Spec{
+	timeStatic := chkerr.Must(static.New(&static.Spec{
 		Parent: win,
 		Text:   "Time",
 		Style:  win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
 		X:      metrics.Dip(200), Y: metrics.Dip(30),
 		Width: metrics.Dip(100), Height: metrics.Dip(60),
-	})
+	}))
 
 	button.New(&button.Spec{
 		Parent: win,

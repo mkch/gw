@@ -32,8 +32,10 @@ type MainWindow struct {
 	gridDpi  win32.UINT
 }
 
-func (w *MainWindow) OnInit() {
-	w.Window.OnInit()
+func (w *MainWindow) OnInit() error {
+	if err := w.Window.OnInit(); err != nil {
+		return err
+	}
 	w.linePen = gg.Must(pen.NewCosmetic(win32.PS_SOLID, win32.RGB(255, 0, 0)))
 
 	w.dpi = gg.Must(w.DPI())
@@ -41,6 +43,7 @@ func (w *MainWindow) OnInit() {
 	lsf := font.SysDefault().LOGFONTW()
 	lsf.Height = lsf.Height * 2 / 3
 	w.textFont = gg.Must(font.New(font.NewLogFont(lsf, font.SysDefault().DPI()), w.dpi))
+	return nil
 }
 
 func (w *MainWindow) OnDestroy() {
@@ -96,7 +99,7 @@ func (w *MainWindow) CloneTextFont() *font.Font {
 	return w.textFont.Clone()
 }
 
-func NewMainWindow(spec *window.Spec) *MainWindow {
+func NewMainWindow(spec *window.Spec) (*MainWindow, error) {
 	return gw.Init(&MainWindow{Window: window.Window{Spec: spec}})
 }
 
@@ -106,13 +109,16 @@ type Window1 struct {
 	charBuf  []win32.WCHAR
 }
 
-func (w *Window1) OnInit() {
-	w.Window.OnInit()
+func (w *Window1) OnInit() error {
+	if err := w.Window.OnInit(); err != nil {
+		return err
+	}
 	win32util.CString("500 X 500", &w.charBuf)
 	w.AddMsgListener(win32.WM_DPICHANGED, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
 		gg.MustOK(w.textFont.ChangeDPI(gg.Must(w.DPI())))
 		w.InvalidateRect(nil, true)
 	})
+	return nil
 }
 
 func (w *Window1) OnPaint() {
@@ -128,7 +134,7 @@ func (w *Window1) OnDestroy() {
 	w.textFont.Release()
 }
 
-func NewWindow1(spec *window.Spec, textFont *font.Font) *Window1 {
+func NewWindow1(spec *window.Spec, textFont *font.Font) (*Window1, error) {
 	return gw.Init(&Window1{Window: window.Window{Spec: spec}, textFont: textFont})
 }
 
@@ -139,14 +145,14 @@ func main() {
 func ui(app *app.App) {
 	var textFont *font.Font
 
-	bkWin := NewMainWindow(&window.Spec{
+	bkWin := chkerr.Must(NewMainWindow(&window.Spec{
 		Text:      "Full screen",
 		Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
 		Y:         metrics.Px(win32.INT(win32.SW_SHOWMAXIMIZED)),
 		Width:     metrics.Px(win32.CW_USEDEFAULT),
 		OnDestroy: func() { app.Quit(0) },
-	})
+	}))
 
 	ctxMenu := menu.New(true)
 	var defDpiMenuItem *menu.Item
@@ -181,7 +187,7 @@ func ui(app *app.App) {
 
 	gg.Must(win32util.MessageBox(bkWin.HWND(), "Use context menu to change display", "Hint", win32.MB_ICONINFORMATION))
 
-	win1 := window.New(&window.Spec{
+	win1 := chkerr.Must(window.New(&window.Spec{
 		Parent: bkWin.HWND(),
 		Text:   "500 X 500",
 		Style:  win32.WS_POPUP | win32.WS_CAPTION | win32.WS_VISIBLE,
@@ -189,7 +195,7 @@ func ui(app *app.App) {
 		Y:      metrics.Px(win32.INT(win32.SW_SHOWNORMAL)),
 		Width:  metrics.Dip(500),
 		Height: metrics.Dip(500),
-	})
+	}))
 	win1.SetOnLButtonDownListener(func(event events.MouseClickEvent) {
 		gg.Must(win32.SendMessageW(win1.HWND(), win32.WM_NCLBUTTONDOWN, win32.HTCAPTION, 0))
 	})

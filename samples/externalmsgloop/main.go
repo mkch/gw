@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/static"
@@ -24,22 +25,22 @@ func main() {
 
 	app := app.NewBase()
 
-	mainWindow := window.New(&window.Spec{
+	mainWindow := chkerr.Must(window.New(&window.Spec{
 		Text:      "Hello, World!",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	})
+	}))
 
-	timeStatic := static.New(&static.Spec{
+	timeStatic := chkerr.Must(static.New(&static.Spec{
 		Parent: mainWindow,
 		Text:   "Time",
 		Style:  win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
 		X:      metrics.Dip(200), Y: metrics.Dip(30),
 		Width: metrics.Dip(100), Height: metrics.Dip(60),
-	})
+	}))
 
 	mainWindow.Show(win32.SW_SHOW)
 

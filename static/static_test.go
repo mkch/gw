@@ -3,6 +3,7 @@ package static_test
 import (
 	"testing"
 
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
@@ -17,12 +18,12 @@ type MyStatic struct {
 
 func TestSimple(t *testing.T) {
 	ret := gw.Run(func(app *app.App) {
-		parent := window.New(&window.Spec{
+		parent := chkerr.Must(window.New(&window.Spec{
 			OnDestroy: func() { app.Quit(1) },
-		})
+		}))
 		defer parent.Close()
 
-		ctrl := static.New(&static.Spec{
+		ctrl := chkerr.Must(static.New(&static.Spec{
 			Parent: parent,
 			Text:   "Hello",
 			X:      metrics.Px(10),
@@ -30,7 +31,7 @@ func TestSimple(t *testing.T) {
 			Width:  metrics.Px(100),
 			Height: metrics.Px(50),
 			Style:  static.SS_CENTER,
-		})
+		}))
 
 		hwnd := ctrl.HWND()
 		if hwnd == 0 {
@@ -85,12 +86,12 @@ func TestSimple(t *testing.T) {
 
 func TestWrapper(t *testing.T) {
 	ret := gw.Run(func(app *app.App) {
-		parent := window.New(&window.Spec{
+		parent := chkerr.Must(window.New(&window.Spec{
 			OnDestroy: func() { app.Quit(1) },
-		})
+		}))
 		defer parent.Close()
 
-		ctrl := gw.Init(&MyStatic{Static: static.Static{Spec: &static.Spec{
+		ctrl := chkerr.Must(gw.Init(&MyStatic{Static: static.Static{Spec: &static.Spec{
 			Parent: parent,
 			Text:   "Hello",
 			X:      metrics.Px(10),
@@ -98,7 +99,7 @@ func TestWrapper(t *testing.T) {
 			Width:  metrics.Px(100),
 			Height: metrics.Px(50),
 			Style:  static.SS_CENTER,
-		}}})
+		}}}))
 
 		hwnd := ctrl.HWND()
 		if hwnd == 0 {

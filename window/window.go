@@ -60,6 +60,18 @@ type Spec struct {
 	OnDestroy func()
 }
 
+// Popup is an interface for popup windows, which can be closed by user.
+type Popup interface {
+	gw.BaseWindow
+	Close() bool
+	SetOnCloseListener(listener func() bool)
+	SetMenu(menu *menu.Menu) error
+}
+
+// Ensure [*Window] implements [Popup].
+// Should have no performance overhead.
+var _ Popup = (*Window)(nil)
+
 type Window struct {
 	gw.BaseWindowImpl
 	// Spec is used to create the window and is set to nil after creation.
@@ -214,7 +226,7 @@ func (w *Window) preTranslateMessage(p *win32.MSG) bool {
 	return ok
 }
 
-func (w *Window) CreateHandle() win32.HWND {
+func (w *Window) CreateHandle() (win32.HWND, error) {
 	if w.Spec == nil {
 		w.Spec = &Spec{}
 	}
@@ -258,7 +270,7 @@ func (w *Window) CreateHandle() win32.HWND {
 		cx = win32.CW_USEDEFAULT
 	}
 
-	hwnd := chkerr.Must(win32util.CreateWindow((&win32util.Wnd{
+	hwnd, err := win32util.CreateWindow((&win32util.Wnd{
 		WndParent:  w.Spec.Parent,
 		ClassName:  className,
 		WindowName: w.Spec.Text,
@@ -269,7 +281,10 @@ func (w *Window) CreateHandle() win32.HWND {
 		Width:      cx,
 		Height:     cy,
 		Instance:   w.Spec.Instance,
-	})))
+	}))
+	if err != nil {
+		return 0, err
+	}
 
 	// Use the window's own DPI after creating it
 	dpi := gg.Must(win32.GetDpiForWindow(hwnd))
@@ -296,9 +311,11 @@ func (w *Window) CreateHandle() win32.HWND {
 	}
 
 	if w.Spec.Menu != nil {
-		w.SetMenu(w.Spec.Menu)
+		if err := w.SetMenu(w.Spec.Menu); err != nil {
+			return 0, err
+		}
 	}
-	return hwnd
+	return hwnd, nil
 }
 
 func (w *Window) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
@@ -346,8 +363,10 @@ func (w *Window) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARA
 	return w.BaseWindowImpl.WndProc(hwnd, message, wParam, lParam)
 }
 
-func (w *Window) OnInit() {
-	w.BaseWindowImpl.OnInit()
+func (w *Window) OnInit() error {
+	if err := w.BaseWindowImpl.OnInit(); err != nil {
+		return err
+	}
 
 	defer func() { w.Spec = nil }()
 	if w.Spec.OnCreate != nil {
@@ -359,8 +378,9 @@ func (w *Window) OnInit() {
 	if w.Spec.OnDestroy != nil {
 		w.SetOnDestroyListener(w.Spec.OnDestroy)
 	}
+	return nil
 }
 
-func New(spec *Spec) *Window {
+func New(spec *Spec) (*Window, error) {
 	return gw.Init(&Window{Spec: spec})
 }

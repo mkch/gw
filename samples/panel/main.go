@@ -4,7 +4,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/mkch/gg"
 	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
@@ -31,13 +30,17 @@ type MyWindow struct {
 	bkBrush *brush.Brush
 }
 
-func (w *MyWindow) OnInit() {
-	w.Window.OnInit()
-	w.bkBrush = gg.Must(brush.New(&win32.LOGBRUSH{
+func (w *MyWindow) OnInit() error {
+	if err := w.Window.OnInit(); err != nil {
+		return err
+	}
+	var err error
+	w.bkBrush, err = brush.New(&win32.LOGBRUSH{
 		Style: win32.BS_HATCHED,
 		Color: win32.RGB(255, 0, 0),
 		Hatch: win32.HS_DIAGCROSS,
-	}))
+	})
+	return err
 }
 
 func (w *MyWindow) OnDestroy() {
@@ -51,34 +54,34 @@ func (w *MyWindow) OnPaint() {
 	win32.FillRect(dc.HDC(), dc.Rect(), w.bkBrush.HBRUSH())
 }
 
-func NewMyWindow(spec *window.Spec) *MyWindow {
+func NewMyWindow(spec *window.Spec) (*MyWindow, error) {
 	return gw.Init(&MyWindow{Window: window.Window{Spec: spec}})
 }
 
 func ui(app *app.App) {
-	win := NewMyWindow(&window.Spec{
+	win := chkerr.Must(NewMyWindow(&window.Spec{
 		Text:  "Panel demo",
 		Style: win32.WS_OVERLAPPEDWINDOW,
 		X:     metrics.Px(win32.CW_USEDEFAULT),
 		Width: metrics.Dip(500), Height: metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
-	})
+	}))
 
-	panelCtrl := panel.New(&panel.Spec{
+	panelCtrl := chkerr.Must(panel.New(&panel.Spec{
 		Parent: win,
 		X:      metrics.Dip(10), Y: metrics.Dip(10),
 		Width: metrics.Dip(120), Height: metrics.Dip(80),
-	})
+	}))
 
 	panelCtrl.SetBackgroundColor(win32.RGB(220, 220, 220))
 
-	staticCtrl := static.New(&static.Spec{
+	staticCtrl := chkerr.Must(static.New(&static.Spec{
 		Parent: panelCtrl,
 		Text:   "Hello, World!",
 		Style:  win32.WS_VISIBLE | static.SS_CENTER | static.SS_CENTERIMAGE,
 		X:      metrics.Dip(10), Y: metrics.Dip(10),
 		Width: metrics.Dip(100), Height: metrics.Dip(60),
-	})
+	}))
 	staticCtrl.SetBackgroundColor(win32.RGB(200, 200, 255))
 
 	ticker = time.NewTicker(time.Millisecond * 500)
