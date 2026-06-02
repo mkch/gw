@@ -8,6 +8,7 @@ import (
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/dialog"
+	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
@@ -71,9 +72,8 @@ func (w *MainWindow) OnDestroy() {
 	w.Window.OnDestroy()
 }
 
-func (w *MainWindow) OnPaint() {
-	dc := gg.Must(paint.NewPaintDC(w.HWND()))
-	defer func() { gg.MustOK(dc.EndPaint()) }()
+func (w *MainWindow) OnPaint(evt *events.PaintEvent) {
+	dc := gg.Must(evt.Begin())
 	defer gg.Must(paint.SelectObject(dc.HDC(), w.textFont.HFONT())).Restore()
 	gg.Must(win32.SetTextColor(dc.HDC(), w.textColor))
 	rcClient, _ := w.GetClientRect()

@@ -77,6 +77,14 @@ func (buf *Buffer) Resize(width, height int) error {
 	return nil
 }
 
+func (buf *Buffer) Width() int {
+	return buf.width
+}
+
+func (buf *Buffer) Height() int {
+	return buf.height
+}
+
 func (buf *Buffer) Destroy() error {
 	if _, err := win32.SelectObject(buf.hdc, buf.oldBitmap); err != nil {
 		return err

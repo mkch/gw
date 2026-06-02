@@ -7,8 +7,8 @@ import (
 	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/control"
+	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/metrics"
-	"github.com/mkch/gw/paint"
 	"github.com/mkch/gw/paint/brush"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
@@ -76,9 +76,8 @@ func (p *Panel) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM
 	return p.Control.WndProc(hwnd, message, wParam, lParam)
 }
 
-func (p *Panel) OnPaint() {
-	dc := gg.Must(paint.NewPaintDC(p.HWND()))
-	defer func() { gg.MustOK(dc.EndPaint()) }()
+func (p *Panel) OnPaint(evt *events.PaintEvent) {
+	dc := gg.Must(evt.Begin())
 	win32.FillRect(dc.HDC(), dc.Rect(), p.backgroundBrush.HBRUSH())
 }
 

@@ -7,8 +7,8 @@ import (
 	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
+	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/metrics"
-	"github.com/mkch/gw/paint"
 	"github.com/mkch/gw/paint/brush"
 	"github.com/mkch/gw/panel"
 	"github.com/mkch/gw/static"
@@ -48,9 +48,8 @@ func (w *MyWindow) OnDestroy() {
 	w.Window.OnDestroy()
 }
 
-func (w *MyWindow) OnPaint() {
-	dc := chkerr.Must(paint.NewPaintDC(w.HWND()))
-	defer func() { chkerr.MustOK(dc.EndPaint()) }()
+func (w *MyWindow) OnPaint(evt *events.PaintEvent) {
+	dc := chkerr.Must(evt.Begin())
 	win32.FillRect(dc.HDC(), dc.Rect(), w.bkBrush.HBRUSH())
 }
 

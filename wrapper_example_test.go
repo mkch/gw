@@ -3,8 +3,8 @@ package gw_test
 import (
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
+	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/metrics"
-	"github.com/mkch/gw/paint"
 	"github.com/mkch/gw/paint/brush"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/window"
@@ -30,9 +30,8 @@ func (w *MainWindow) OnInit() (err error) {
 	return
 }
 
-func (w *MainWindow) OnPaint() {
-	dc, _ := paint.NewPaintDC(w.HWND())
-	defer func() { dc.EndPaint() }()
+func (w *MainWindow) OnPaint(evt *events.PaintEvent) {
+	dc, _ := evt.Begin()
 	// Draw the background using the background brush.
 	win32.FillRect(dc.HDC(), dc.Rect(), w.bkBrush.HBRUSH())
 }

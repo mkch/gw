@@ -8,8 +8,8 @@ import (
 	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
+	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/metrics"
-	"github.com/mkch/gw/paint"
 	"github.com/mkch/gw/paint/brush"
 	"github.com/mkch/gw/static"
 	"github.com/mkch/gw/win32"
@@ -44,9 +44,8 @@ func (w *MyWindow) OnDestroy() {
 	w.Window.OnDestroy()
 }
 
-func (w *MyWindow) OnPaint() {
-	dc := gg.Must(paint.NewPaintDC(w.HWND()))
-	defer func() { gg.MustOK(dc.EndPaint()) }()
+func (w *MyWindow) OnPaint(evt *events.PaintEvent) {
+	dc := gg.Must(evt.Begin())
 	win32.FillRect(dc.HDC(), dc.Rect(), w.bkBrush.HBRUSH())
 }
 

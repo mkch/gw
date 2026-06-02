@@ -30,6 +30,10 @@ type PaintDC struct {
 	p    win32.PAINTSTRUCT
 }
 
+func (dc *PaintDC) HWND() win32.HWND {
+	return dc.hwnd
+}
+
 func (dc *PaintDC) EraseBackground() bool {
 	return dc.p.Erase != 0
 }

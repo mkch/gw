@@ -43,6 +43,55 @@ func (w *MainWindow) OnInit() error {
 	lsf := font.SysDefault().LOGFONTW()
 	lsf.Height = lsf.Height * 2 / 3
 	w.textFont = gg.Must(font.New(font.NewLogFont(lsf, font.SysDefault().DPI()), w.dpi))
+
+	w.AddMsgListener(win32.WM_DPICHANGED, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
+		gg.MustOK(w.textFont.ChangeDPI(gg.Must(w.DPI())))
+		w.InvalidateRect(nil, true)
+	})
+
+	ctxMenu := menu.New(true)
+	var defDpiMenuItem *menu.Item
+	var curDpiMenuItem *menu.Item
+	defDpiMenuItem = gg.Must(ctxMenu.InsertItem(-1, &menu.ItemSpec{
+		Title:   "Default DPI",
+		Checked: false,
+		OnClick: func() {
+			w.SetGridDpi(win32.USER_DEFAULT_SCREEN_DPI)
+			defDpiMenuItem.SetChecked(true)
+			curDpiMenuItem.SetChecked(false)
+		},
+	}))
+	curDpiMenuItem = gg.Must(ctxMenu.InsertItem(-1, &menu.ItemSpec{
+		Title:   "Current DPI",
+		Checked: true,
+		OnClick: func() {
+			w.SetGridDpi(gg.Must(w.DPI()))
+			defDpiMenuItem.SetChecked(false)
+			curDpiMenuItem.SetChecked(true)
+		},
+	}))
+
+	w.SetOnRButtonDownListener(func(event events.MouseClickEvent) {
+		gg.MustOK(w.TrackPopupMenu(ctxMenu, nil))
+	})
+
+	win1, err := NewWindow1(&window.Spec{
+		Parent: w.HWND(),
+		Text:   "500 X 500",
+		Style:  win32.WS_POPUP | win32.WS_CAPTION | win32.WS_VISIBLE,
+		X:      metrics.Px(win32.CW_USEDEFAULT),
+		Y:      metrics.Px(win32.INT(win32.SW_SHOWNORMAL)),
+		Width:  metrics.Dip(500),
+		Height: metrics.Dip(500),
+	}, w.textFont.Clone())
+	if err != nil {
+		return err
+	}
+
+	win1.SetOnLButtonDownListener(func(event events.MouseClickEvent) {
+		gg.Must(win32.SendMessageW(win1.HWND(), win32.WM_NCLBUTTONDOWN, win32.HTCAPTION, 0))
+	})
+
 	return nil
 }
 
@@ -57,9 +106,8 @@ func (w *MainWindow) SetGridDpi(dpi win32.UINT) {
 	w.InvalidateRect(nil, true)
 }
 
-func (w *MainWindow) OnPaint() {
-	dc := chkerr.Must(paint.NewPaintDC(w.HWND()))
-	defer func() { chkerr.MustOK(dc.EndPaint()) }()
+func (w *MainWindow) OnPaint(evt *events.PaintEvent) {
+	dc := chkerr.Must(evt.Begin())
 
 	rcClient := gg.Must(w.GetClientRect())
 	rcClient.Right = metrics.DPIConv(rcClient.Right, w.dpi, w.gridDpi)
@@ -95,10 +143,6 @@ func (w *MainWindow) OnPaint() {
 	}
 }
 
-func (w *MainWindow) CloneTextFont() *font.Font {
-	return w.textFont.Clone()
-}
-
 func NewMainWindow(spec *window.Spec) (*MainWindow, error) {
 	return gw.Init(&MainWindow{Window: window.Window{Spec: spec}})
 }
@@ -121,9 +165,8 @@ func (w *Window1) OnInit() error {
 	return nil
 }
 
-func (w *Window1) OnPaint() {
-	dc := chkerr.Must(paint.NewPaintDC(w.HWND()))
-	defer func() { chkerr.MustOK(dc.EndPaint()) }()
+func (w *Window1) OnPaint(evt *events.PaintEvent) {
+	dc := chkerr.Must(evt.Begin())
 	defer gg.Must(paint.SelectObject(dc.HDC(), w.textFont.HFONT())).Restore()
 	rect := gg.Must(w.GetClientRect())
 	gg.Must(win32.DrawTextExW(dc.HDC(), &w.charBuf[0], -1, rect, win32.DT_CENTER|win32.DT_SINGLELINE|win32.DT_VCENTER, nil))
@@ -143,9 +186,7 @@ func main() {
 }
 
 func ui(app *app.App) {
-	var textFont *font.Font
-
-	bkWin := chkerr.Must(NewMainWindow(&window.Spec{
+	mainWin := chkerr.Must(NewMainWindow(&window.Spec{
 		Text:      "Full screen",
 		Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
 		X:         metrics.Px(win32.CW_USEDEFAULT),
@@ -153,50 +194,5 @@ func ui(app *app.App) {
 		Width:     metrics.Px(win32.CW_USEDEFAULT),
 		OnDestroy: func() { app.Quit(0) },
 	}))
-
-	ctxMenu := menu.New(true)
-	var defDpiMenuItem *menu.Item
-	var curDpiMenuItem *menu.Item
-	defDpiMenuItem = gg.Must(ctxMenu.InsertItem(-1, &menu.ItemSpec{
-		Title:   "Default DPI",
-		Checked: false,
-		OnClick: func() {
-			bkWin.SetGridDpi(win32.USER_DEFAULT_SCREEN_DPI)
-			defDpiMenuItem.SetChecked(true)
-			curDpiMenuItem.SetChecked(false)
-		},
-	}))
-	curDpiMenuItem = gg.Must(ctxMenu.InsertItem(-1, &menu.ItemSpec{
-		Title:   "Current DPI",
-		Checked: true,
-		OnClick: func() {
-			bkWin.SetGridDpi(gg.Must(bkWin.DPI()))
-			defDpiMenuItem.SetChecked(false)
-			curDpiMenuItem.SetChecked(true)
-		},
-	}))
-
-	bkWin.SetOnRButtonDownListener(func(event events.MouseClickEvent) {
-		gg.MustOK(bkWin.TrackPopupMenu(ctxMenu, nil))
-	})
-
-	bkWin.AddMsgListener(win32.WM_DPICHANGED, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
-		gg.MustOK(textFont.ChangeDPI(gg.Must(bkWin.DPI())))
-		bkWin.InvalidateRect(nil, true)
-	})
-
-	gg.Must(win32util.MessageBox(bkWin.HWND(), "Use context menu to change display", "Hint", win32.MB_ICONINFORMATION))
-
-	win1 := chkerr.Must(window.New(&window.Spec{
-		Parent: bkWin.HWND(),
-		Text:   "500 X 500",
-		Style:  win32.WS_POPUP | win32.WS_CAPTION | win32.WS_VISIBLE,
-		X:      metrics.Px(win32.CW_USEDEFAULT),
-		Y:      metrics.Px(win32.INT(win32.SW_SHOWNORMAL)),
-		Width:  metrics.Dip(500),
-		Height: metrics.Dip(500),
-	}))
-	win1.SetOnLButtonDownListener(func(event events.MouseClickEvent) {
-		gg.Must(win32.SendMessageW(win1.HWND(), win32.WM_NCLBUTTONDOWN, win32.HTCAPTION, 0))
-	})
+	gg.Must(win32util.MessageBox(mainWin.HWND(), "Use context menu to change display", "Hint", win32.MB_ICONINFORMATION))
 }

@@ -94,6 +94,9 @@ type BaseWindow interface {
 	SetOnSizeListener(func(event events.SizeEvent))
 	SetOnDestroyListener(func())
 
+	// SetDoubleBuffered set whether the subsequent OnPaint calls use double buffering.
+	SetDoubleBuffered(bool)
+
 	// WndProc is called when a message is received in the window procedure.
 	// The default implementation calls the native window procedure.
 	WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT
@@ -106,7 +109,7 @@ type BaseWindow interface {
 	OnDestroy()
 	// OnPaint is called when the window needs to be repainted, when WM_PAINT message is received.
 	// The default implementation calls the native window procedure to process the message.
-	OnPaint()
+	OnPaint(event *events.PaintEvent)
 	// OnKeyDown is called when WM_KEYDOWN message is received.
 	// The default implementation calls the native window procedure to process the message.
 	OnKeyDown(event *events.KeyEvent)
@@ -161,6 +164,7 @@ type BaseWindowImpl struct {
 	rButtonDownListener        func(event events.MouseClickEvent)
 	lButtonDoubleClickListener func(event events.MouseClickEvent)
 	sizeChangedListener        func(event events.SizeEvent)
+	doubleBuffered             bool
 	destroyListener            func()
 	msgListeners               map[win32.UINT]msgListenerMap
 	values                     map[any]any
@@ -273,6 +277,10 @@ func (w *BaseWindowImpl) callOnDestroyListener() {
 	}
 }
 
+func (w *BaseWindowImpl) SetDoubleBuffered(buffered bool) {
+	w.doubleBuffered = buffered
+}
+
 func (w *BaseWindowImpl) OnInit() error { return nil }
 
 func (w *BaseWindowImpl) OnDestroy() {
@@ -280,9 +288,9 @@ func (w *BaseWindowImpl) OnDestroy() {
 	w.defWndProc(w.hwnd, win32.WM_DESTROY, 0, 0)
 }
 
-func (w *BaseWindowImpl) OnPaint() {
+func (w *BaseWindowImpl) OnPaint(event *events.PaintEvent) {
 	// For performance, do not call h.HWND()
-	w.defWndProc(w.hwnd, win32.WM_PAINT, 0, 0)
+	event.CallDefProc(w.defWndProc)
 }
 
 func (w *BaseWindowImpl) Destroy() error {
@@ -330,7 +338,9 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 		LookupWindow(hwnd).OnSysKeyUp(new(events.NewKeyEvent(wParam, lParam)))
 		return 0
 	case win32.WM_PAINT:
-		LookupWindow(hwnd).OnPaint()
+		evt, release := events.NewPaintEvent(hwnd, wParam, lParam, w.doubleBuffered)
+		defer release()
+		LookupWindow(hwnd).OnPaint(evt)
 		return 0 // Not calling default.
 	case win32.WM_SIZE:
 		LookupWindow(hwnd).OnSize(new(events.NewSizeEvent(wParam, lParam)))
