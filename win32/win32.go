@@ -1989,3 +1989,13 @@ var lzActivateKeyboardLayout = lzUser32.NewProc("ActivateKeyboardLayout")
 func ActivateKeyboardLayout(hkl HKL, flags KLF) (HKL, error) {
 	return sysutil.MustNotZero[HKL](lzActivateKeyboardLayout.Call(uintptr(hkl), uintptr(flags)))
 }
+
+type SizingType WPARAM
+
+const (
+	SIZE_RESTORED  SizingType = 0
+	SIZE_MINIMIZED SizingType = 1
+	SIZE_MAXIMIZED SizingType = 2
+	SIZE_MAXSHOW   SizingType = 3
+	SIZE_MAXHIDE   SizingType = 4
+)

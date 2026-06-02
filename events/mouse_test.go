@@ -148,7 +148,7 @@ func TestMouseListenerCoordinates(t *testing.T) {
 	var wnd mouseListenerWindow
 	var got *events.MouseClickEvent
 
-	var loc win32util.MouseLocation
+	var loc win32util.EventPoint
 	loc.SetX(123)
 	loc.SetY(456)
 	var opts win32util.MouseClickOpt

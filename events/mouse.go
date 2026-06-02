@@ -8,12 +8,12 @@ import (
 // MouseClickEvent is the event for mouse click messages.
 type MouseClickEvent struct {
 	Opt win32util.MouseClickOpt
-	Pt  win32util.MouseLocation
+	Pt  win32util.EventPoint
 }
 
 func NewMouseClickEvent(wParam win32.WPARAM, lParam win32.LPARAM) MouseClickEvent {
 	return MouseClickEvent{
 		Opt: win32util.MouseClickOpt(wParam),
-		Pt:  win32util.MouseLocation(lParam),
+		Pt:  win32util.EventPoint(lParam),
 	}
 }

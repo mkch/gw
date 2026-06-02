@@ -68,26 +68,27 @@ func (m *MouseClickOpt) SetXButton2(down bool) {
 	m.set(win32.MK_XBUTTON2, down)
 }
 
-type MouseLocation win32.LPARAM
+// EventPoint is the point parameter of events.
+type EventPoint win32.LPARAM
 
-func (p MouseLocation) X() int16 {
+func (p EventPoint) X() int16 {
 	return win32.GET_X_LPARAM(win32.LPARAM(p))
 }
 
-func (p *MouseLocation) SetX(x int16) {
-	*p = MouseLocation(win32.MAKELONG(uint16(x), uint16(p.Y())))
+func (p *EventPoint) SetX(x int16) {
+	*p = EventPoint(win32.MAKELONG(uint16(x), uint16(p.Y())))
 }
 
-func (p MouseLocation) Y() int16 {
+func (p EventPoint) Y() int16 {
 	return win32.GET_Y_LPARAM(win32.LPARAM(p))
 }
 
-func (p *MouseLocation) SetY(y int16) {
-	*p = MouseLocation(win32.MAKELONG(uint16(p.X()), uint16(y)))
+func (p *EventPoint) SetY(y int16) {
+	*p = EventPoint(win32.MAKELONG(uint16(p.X()), uint16(y)))
 }
 
 // MouseClickEvent is the event for mouse click messages.
 type MouseClickEvent struct {
 	Opt MouseClickOpt
-	Pt  MouseLocation
+	Pt  EventPoint
 }
