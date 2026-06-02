@@ -153,7 +153,7 @@ type Window interface {
 var _ BaseWindow = (*BaseWindowImpl)(nil)
 
 // BaseWindowImpl is a helper implementation of [BaseWindow].
-// It can be embedded in concrete window types to implement BaseWindow.
+// It can be embedded in concrete window types to implement [BaseWindow].
 type BaseWindowImpl struct {
 	lButtonUpListener          func(event events.MouseClickEvent)
 	lButtonDownListener        func(event events.MouseClickEvent)
