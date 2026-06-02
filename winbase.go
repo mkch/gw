@@ -88,6 +88,7 @@ type BaseWindow interface {
 	SetOnLButtonDownListener(func(event events.MouseClickEvent))
 	SetOnRButtonUpListener(func(event events.MouseClickEvent))
 	SetOnRButtonDownListener(func(event events.MouseClickEvent))
+	SetOnLButtonDoubleClickListener(func(event events.MouseClickEvent))
 	SetOnDestroyListener(func())
 
 	// WndProc is called when a message is received in the window procedure.
@@ -131,6 +132,10 @@ type BaseWindow interface {
 	// The default implementation calls the right button up listener if it is set, and then calls the
 	// native window procedure to process the message.
 	OnRButtonUp(event *events.MouseClickEvent)
+	// OnLButtonDoubleClick is called when WM_LBUTTONDBLCLK message is received.
+	// The default implementation calls the left button double click listener if it is set, and then calls the
+	// native window procedure to process the message.
+	OnLButtonDoubleClick(event *events.MouseClickEvent)
 
 	setHWND(hwnd win32.HWND)
 	setOldWndProc(oldWndProc uintptr)
@@ -150,15 +155,16 @@ var _ BaseWindow = (*BaseWindowImpl)(nil)
 // BaseWindowImpl is a helper implementation of [BaseWindow].
 // It can be embedded in concrete window types to implement BaseWindow.
 type BaseWindowImpl struct {
-	lButtonUpListener   func(event events.MouseClickEvent)
-	lButtonDownListener func(event events.MouseClickEvent)
-	rButtonUpListener   func(event events.MouseClickEvent)
-	rButtonDownListener func(event events.MouseClickEvent)
-	destroyListener     func()
-	msgListeners        map[win32.UINT]msgListenerMap
-	values              map[any]any
-	hwnd                win32.HWND
-	oldWndProc          uintptr // The original window procedure before attaching.
+	lButtonUpListener          func(event events.MouseClickEvent)
+	lButtonDownListener        func(event events.MouseClickEvent)
+	rButtonUpListener          func(event events.MouseClickEvent)
+	rButtonDownListener        func(event events.MouseClickEvent)
+	lButtonDoubleClickListener func(event events.MouseClickEvent)
+	destroyListener            func()
+	msgListeners               map[win32.UINT]msgListenerMap
+	values                     map[any]any
+	hwnd                       win32.HWND
+	oldWndProc                 uintptr // The original window procedure before attaching.
 }
 
 func (w *BaseWindowImpl) Parent() BaseWindow {
@@ -232,6 +238,16 @@ func (w *BaseWindowImpl) callOnRButtonDownListener(event events.MouseClickEvent)
 	}
 }
 
+func (w *BaseWindowImpl) SetOnLButtonDoubleClickListener(listener func(event events.MouseClickEvent)) {
+	w.lButtonDoubleClickListener = listener
+}
+
+func (w *BaseWindowImpl) callOnLButtonDoubleClickListener(event events.MouseClickEvent) {
+	if w.lButtonDoubleClickListener != nil {
+		w.lButtonDoubleClickListener(event)
+	}
+}
+
 func (w *BaseWindowImpl) SetOnDestroyListener(listener func()) {
 	w.destroyListener = listener
 }
@@ -277,52 +293,26 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 			return ret
 		}
 	case win32.WM_LBUTTONUP:
-		LookupWindow(hwnd).OnLButtonUp(&events.MouseClickEvent{
-			Opt: events.MouseClickOpt(wParam),
-			X:   int(win32.GET_X_LPARAM(lParam)),
-			Y:   int(win32.GET_Y_LPARAM(lParam)),
-		})
+		LookupWindow(hwnd).OnLButtonUp(new(events.NewMouseClickEvent(wParam, lParam)))
 	case win32.WM_LBUTTONDOWN:
-		LookupWindow(hwnd).OnLButtonDown(&events.MouseClickEvent{
-			Opt: events.MouseClickOpt(wParam),
-			X:   int(win32.GET_X_LPARAM(lParam)),
-			Y:   int(win32.GET_Y_LPARAM(lParam)),
-		})
+		LookupWindow(hwnd).OnLButtonDown(new(events.NewMouseClickEvent(wParam, lParam)))
 	case win32.WM_RBUTTONUP:
-		LookupWindow(hwnd).OnRButtonUp(&events.MouseClickEvent{
-			Opt: events.MouseClickOpt(wParam),
-			X:   int(win32.GET_X_LPARAM(lParam)),
-			Y:   int(win32.GET_Y_LPARAM(lParam)),
-		})
+		LookupWindow(hwnd).OnRButtonUp(new(events.NewMouseClickEvent(wParam, lParam)))
 	case win32.WM_RBUTTONDOWN:
-		LookupWindow(hwnd).OnRButtonDown(&events.MouseClickEvent{
-			Opt: events.MouseClickOpt(wParam),
-			X:   int(win32.GET_X_LPARAM(lParam)),
-			Y:   int(win32.GET_Y_LPARAM(lParam)),
-		})
+		LookupWindow(hwnd).OnRButtonDown(new(events.NewMouseClickEvent(wParam, lParam)))
+	case win32.WM_LBUTTONDBLCLK:
+		LookupWindow(hwnd).OnLButtonDoubleClick(new(events.NewMouseClickEvent(wParam, lParam)))
 	case win32.WM_KEYDOWN:
-		LookupWindow(hwnd).OnKeyDown(&events.KeyEvent{
-			VKCode: wParam,
-			State:  events.KeyMessageLParam(lParam),
-		})
+		LookupWindow(hwnd).OnKeyDown(new(events.NewKeyEvent(wParam, lParam)))
 		return 0
 	case win32.WM_SYSKEYDOWN:
-		LookupWindow(hwnd).OnSysKeyDown(&events.KeyEvent{
-			VKCode: wParam,
-			State:  events.KeyMessageLParam(lParam),
-		})
+		LookupWindow(hwnd).OnSysKeyDown(new(events.NewKeyEvent(wParam, lParam)))
 		return 0
 	case win32.WM_KEYUP:
-		LookupWindow(hwnd).OnKeyUp(&events.KeyEvent{
-			VKCode: wParam,
-			State:  events.KeyMessageLParam(lParam),
-		})
+		LookupWindow(hwnd).OnKeyUp(new(events.NewKeyEvent(wParam, lParam)))
 		return 0
 	case win32.WM_SYSKEYUP:
-		LookupWindow(hwnd).OnSysKeyUp(&events.KeyEvent{
-			VKCode: wParam,
-			State:  events.KeyMessageLParam(lParam),
-		})
+		LookupWindow(hwnd).OnSysKeyUp(new(events.NewKeyEvent(wParam, lParam)))
 		return 0
 	case win32.WM_PAINT:
 		LookupWindow(hwnd).OnPaint()
@@ -366,22 +356,27 @@ func (w *BaseWindowImpl) OnSysKeyUp(event *events.KeyEvent) {
 
 func (w *BaseWindowImpl) OnLButtonDown(event *events.MouseClickEvent) {
 	w.callOnLButtonDownListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_LBUTTONDOWN, win32.WPARAM(event.Opt), win32.LPARAM(win32.MAKELONG(win32.WORD(event.X), win32.WORD(event.Y))))
+	w.defWndProc(w.hwnd, win32.WM_LBUTTONDOWN, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 func (w *BaseWindowImpl) OnLButtonUp(event *events.MouseClickEvent) {
 	w.callOnLButtonUpListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_LBUTTONUP, win32.WPARAM(event.Opt), win32.LPARAM(win32.MAKELONG(win32.WORD(event.X), win32.WORD(event.Y))))
+	w.defWndProc(w.hwnd, win32.WM_LBUTTONUP, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 func (w *BaseWindowImpl) OnRButtonDown(event *events.MouseClickEvent) {
 	w.callOnRButtonDownListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_RBUTTONDOWN, win32.WPARAM(event.Opt), win32.LPARAM(win32.MAKELONG(win32.WORD(event.X), win32.WORD(event.Y))))
+	w.defWndProc(w.hwnd, win32.WM_RBUTTONDOWN, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 func (w *BaseWindowImpl) OnRButtonUp(event *events.MouseClickEvent) {
 	w.callOnRButtonUpListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_RBUTTONUP, win32.WPARAM(event.Opt), win32.LPARAM(win32.MAKELONG(win32.WORD(event.X), win32.WORD(event.Y))))
+	w.defWndProc(w.hwnd, win32.WM_RBUTTONUP, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
+}
+
+func (w *BaseWindowImpl) OnLButtonDoubleClick(event *events.MouseClickEvent) {
+	w.callOnLButtonDoubleClickListener(*event)
+	w.defWndProc(w.hwnd, win32.WM_LBUTTONDBLCLK, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 type PopupMenuSpec struct {
