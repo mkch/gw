@@ -60,17 +60,17 @@ type Spec struct {
 	OnDestroy func()
 }
 
-// Popup is an interface for popup windows, which can be closed by user.
-type Popup interface {
+// TopLevel is an interface for top-level windows, which can be closed by user.
+type TopLevel interface {
 	gw.BaseWindow
 	Close() bool
 	SetOnCloseListener(listener func() bool)
 	SetMenu(menu *menu.Menu) error
 }
 
-// Ensure [*Window] implements [Popup].
+// Ensure [*Window] implements [TopLevel].
 // Should have no performance overhead.
-var _ Popup = (*Window)(nil)
+var _ TopLevel = (*Window)(nil)
 
 type Window struct {
 	gw.BaseWindowImpl
@@ -382,5 +382,8 @@ func (w *Window) OnInit() error {
 }
 
 func New(spec *Spec) (*Window, error) {
+	if spec != nil && spec.Style&win32.WS_CHILD != 0 {
+		return nil, errors.New("WS_CHILD is not allowed")
+	}
 	return gw.Init(&Window{Spec: spec})
 }
