@@ -5,6 +5,8 @@ import (
 	"structs"
 	"unsafe"
 
+	"github.com/mkch/gw/util"
+
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/win32/sysutil"
 	"golang.org/x/sys/windows"
@@ -2004,4 +2006,22 @@ var lzUpdateWindow = lzUser32.NewProc("UpdateWindow")
 
 func UpdateWindow(hwnd HWND) error {
 	return sysutil.MustTrue(lzUpdateWindow.Call(uintptr(hwnd)))
+}
+
+var lzEnumChildWindows = lzUser32.NewProc("EnumChildWindows")
+
+type enumChildWindowPinner = util.DataPinner[func(hwnd HWND) bool]
+
+var enumChildWindowsCallback = windows.NewCallback(func(hwnd HWND, lParam LPARAM) uintptr {
+	p := (*enumChildWindowPinner)(unsafe.Add(nil, lParam))
+	return gg.If((*p.Data)(hwnd), uintptr(1), uintptr(0))
+})
+
+// EnumChildWindows enumerates the child windows of a parent window.
+// The callback returns true to continue enumeration, or false to stop enumeration.
+func EnumChildWindows(parent HWND, callback func(HWND) bool) {
+	p := &enumChildWindowPinner{Data: &callback}
+	p.Pin()
+	defer p.Unpin()
+	lzEnumChildWindows.Call(uintptr(parent), enumChildWindowsCallback, uintptr(unsafe.Pointer(p)))
 }

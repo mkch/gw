@@ -2,6 +2,7 @@ package gw
 
 import (
 	"errors"
+	"iter"
 	"unsafe"
 
 	"github.com/mkch/gg"
@@ -302,6 +303,15 @@ func (w *BaseWindowImpl) SetDoubleBuffered(on bool) (err error) {
 	return
 }
 
+// Children returns all the direct child windows of this window.
+func Children(hwnd win32.HWND) iter.Seq[win32.HWND] {
+	return func(yield func(win32.HWND) bool) {
+		win32.EnumChildWindows(hwnd, func(child win32.HWND) bool {
+			return yield(child)
+		})
+	}
+}
+
 func (w *BaseWindowImpl) OnInit() error { return nil }
 
 func (w *BaseWindowImpl) OnDestroy() {
@@ -372,7 +382,12 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 			chkerr.MustOK(w.paintBuffer.Destroy())
 			clientRect := chkerr.Must(w.GetClientRect())
 			w.paintBuffer = chkerr.Must(paint.NewBuffer(paint.ClientDC(w.HWND()), int(clientRect.Width()), int(clientRect.Height())))
+			w.InvalidateRect(nil, true)
 		}
+		// children windows do not receive WM_DISPLAYCHANGE, despite the document of WM_DISPLAYCHANGE says
+		// "This message is only sent to top-level windows. For all other windows it is posted.".
+		// Do manual forwarding here.
+		sendToChildren(hwnd, message, wParam, lParam)
 	case win32.WM_SIZE:
 		evt := events.NewSizeEvent(wParam, lParam)
 		if w.paintBuffer != nil {
@@ -387,6 +402,14 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 			win32.SWP_NOZORDER|win32.SWP_NOACTIVATE)
 	}
 	return w.defWndProc(hwnd, message, wParam, lParam)
+}
+
+// sendToChildren sends the message to all child windows of hwnd recursively.
+func sendToChildren(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) {
+	for child := range Children(hwnd) {
+		win32.SendMessageW(child, message, wParam, lParam)
+		sendToChildren(child, message, wParam, lParam)
+	}
 }
 
 func (w *BaseWindowImpl) defWndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {

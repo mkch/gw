@@ -1,25 +1,11 @@
 package win32util
 
 import (
-	"runtime"
 	"unsafe"
 
+	"github.com/mkch/gw/util"
 	"github.com/mkch/gw/win32"
 )
-
-type dataPinner[T any] struct {
-	runtime.Pinner
-	Data *T
-}
-
-func (w *dataPinner[T]) Pin() {
-	// Pine w is enough because w.Data is not accessed in C code.
-	w.Pinner.Pin(w)
-}
-
-func (w *dataPinner[T]) Unpin() {
-	w.Pinner.Unpin()
-}
 
 // WindowProp is a window property with type T. The name of property is *WindowProp[T] itself.
 // To create a WindowProp, use [NewWindowProp] function or cast a *win32.WCHAR to *WindowProp[T].
@@ -38,12 +24,12 @@ func NewWindowProp[T any](name string) *WindowProp[T] {
 // If data is not nil and the property already exists, the old data will be replaced by the new data.
 func (w *WindowProp[T]) Set(hwnd win32.HWND, data *T) error {
 	if oldP := win32.RemovePropW(hwnd, (*win32.WCHAR)(w)); oldP != 0 {
-		(*dataPinner[T])(unsafe.Add(nil, oldP)).Unpin()
+		(*util.DataPinner[T])(unsafe.Add(nil, oldP)).Unpin()
 	}
 	if data == nil {
 		return nil
 	}
-	p := &dataPinner[T]{Data: data}
+	p := &util.DataPinner[T]{Data: data}
 	p.Pin()
 	if err := win32.SetPropW(hwnd, (*win32.WCHAR)(w), win32.HANDLE(uintptr(unsafe.Pointer(p)))); err != nil {
 		p.Unpin()
@@ -56,7 +42,7 @@ func (w *WindowProp[T]) Set(hwnd win32.HWND, data *T) error {
 // It returns nil if the property does not exist.
 func (w *WindowProp[T]) Get(hwnd win32.HWND) *T {
 	if p := win32.GetPropW(hwnd, (*win32.WCHAR)(w)); p != 0 {
-		return (*dataPinner[T])(unsafe.Add(nil, p)).Data
+		return (*util.DataPinner[T])(unsafe.Add(nil, p)).Data
 	}
 	return nil
 }
