@@ -2,6 +2,7 @@ package win32
 
 import (
 	"fmt"
+	"structs"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -55,6 +56,7 @@ const (
 )
 
 type CHOOSEFONTW struct {
+	_            structs.HostLayout
 	StructSize   DWORD
 	Owner        HWND
 	DC           HDC
