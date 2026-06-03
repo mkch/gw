@@ -61,16 +61,45 @@ var hookProc = windows.NewCallback(
 			chooseFontProp.Set(hwnd, nil)
 		case win32.WM_COMMAND:
 			id := win32.LOWORD(wParam)
-			if id == 1026 { // What is the const name for 1026??
+			if id == 0x402 { // #include <dlgs.h> psh3
 				cf := *chooseFontProp.Get(hwnd)
 				cf.LogFont = &win32.LOGFONTW{}
 				win32.SendMessageW(hwnd, WM_CHOOSEFONT_GETLOGFONT, 0, win32.LPARAM(uintptr(unsafe.Pointer(cf.LogFont))))
+
+				if cf.Flags&win32.CF_EFFECTS != 0 {
+					color, err := effectsColor(hwnd)
+					if err == nil {
+						cf.Color = color
+					}
+				}
+
 				data := (*chooseFontCustomData)(unsafe.Pointer(uintptr(unsafe.Pointer(nil)) + uintptr(cf.CustomData)))
 				data.onApply(newFontChosen(&cf, data.dpi))
 			}
 		}
 		return 0
-	})
+	},
+)
+
+// effectsColor retrieves the color from the combo box in the Effects group.
+func effectsColor(dlg win32.HWND) (win32.COLORREF, error) {
+	combo, err := win32.GetDlgItem(dlg, 0x473) // #include <dlgs.h> cmb4
+	if err != nil {
+		return 0, err
+	}
+	i, err := win32.SendMessageW(combo, win32.CB_GETCURSEL, 0, 0)
+	if err != nil {
+		return 0, err
+	}
+	if i < 0 {
+		return 0, nil
+	}
+	color, err := win32.SendMessageW(combo, win32.CB_GETITEMDATA, win32.WPARAM(i), 0)
+	if err != nil {
+		return 0, err
+	}
+	return win32.COLORREF(color), nil
+}
 
 // ChooseFont displays a Font dialog.
 // If the user cancels or closes the Font dialog box, it returns nil, nil.
