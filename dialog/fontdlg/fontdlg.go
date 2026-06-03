@@ -1,4 +1,4 @@
-package dialog
+package fontdlg
 
 import (
 	"runtime"
@@ -14,7 +14,11 @@ type Limit struct {
 	Min, Max win32.INT
 }
 
-type ChooseFontSpec struct {
+type DefaultHookProc func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.UINT_PTR
+
+type HookProc func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, cf *win32.CHOOSEFONTW, def DefaultHookProc) win32.UINT_PTR
+
+type Spec struct {
 	Owner   win32.HWND
 	LogFont *font.LogFont // Initial value or nil.
 	/* The following flags are automatically removed(added):
@@ -33,6 +37,9 @@ type ChooseFontSpec struct {
 	Color          *win32.COLORREF
 	PointSizeLimit *Limit                    // In point. Nil for none.
 	OnApply        func(curFont *FontChosen) // If not nil, an Apply button is displayed, and OnApply is called if it is pressed.
+
+	// If not nil, it is used as the hook procedure instead of the default one.
+	HookProc HookProc
 }
 
 type FontChosen struct {
@@ -43,41 +50,65 @@ type FontChosen struct {
 }
 
 type chooseFontCustomData struct {
-	dpi     win32.UINT
-	onApply func(*FontChosen)
+	dpi      win32.UINT
+	onApply  func(*FontChosen)
+	hookProc HookProc
 }
 
 var chooseFontProp = win32util.NewWindowProp[win32.CHOOSEFONTW]("github.com/mkch/gw#ChooseFontProp")
 
 const WM_CHOOSEFONT_GETLOGFONT = (win32.WM_USER + 1)
 
+// defaultChooseFontHookProc is the default
+func defaultChooseFontHookProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.UINT_PTR {
+	switch message {
+	case win32.WM_INITDIALOG:
+		cf := (*win32.CHOOSEFONTW)(unsafe.Add(nil, lParam))
+		chooseFontProp.Set(hwnd, cf)
+	case win32.WM_NCDESTROY:
+		chooseFontProp.Set(hwnd, nil)
+	case win32.WM_COMMAND:
+		id := win32.LOWORD(wParam)
+		if id == 0x402 { // #include <dlgs.h> psh3
+			cf := *chooseFontProp.Get(hwnd)
+			cf.LogFont = &win32.LOGFONTW{}
+			win32.SendMessageW(hwnd, WM_CHOOSEFONT_GETLOGFONT, 0, win32.LPARAM(uintptr(unsafe.Pointer(cf.LogFont))))
+
+			if cf.Flags&win32.CF_EFFECTS != 0 {
+				color, err := effectsColor(hwnd)
+				if err == nil {
+					cf.Color = color
+				}
+			}
+
+			data := (*chooseFontCustomData)(unsafe.Pointer(uintptr(unsafe.Pointer(nil)) + uintptr(cf.CustomData)))
+			data.onApply(newFontChosen(&cf, data.dpi))
+		}
+	}
+	return 0
+}
+
 var hookProc = windows.NewCallback(
 	func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.UINT_PTR {
-		switch message {
-		case win32.WM_INITDIALOG:
+		if message == win32.WM_INITDIALOG {
+			// Must call the default hook proc at WM_INITDIALOG to set the CHOOSEFONTW pointer to the window property
+			ret := defaultChooseFontHookProc(hwnd, message, wParam, lParam)
 			cf := (*win32.CHOOSEFONTW)(unsafe.Add(nil, lParam))
-			chooseFontProp.Set(hwnd, cf)
-		case win32.WM_NCDESTROY:
-			chooseFontProp.Set(hwnd, nil)
-		case win32.WM_COMMAND:
-			id := win32.LOWORD(wParam)
-			if id == 0x402 { // #include <dlgs.h> psh3
-				cf := *chooseFontProp.Get(hwnd)
-				cf.LogFont = &win32.LOGFONTW{}
-				win32.SendMessageW(hwnd, WM_CHOOSEFONT_GETLOGFONT, 0, win32.LPARAM(uintptr(unsafe.Pointer(cf.LogFont))))
-
-				if cf.Flags&win32.CF_EFFECTS != 0 {
-					color, err := effectsColor(hwnd)
-					if err == nil {
-						cf.Color = color
-					}
-				}
-
-				data := (*chooseFontCustomData)(unsafe.Pointer(uintptr(unsafe.Pointer(nil)) + uintptr(cf.CustomData)))
-				data.onApply(newFontChosen(&cf, data.dpi))
+			data := (*chooseFontCustomData)(unsafe.Pointer(uintptr(unsafe.Pointer(nil)) + uintptr(cf.CustomData)))
+			if data.hookProc != nil {
+				return data.hookProc(hwnd, message, wParam, lParam, cf, func(win32.HWND, win32.UINT, win32.WPARAM, win32.LPARAM) win32.UINT_PTR { return 0 })
 			}
+			return ret
 		}
-		return 0
+		cf := chooseFontProp.Get(hwnd)
+		if cf == nil {
+			return 0 // Cannot call the user hook proc without CHOOSEFONTW pointer.
+		}
+		data := (*chooseFontCustomData)(unsafe.Pointer(uintptr(unsafe.Pointer(nil)) + uintptr(cf.CustomData)))
+		if data.hookProc != nil {
+			return data.hookProc(hwnd, message, wParam, lParam, cf, defaultChooseFontHookProc)
+		}
+		return defaultChooseFontHookProc(hwnd, message, wParam, lParam)
 	},
 )
 
@@ -104,7 +135,7 @@ func effectsColor(dlg win32.HWND) (win32.COLORREF, error) {
 // ChooseFont displays a Font dialog.
 // If the user cancels or closes the Font dialog box, it returns nil, nil.
 // Nil spec means default setting.
-func ChooseFont(spec *ChooseFontSpec) (*FontChosen, error) {
+func ChooseFont(spec *Spec) (*FontChosen, error) {
 	// ChooseFont does not work well under PER_MONITOR_AWARE or PER_MONITOR_AWARE_V2.
 	if oldDpiCtx, err := win32.SetThreadDpiAwarenessContext(win32.DPI_AWARENESS_CONTEXT_SYSTEM_AWARE); err != nil {
 		return nil, err
@@ -113,7 +144,7 @@ func ChooseFont(spec *ChooseFontSpec) (*FontChosen, error) {
 	}
 	dpi := win32.GetDpiForSystem()
 	if spec == nil {
-		spec = &ChooseFontSpec{}
+		spec = &Spec{}
 	}
 	var cf = win32.CHOOSEFONTW{
 		StructSize: win32.DWORD(unsafe.Sizeof(win32.CHOOSEFONTW{})),
@@ -141,12 +172,17 @@ func ChooseFont(spec *ChooseFontSpec) (*FontChosen, error) {
 	if spec.OnApply != nil {
 		cf.Flags |= (win32.CF_APPLY | win32.CF_ENABLEHOOK)
 		cf.Hook = hookProc
-		p := &chooseFontCustomData{dpi: dpi, onApply: spec.OnApply}
-		var pinner runtime.Pinner
-		pinner.Pin(p)
-		defer pinner.Unpin()
-		cf.CustomData = win32.LPARAM(uintptr(unsafe.Pointer(p)))
 	}
+
+	p := &chooseFontCustomData{
+		dpi:      dpi,
+		onApply:  spec.OnApply,
+		hookProc: spec.HookProc,
+	}
+	var pinner runtime.Pinner
+	pinner.Pin(p)
+	defer pinner.Unpin()
+	cf.CustomData = win32.LPARAM(uintptr(unsafe.Pointer(p)))
 
 	if ok, err := win32.ChooseFontW(&cf); err != nil {
 		return nil, err

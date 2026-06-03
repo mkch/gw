@@ -7,7 +7,7 @@ import (
 	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
-	"github.com/mkch/gw/dialog"
+	"github.com/mkch/gw/dialog/fontdlg"
 	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -38,7 +38,7 @@ func (w *MainWindow) TextColor() win32.COLORREF {
 	return w.textColor
 }
 
-func (w *MainWindow) SetTextFont(f *dialog.FontChosen) {
+func (w *MainWindow) SetTextFont(f *fontdlg.FontChosen) {
 	w.logFont = f.Font
 	w.textFont.Release()
 	w.textFont = gg.Must(font.New(w.logFont, w.dpi))
@@ -99,13 +99,22 @@ func ui(app *app.App) {
 	fontMenu.InsertItem(-1, &menu.ItemSpec{
 		Title: "Choose &font",
 		OnClick: func() {
-			r, err := dialog.ChooseFont(&dialog.ChooseFontSpec{
+			r, err := fontdlg.ChooseFont(&fontdlg.Spec{
 				Owner:   win.HWND(),
 				Flags:   win32.CF_EFFECTS,
 				Color:   new(win.TextColor()),
 				LogFont: win.TextFont(),
-				OnApply: func(curFont *dialog.FontChosen) {
+				OnApply: func(curFont *fontdlg.FontChosen) {
 					win.SetTextFont(curFont)
+				},
+				HookProc: func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, cf *win32.CHOOSEFONTW, def fontdlg.DefaultHookProc) win32.UINT_PTR {
+					if message == win32.WM_INITDIALOG {
+						c := chkerr.Must(win32.GetDlgItem(hwnd, fontdlg.ID_CHARSET_STATIC))
+						var buf []win32.WCHAR
+						win32util.CString("~字符集~:", &buf)
+						chkerr.MustOK(win32.SetWindowTextW(c, &buf[0]))
+					}
+					return def(hwnd, message, wParam, lParam)
 				},
 			})
 			if err != nil {

@@ -1,0 +1,30 @@
+package fontdlg
+
+import "github.com/mkch/gw/win32"
+
+const (
+	ID_OK     = win32.IDOK
+	ID_CANCEL = win32.IDCANCEL
+	ID_APPLY  = 0x402 // Apply button.
+	ID_HELP   = 0x40E
+
+	ID_FONT_STATIC    = 0x440
+	ID_GLYPH_STATIC   = 0x441
+	ID_SIZE_STATIC    = 0x442
+	ID_COLOR_STATIC   = 0x443
+	ID_SAMPLE_STATIC  = 0x444
+	ID_MEMO_STATIC    = 0x445 // In the bottom of dialog, usually empty.
+	ID_CHARSET_STATIC = 0x446
+
+	ID_FONT_COMBO    = 0x470
+	ID_GLYPH_COMBO   = 0x471
+	ID_SIZE_COMBO    = 0x472
+	ID_COLOR_COMBO   = 0x473
+	ID_CHARSET_COMBO = 0x474
+
+	ID_EFFECTS_GROUPBOX = 0x430
+	ID_SAMPLE_GROUPBOX  = 0x431
+
+	ID_STRIKEOUT_CHECK = 0x410
+	ID_UNDERLINE_CHECK = 0x411
+)
