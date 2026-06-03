@@ -5,12 +5,14 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/events"
 	internal_app "github.com/mkch/gw/internal/app"
 	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
+	"github.com/mkch/gw/paint"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
 	"golang.org/x/sys/windows"
@@ -96,7 +98,7 @@ type BaseWindow interface {
 
 	// SetDoubleBuffered set whether the subsequent OnPaint calls use double buffering.
 	// Double buffering is off by default.
-	SetDoubleBuffered(bool)
+	SetDoubleBuffered(bool) error
 
 	// WndProc is called when a message is received in the window procedure.
 	// The default implementation calls the native window procedure.
@@ -165,7 +167,7 @@ type BaseWindowImpl struct {
 	rButtonDownListener        func(event events.MouseClickEvent)
 	lButtonDoubleClickListener func(event events.MouseClickEvent)
 	sizeChangedListener        func(event events.SizeEvent)
-	doubleBuffered             bool
+	paintBuffer                *paint.Buffer // If not nil, double buffering is used in OnPaint, and this buffer is used as the back buffer.
 	destroyListener            func()
 	msgListeners               map[win32.UINT]msgListenerMap
 	values                     map[any]any
@@ -278,8 +280,26 @@ func (w *BaseWindowImpl) callOnDestroyListener() {
 	}
 }
 
-func (w *BaseWindowImpl) SetDoubleBuffered(on bool) {
-	w.doubleBuffered = on
+func (w *BaseWindowImpl) SetDoubleBuffered(on bool) (err error) {
+	if on {
+		if w.paintBuffer != nil {
+			return
+		}
+		var clientRect *win32.RECT
+		if clientRect, err = w.GetClientRect(); err != nil {
+			return err
+		}
+		w.paintBuffer, err = paint.NewBuffer(paint.ClientDC(w.HWND()), int(clientRect.Width()), int(clientRect.Height()))
+		if err != nil {
+			return err
+		}
+	} else if w.paintBuffer != nil {
+		if err = w.paintBuffer.Destroy(); err != nil {
+			return
+		}
+		w.paintBuffer = nil
+	}
+	return
 }
 
 func (w *BaseWindowImpl) OnInit() error { return nil }
@@ -311,6 +331,10 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 		windowProp.Set(hwnd, nil)
 		w.hwnd = 0
 	case win32.WM_DESTROY:
+		if w.paintBuffer != nil {
+			w.paintBuffer.Destroy()
+			w.paintBuffer = nil
+		}
 		LookupWindow(hwnd).OnDestroy()
 	case win32.WM_CTLCOLORSTATIC:
 		if ret, err := win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_CTLCOLORSTATIC, wParam, lParam); err == nil && ret != 0 {
@@ -339,12 +363,22 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 		LookupWindow(hwnd).OnSysKeyUp(new(events.NewKeyEvent(wParam, lParam)))
 		return 0
 	case win32.WM_PAINT:
-		evt, release := events.NewPaintEvent(hwnd, wParam, lParam, w.doubleBuffered)
+		evt, release := events.NewPaintEvent(hwnd, wParam, lParam, w.paintBuffer)
 		defer release()
 		LookupWindow(hwnd).OnPaint(evt)
 		return 0 // Not calling default.
+	case win32.WM_DISPLAYCHANGE:
+		if w.paintBuffer != nil {
+			chkerr.MustOK(w.paintBuffer.Destroy())
+			clientRect := chkerr.Must(w.GetClientRect())
+			w.paintBuffer = chkerr.Must(paint.NewBuffer(paint.ClientDC(w.HWND()), int(clientRect.Width()), int(clientRect.Height())))
+		}
 	case win32.WM_SIZE:
-		LookupWindow(hwnd).OnSize(new(events.NewSizeEvent(wParam, lParam)))
+		evt := events.NewSizeEvent(wParam, lParam)
+		if w.paintBuffer != nil {
+			chkerr.MustOK(w.paintBuffer.Resize(int(evt.Size.Width()), int(evt.Size.Height())))
+		}
+		LookupWindow(hwnd).OnSize(&evt)
 	case win32.WM_DPICHANGED:
 		// For top level windows.
 		suggested := (*win32.RECT)(unsafe.Pointer(uintptr(unsafe.Add(nil, lParam))))

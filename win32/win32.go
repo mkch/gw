@@ -1999,3 +1999,9 @@ const (
 	SIZE_MAXSHOW   SizingType = 3
 	SIZE_MAXHIDE   SizingType = 4
 )
+
+var lzUpdateWindow = lzUser32.NewProc("UpdateWindow")
+
+func UpdateWindow(hwnd HWND) error {
+	return sysutil.MustTrue(lzUpdateWindow.Call(uintptr(hwnd)))
+}

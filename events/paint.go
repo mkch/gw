@@ -14,77 +14,108 @@ type PaintDC interface {
 	endPaint() error
 }
 
-// paintDC is the drawing context for WM_PAINT message.
+// WindowPaintDC is the drawing context for WM_PAINT message.
 // It implements [PaintDC].
-type paintDC paint.PaintDC
+type WindowPaintDC paint.PaintDC
 
-func (p *paintDC) HDC() win32.HDC {
+func (p *WindowPaintDC) HWND() win32.HWND {
+	return (*paint.PaintDC)(p).HWND()
+}
+
+func (p *WindowPaintDC) HDC() win32.HDC {
 	return (*paint.PaintDC)(p).HDC()
 }
 
-func (p *paintDC) EraseBackground() bool {
+func (p *WindowPaintDC) EraseBackground() bool {
 	return (*paint.PaintDC)(p).EraseBackground()
 }
 
-func (p *paintDC) Rect() *win32.RECT {
+func (p *WindowPaintDC) Rect() *win32.RECT {
 	return (*paint.PaintDC)(p).Rect()
 }
 
 // endPaint is a proxy for [paint.PaintDC.EndPaint] but is unexported.
-func (p *paintDC) endPaint() error {
+func (p *WindowPaintDC) endPaint() error {
 	return (*paint.PaintDC)(p).EndPaint()
 }
 
-// newPaintDC creates a new [paintDC] for the given window handle.
-func newPaintDC(w win32.HWND) (*paintDC, error) {
+// NewWindowPaintDC creates a new [WindowPaintDC] for the given window handle.
+func NewWindowPaintDC(w win32.HWND) (*WindowPaintDC, error) {
 	dc, err := paint.NewPaintDC(w)
 	if err != nil {
 		return nil, err
 	}
-	return (*paintDC)(dc), nil
+	return (*WindowPaintDC)(dc), nil
 }
 
-// bufferedPaintDC is a double-buffered drawing context.
+// BufferedPaintDC is a double-buffered drawing context.
 // It implements [PaintDC].
-type bufferedPaintDC struct {
-	*paintDC
-	buffer *paint.Buffer
+type BufferedPaintDC struct {
+	*WindowPaintDC
+	buffer         *paint.Buffer
+	externalBuffer bool // buffer is created outside of this struct, so it should not be destroyed by this struct
 }
 
 // HDC returns the HDC of the buffer.
-func (b *bufferedPaintDC) HDC() win32.HDC {
+func (b *BufferedPaintDC) HDC() win32.HDC {
 	return b.buffer.HDC()
 }
 
-func (b *bufferedPaintDC) endPaint() (err error) {
-	defer gg.CollectError(b.paintDC.endPaint, &err)
-	defer gg.CollectError(b.buffer.Destroy, &err)
-	err = win32.BitBlt(b.paintDC.HDC(), 0, 0, b.buffer.Width(), b.buffer.Height(), b.buffer.HDC(), 0, 0, win32.SRCCOPY)
+func (b *BufferedPaintDC) endPaint() (err error) {
+	var clientRect win32.RECT
+	err = win32.GetClientRect(b.WindowPaintDC.HWND(), &clientRect)
+	if err != nil {
+		return err
+	}
+	w := int(clientRect.Width())
+	h := int(clientRect.Height())
+	defer gg.CollectError(b.WindowPaintDC.endPaint, &err)
+	if !b.externalBuffer {
+		defer gg.CollectError(b.buffer.Destroy, &err)
+	}
+	err = win32.BitBlt(b.WindowPaintDC.HDC(), 0, 0, w, h, b.buffer.HDC(), 0, 0, win32.SRCCOPY)
 	return
 }
 
-// newBufferedPaintDC creates a new [bufferedPaintDC] for the given window handle.
+// NewBufferedPaintDC creates a new [BufferedPaintDC] for the given window handle.
 // The size of the buffer is the same as the client area of w.
-func newBufferedPaintDC(w win32.HWND) (*bufferedPaintDC, error) {
+func NewBufferedPaintDC(w win32.HWND) (*BufferedPaintDC, error) {
 	var clientRect win32.RECT
 	err := win32.GetClientRect(w, &clientRect)
 	if err != nil {
 		return nil, err
 	}
-	dc, err := newPaintDC(w)
+	dc, err := NewWindowPaintDC(w)
 	if err != nil {
 		return nil, err
 	}
 
-	buffer, err := paint.NewBuffer(dc.HDC(), int(clientRect.Width()), int(clientRect.Height()))
+	dcProvider := paint.DCProviderFunc(func(f func(dc win32.HDC) error) error {
+		return f(dc.HDC())
+	})
+	buffer, err := paint.NewBuffer(dcProvider, int(clientRect.Width()), int(clientRect.Height()))
 	if err != nil {
 		dc.endPaint()
 		return nil, err
 	}
 
-	return &bufferedPaintDC{
-		paintDC: dc,
-		buffer:  buffer,
+	return &BufferedPaintDC{
+		WindowPaintDC: dc,
+		buffer:        buffer,
+	}, nil
+}
+
+// NewBufferedPaintDCWithBuffer creates a new [BufferedPaintDC] for the given window handle and buffer.
+// The buffer must be valid for the lifetime of the returned [bufferedPaintDC].
+func NewBufferedPaintDCWithBuffer(w win32.HWND, buffer *paint.Buffer) (*BufferedPaintDC, error) {
+	dc, err := NewWindowPaintDC(w)
+	if err != nil {
+		return nil, err
+	}
+	return &BufferedPaintDC{
+		WindowPaintDC:  dc,
+		buffer:         buffer,
+		externalBuffer: true,
 	}, nil
 }
 
@@ -99,7 +130,7 @@ type PaintEvent struct {
 
 	defProcCalled bool
 	dc            PaintDC
-	buffered      bool
+	extBuffer     *paint.Buffer // external buffer for double buffering
 }
 
 // Begin returns the drawing context for WM_PAINT message.
@@ -111,10 +142,10 @@ func (e *PaintEvent) Begin() (PaintDC, error) {
 	}
 	if e.dc == nil {
 		var err error
-		if e.buffered {
-			e.dc, err = newBufferedPaintDC(e.hwnd)
+		if e.extBuffer != nil {
+			e.dc, err = NewBufferedPaintDCWithBuffer(e.hwnd, e.extBuffer)
 		} else {
-			e.dc, err = newPaintDC(e.hwnd)
+			e.dc, err = NewWindowPaintDC(e.hwnd)
 		}
 		if err != nil {
 			return nil, err
@@ -141,17 +172,20 @@ func (e *PaintEvent) CallDefProc(proc func(hwnd win32.HWND, message win32.UINT, 
 	if e.defProcCalled || e.dc != nil {
 		return 0
 	}
+	e.defProcCalled = true
 	return proc(e.hwnd, win32.WM_PAINT, e.wParam, e.lParam)
 }
 
 // NewPaintEvent creates a new PaintEvent.
+// If buffer is not nil, it will be used for double buffering, otherwise the painting will be done directly on the window.
+// If the buffer is not nil, it must be valid for the lifetime of the returned PaintEvent.
 // The returned release function should be called to end the painting.
-func NewPaintEvent(hwnd win32.HWND, wParam win32.WPARAM, lParam win32.LPARAM, buffered bool) (evt *PaintEvent, release func() error) {
+func NewPaintEvent(hwnd win32.HWND, wParam win32.WPARAM, lParam win32.LPARAM, buffer *paint.Buffer) (evt *PaintEvent, release func() error) {
 	evt = &PaintEvent{
-		hwnd:     hwnd,
-		wParam:   wParam,
-		lParam:   lParam,
-		buffered: buffered,
+		hwnd:      hwnd,
+		wParam:    wParam,
+		lParam:    lParam,
+		extBuffer: buffer,
 	}
 	release = evt.end
 	return
