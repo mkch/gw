@@ -95,6 +95,7 @@ type BaseWindow interface {
 	SetOnDestroyListener(func())
 
 	// SetDoubleBuffered set whether the subsequent OnPaint calls use double buffering.
+	// Double buffering is off by default.
 	SetDoubleBuffered(bool)
 
 	// WndProc is called when a message is received in the window procedure.
@@ -277,8 +278,8 @@ func (w *BaseWindowImpl) callOnDestroyListener() {
 	}
 }
 
-func (w *BaseWindowImpl) SetDoubleBuffered(buffered bool) {
-	w.doubleBuffered = buffered
+func (w *BaseWindowImpl) SetDoubleBuffered(on bool) {
+	w.doubleBuffered = on
 }
 
 func (w *BaseWindowImpl) OnInit() error { return nil }
