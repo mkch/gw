@@ -11,19 +11,19 @@ import (
 
 // round converts a float64 to int.
 // -1 is returned if f is NaN, Inf or out of int bounds.
-func round(f float64) int {
+func round(f float64) int32 {
 	f = math.Round(f)
 
-	if math.IsNaN(f) || math.IsInf(f, 0) || f < float64(math.MinInt) || f > float64(math.MaxInt) {
+	if math.IsNaN(f) || math.IsInf(f, 0) || f < float64(math.MinInt32) || f > float64(math.MaxInt32) {
 		return -1
 	}
-	return int(f)
+	return int32(f)
 }
 
-type DIP int
+type DIP win32.INT
 
 // Infinity represents an infinite size(unbounded) constraint.
-const Infinity = math.MaxInt
+const Infinity = math.MaxInt32
 
 type Size struct {
 	Width  DIP
