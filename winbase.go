@@ -89,6 +89,9 @@ type BaseWindow interface {
 	// See Context.Value() in context package for the concept and usage of associated value.
 	SetValue(key, value any)
 
+	// Dimensions returns the dimensions of the window in parent client area.
+	Dimensions() (left, top, width, height int, err error)
+
 	SetOnLButtonUpListener(func(event events.MouseClickEvent))
 	SetOnLButtonDownListener(func(event events.MouseClickEvent))
 	SetOnRButtonUpListener(func(event events.MouseClickEvent))
@@ -588,6 +591,17 @@ func (w *BaseWindowImpl) SetValue(key, value any) {
 		w.values = make(map[any]any)
 	}
 	w.values[key] = value
+}
+
+func (w *BaseWindowImpl) Dimensions() (left, top, right, bottom int, err error) {
+	var rect *win32.RECT
+	if rect, err = w.GetWindowRect(); err != nil {
+		return
+	}
+	if err = win32util.ScreenToClient(w.Parent().HWND(), rect); err != nil {
+		return
+	}
+	return int(rect.Left), int(rect.Top), int(rect.Width()), int(rect.Height()), nil
 }
 
 // wiErrAlreadyAttached is returned by Attach if the HWND or *WindowBase

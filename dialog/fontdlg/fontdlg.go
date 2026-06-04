@@ -171,6 +171,9 @@ func ChooseFont(spec *Spec) (*FontChosen, error) {
 	}
 	if spec.OnApply != nil {
 		cf.Flags |= (win32.CF_APPLY | win32.CF_ENABLEHOOK)
+	}
+	if spec.HookProc != nil {
+		cf.Flags |= win32.CF_ENABLEHOOK
 		cf.Hook = hookProc
 	}
 

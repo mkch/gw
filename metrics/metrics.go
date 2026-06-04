@@ -8,12 +8,12 @@ import (
 )
 
 // DPIConv converts a value from old DPI to new DPI.
-func DPIConv[T ~int32 | ~uint32](oldValue T, oldDPI, newDPI win32.UINT) (newValue T) {
+func DPIConv[T ~int | ~int32 | ~uint32](oldValue T, oldDPI, newDPI win32.UINT) (newValue T) {
 	return T(win32.MulDiv(win32.INT(oldValue), win32.INT(newDPI), win32.INT(oldDPI)))
 }
 
 // FromDefaultDPI convert value from USER_DEFAULT_SCREEN_DPI(96) to a new DPI.
-func FromDefaultDPI[T ~int32 | ~uint32](value T, dpi win32.UINT) T {
+func FromDefaultDPI[T ~int | ~int32 | ~uint32](value T, dpi win32.UINT) T {
 	return DPIConv(value, win32.USER_DEFAULT_SCREEN_DPI, dpi)
 }
 
