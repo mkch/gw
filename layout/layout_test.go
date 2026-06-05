@@ -28,27 +28,26 @@ func TestCenter(t *testing.T) {
 			Text:      "Test Center Layout",
 			Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
 			X:         gw.CW_USEDEFAULT,
-			Width:     metrics.Dip(500),
-			Height:    metrics.Dip(300),
+			Width:     metrics.Px(500),
+			Height:    metrics.Px(300),
 			OnDestroy: func() { app.Quit(0) },
 		}))
 
 		btn := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Dip(300),
-			Height: metrics.Dip(100),
+			Width:  metrics.Px(300),
+			Height: metrics.Px(100),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
 
 		center := &layout.Center{
-			Hwnd: win.HWND(),
-			Item: &layout.Window{
+			Item: &layout.Intrinsic{
 				Hwnd: btn.HWND(),
 			},
 		}
 
-		layout.Perform(center, nil)
+		chkerr.MustOK(layout.PerformWindow(center, win.HWND()))
 
 		winRect := chkerr.Must(win.GetClientRect())
 		btnRect := chkerr.Must(btn.GetWindowRect())
@@ -76,40 +75,38 @@ func TestColumn(t *testing.T) {
 			Text:      "Test Column Layout",
 			Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
 			X:         gw.CW_USEDEFAULT,
-			Width:     metrics.Dip(600),
-			Height:    metrics.Dip(500),
+			Width:     metrics.Px(600),
+			Height:    metrics.Px(500),
 			OnDestroy: func() { app.Quit(0) },
 		}))
 
 		btn1 := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Dip(300),
-			Height: metrics.Dip(100),
+			Width:  metrics.Px(300),
+			Height: metrics.Px(100),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
 
 		btn2 := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Dip(200),
-			Height: metrics.Dip(200),
+			Width:  metrics.Px(200),
+			Height: metrics.Px(200),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
 
 		column := &layout.Column{
 			Items: []layout.Layout{
-				&layout.Window{
+				&layout.Intrinsic{
 					Hwnd: btn1.HWND(),
 				},
-				&layout.Window{
+				&layout.Intrinsic{
 					Hwnd: btn2.HWND(),
 				},
 			},
 		}
-
-		clientSize := chkerr.Must(layout.ClientSize(win.HWND()))
-		layout.Perform(column, &clientSize)
+		chkerr.MustOK(layout.PerformWindow(column, win.HWND()))
 
 		x1, y1, w1, h1 := chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -141,8 +138,7 @@ func TestColumn(t *testing.T) {
 
 		column.CrossAxisAlign = layout.AlignCenter
 
-		clientSize = chkerr.Must(layout.ClientSize(win.HWND()))
-		layout.Perform(column, &clientSize)
+		chkerr.MustOK(layout.PerformWindow(column, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -174,8 +170,7 @@ func TestColumn(t *testing.T) {
 
 		column.CrossAxisAlign = layout.AlignEnd
 
-		clientSize = chkerr.Must(layout.ClientSize(win.HWND()))
-		layout.Perform(column, &clientSize)
+		chkerr.MustOK(layout.PerformWindow(column, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -217,40 +212,39 @@ func TestRow(t *testing.T) {
 			Text:      "Test Column Layout",
 			Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
 			X:         gw.CW_USEDEFAULT,
-			Width:     metrics.Dip(600),
-			Height:    metrics.Dip(500),
+			Width:     metrics.Px(600),
+			Height:    metrics.Px(500),
 			OnDestroy: func() { app.Quit(0) },
 		}))
 
 		btn1 := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Dip(300),
-			Height: metrics.Dip(100),
+			Width:  metrics.Px(300),
+			Height: metrics.Px(100),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
 
 		btn2 := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Dip(200),
-			Height: metrics.Dip(200),
+			Width:  metrics.Px(200),
+			Height: metrics.Px(200),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
 
 		row := &layout.Row{
 			Items: []layout.Layout{
-				&layout.Window{
+				&layout.Intrinsic{
 					Hwnd: btn1.HWND(),
 				},
-				&layout.Window{
+				&layout.Intrinsic{
 					Hwnd: btn2.HWND(),
 				},
 			},
 		}
 
-		clientSize := chkerr.Must(layout.ClientSize(win.HWND()))
-		layout.Perform(row, &clientSize)
+		chkerr.MustOK(layout.PerformWindow(row, win.HWND()))
 
 		x1, y1, w1, h1 := chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -282,8 +276,7 @@ func TestRow(t *testing.T) {
 
 		row.CrossAxisAlign = layout.AlignCenter
 
-		clientSize = chkerr.Must(layout.ClientSize(win.HWND()))
-		layout.Perform(row, &clientSize)
+		chkerr.MustOK(layout.PerformWindow(row, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -315,8 +308,7 @@ func TestRow(t *testing.T) {
 
 		row.CrossAxisAlign = layout.AlignEnd
 
-		clientSize = chkerr.Must(layout.ClientSize(win.HWND()))
-		layout.Perform(row, &clientSize)
+		chkerr.MustOK(layout.PerformWindow(row, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -348,8 +340,7 @@ func TestRow(t *testing.T) {
 
 		row.MainAxisAlign = layout.AlignCenter
 
-		clientSize = chkerr.Must(layout.ClientSize(win.HWND()))
-		layout.Perform(row, &clientSize)
+		chkerr.MustOK(layout.PerformWindow(row, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if y1 != 100 {
@@ -380,4 +371,55 @@ func TestRow(t *testing.T) {
 
 	}, nil)
 
+}
+
+func TestPadding(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		win := chkerr.Must(window.New(&window.Spec{
+			Text:   "Test Padding Layout",
+			Style:  win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
+			X:      gw.CW_USEDEFAULT,
+			Width:  metrics.Px(600),
+			Height: metrics.Px(500),
+		}))
+
+		btn := chkerr.Must(button.New(&button.Spec{
+			Parent: win,
+			Style:  win32.WS_VISIBLE,
+			Text:   "Button",
+			Width:  metrics.Px(300),
+			Height: metrics.Px(100),
+		}))
+
+		padding := &layout.Padding{
+			Left: metrics.Dip(5),
+			Top:  metrics.Dip(10),
+			Item: &layout.Intrinsic{
+				Hwnd: btn.HWND(),
+			},
+		}
+
+		chkerr.MustOK(layout.PerformWindow(padding, win.HWND()))
+
+		dpi := chkerr.Must(win32.GetDpiForWindow(win.HWND()))
+
+		dip5 := int(metrics.Dip(5).Px(dpi).Value())
+		dip10 := int(metrics.Dip(10).Px(dpi).Value())
+		x, y, w, h := chkerr.Must4(btn.Dimensions())
+		if x != dip5 {
+			t.Errorf("x=%v, want %v", x, dip5)
+		}
+		if y != dip10 {
+			t.Errorf("y=%v, want %v", y, dip10)
+		}
+		if w != 300 {
+			t.Errorf("w=%v, want %v", w, 300)
+		}
+		if h != 100 {
+			t.Errorf("h=%v, want %v", h, 100)
+		}
+
+		app.Quit(0)
+
+	}, nil)
 }

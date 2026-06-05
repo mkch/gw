@@ -1,10 +1,21 @@
+// Package layout provides a DPI-aware layout engine for arranging HWND-backed
+// controls in a layout tree.
+//
+// Layout objects follow a two-phase contract: Measure computes desired size
+// under Constraints, and Arrange places the layout and its children at a Point.
+// Perform runs this flow for a tree root.
+// Geometry and constraints are expressed in DIP (device-independent pixels).
 package layout
 
 import (
+	"errors"
+
 	"github.com/mkch/gw/metrics"
+
 	"github.com/mkch/gw/win32"
 )
 
+// Layout is the interface for layout objects.
 type Layout interface {
 	Measure(Constraints) (Size, error)
 	Arrange(Point) error
@@ -12,62 +23,74 @@ type Layout interface {
 	HWND() win32.HWND
 }
 
-func Perform(l Layout, size *Size) (err error) {
-	if size == nil {
-		var clientRect win32.RECT
-		if err = win32.GetClientRect(l.HWND(), &clientRect); err != nil {
-			return err
-		}
-		var dpi win32.UINT
-		dpi, err = win32.GetDpiForWindow(l.HWND())
-		if err != nil {
-			return
-		}
-		size = &Size{
-			Width:  PxToDP(clientRect.Right-clientRect.Left, dpi),
-			Height: PxToDP(clientRect.Bottom-clientRect.Top, dpi),
-		}
+// PerformWindow calls [Perform] with the given layout and the client size of the given window.
+func PerformWindow(root Layout, hwnd win32.HWND) (err error) {
+	var size Size
+	size, err = ClientSize(hwnd)
+	if err != nil {
+		return
 	}
-	l.Measure(Constraints{
+	return Perform(root, size)
+}
+
+// ErrWrongRoot is returned by Perform if the root layout has an associated window.
+var ErrWrongRoot = errors.New("root layout must not have an associated window")
+
+// Perform performs the layout: it measures the layout with the given size constraint and arranges the layout at (0, 0).
+// The root must not have an associated window.
+func Perform(root Layout, size Size) (err error) {
+	if root.HWND() != 0 {
+		return ErrWrongRoot
+	}
+	root.Measure(Constraints{
 		MaxWidth:  size.Width,
 		MaxHeight: size.Height,
 	})
-	return l.Arrange(Point{X: 0, Y: 0})
+	return root.Arrange(Point{X: 0, Y: 0})
 }
 
-type Window struct {
-	Hwnd       win32.HWND
+// Intrinsic is a layout that measures itself to the size of its associated window.
+// It is useful to adding a HWND to the layout tree.
+type Intrinsic struct {
+	// Hwnd is the window to layout.
+	// Must be non-zero.
+	Hwnd win32.HWND
+
 	layoutSize Size
 }
 
-func (w *Window) HWND() win32.HWND {
+func (w *Intrinsic) HWND() win32.HWND {
 	return w.Hwnd
 }
 
-func (ww *Window) Children() []Layout {
+func (w *Intrinsic) Children() []Layout {
 	return nil
 }
 
-func (w *Window) Measure(cst Constraints) (size Size, err error) {
+func (w *Intrinsic) Measure(cst Constraints) (size Size, err error) {
 	var winSize win32.RECT
 	if err = win32.GetWindowRect(win32.HWND(w.Hwnd), &winSize); err != nil {
 		return
 	}
 	dpi, err := win32.GetDpiForWindow(win32.HWND(w.Hwnd))
 	size = cst.Clamp(Size{
-		Width:  PxToDP(winSize.Right-winSize.Left, dpi),
-		Height: PxToDP(winSize.Bottom-winSize.Top, dpi),
+		Width:  metrics.Px(winSize.Right - winSize.Left).Dip(dpi),
+		Height: metrics.Px(winSize.Bottom - winSize.Top).Dip(dpi),
 	})
 	w.layoutSize = size
 	return
 }
 
-func (w *Window) Arrange(pt Point) (err error) {
-	return setWindowPos(w.Hwnd, pt.X, pt.Y, w.layoutSize.Width, w.layoutSize.Height)
+func (w *Intrinsic) Arrange(pt Point) (err error) {
+	return positionWindow(w.Hwnd, pt.X, pt.Y, w.layoutSize.Width, w.layoutSize.Height)
 }
 
+// Center is a layout that centers its child in the available space.
 type Center struct {
+	// Hwnd is the window to layout.
+	// It can be 0, in which case Center only centers its child without resizing the window.
 	Hwnd win32.HWND
+	// Item is the child to layout. Must be non-nil.
 	Item Layout
 	// Width scaling factor. If not 0, the desired with of Center is calculated as
 	// child's width multiplied by WidthFactor.
@@ -126,7 +149,7 @@ func (c *Center) Arrange(pt Point) error {
 		c.childOffset = Point{}
 	}()
 	if c.Hwnd != 0 {
-		if err := setWindowPos(c.Hwnd, pt.X, pt.Y, c.layoutSize.Width, c.layoutSize.Height); err != nil {
+		if err := positionWindow(c.Hwnd, pt.X, pt.Y, c.layoutSize.Width, c.layoutSize.Height); err != nil {
 			return err
 		}
 	}
@@ -136,27 +159,44 @@ func (c *Center) Arrange(pt Point) error {
 	})
 }
 
+// AxisAlignment represents alignment along an axis.
 type AxisAlignment int
 
 const (
+	// AlignStart means to align to the start of the axis.
 	AlignStart AxisAlignment = iota
+	// AlignCenter means to align to the center of the axis.
 	AlignCenter
+	// AlignEnd means to align to the end of the axis.
 	AlignEnd
 )
 
+// AxisSize represents how to determine the size of an axis.
 type AxisSize int
 
 const (
+	// AxisSizeMax means to take the maximum available size along the axis.
 	AxisSizeMax AxisSize = iota
+	// AxisSizeMin means to take the minimum size required by the content along the axis.
 	AxisSizeMin
 )
 
+// Column is a layout that arranges its children in a column.
 type Column struct {
-	Hwnd           win32.HWND
-	MainAxisAlign  AxisAlignment
+	// Hwnd is the window to layout.
+	// It can be 0, in which case Column only arranges its children without resizing the window.
+	Hwnd win32.HWND
+	// MainAxisAlign is the alignment of children along the main axis(Y axis).
+	// Only useful when MainAxisSize is AxisSizeMax.
+	MainAxisAlign AxisAlignment
+	// CrossAxisAlign is the alignment of children along the cross axis(X axis).
 	CrossAxisAlign AxisAlignment
-	MainAxisSize   AxisSize
-	Items          []Layout
+	// MainAxisSize determines how to calculate the height of Column.
+	// If MainAxisSize is AxisSizeMax, the height of Column is the maximum available height from parent.
+	// If MainAxisSize is AxisSizeMin, the height of Column is the total height of its children.
+	MainAxisSize AxisSize
+	// Items are the children to layout.
+	Items []Layout
 
 	layoutSize  Size
 	itemSizes   []Size
@@ -237,7 +277,7 @@ func (c *Column) Arrange(pt Point) (err error) {
 	}()
 
 	if c.Hwnd != 0 {
-		if err = setWindowPos(c.Hwnd, pt.X, pt.Y, c.layoutSize.Width, c.layoutSize.Height); err != nil {
+		if err = positionWindow(c.Hwnd, pt.X, pt.Y, c.layoutSize.Width, c.layoutSize.Height); err != nil {
 			return err
 		}
 	}
@@ -252,12 +292,20 @@ func (c *Column) Arrange(pt Point) (err error) {
 	return nil
 }
 
+// Row is a layout that arranges its children in a row.
 type Row struct {
-	Hwnd           win32.HWND
-	MainAxisAlign  AxisAlignment
+	// Hwnd is the window to layout.
+	// It can be 0, in which case Row only arranges its children without resizing the window.
+	Hwnd win32.HWND
+	// MainAxisAlign is the alignment of children along the main axis(X axis).
+	// Only useful when MainAxisSize is AxisSizeMax.
+	MainAxisAlign AxisAlignment
+	// CrossAxisAlign is the alignment of children along the cross axis(Y axis).
 	CrossAxisAlign AxisAlignment
-	MainAxisSize   AxisSize
-	Items          []Layout
+	// MainAxisSize determines how to calculate the width of Row.
+	MainAxisSize AxisSize
+	// Items are the children to layout.
+	Items []Layout
 
 	layoutSize  Size
 	itemSizes   []Size
@@ -337,7 +385,7 @@ func (r *Row) Arrange(pt Point) (err error) {
 		r.itemOffsets = r.itemOffsets[:0]
 	}()
 	if r.Hwnd != 0 {
-		if err = setWindowPos(r.Hwnd, pt.X, pt.Y, r.layoutSize.Width, r.layoutSize.Height); err != nil {
+		if err = positionWindow(r.Hwnd, pt.X, pt.Y, r.layoutSize.Width, r.layoutSize.Height); err != nil {
 			return err
 		}
 	}
@@ -351,4 +399,48 @@ func (r *Row) Arrange(pt Point) (err error) {
 		}
 	}
 	return nil
+}
+
+// Padding is a layout that adds padding around its child.
+type Padding struct {
+	// The padding on each side. Must be non-negative.
+	Left, Top, Right, Bottom metrics.Dip
+	// Item is the child to layout.
+	Item Layout
+
+	layoutSize Size
+}
+
+func (p *Padding) HWND() win32.HWND {
+	return 0
+}
+
+func (p *Padding) Children() []Layout {
+	return []Layout{p.Item}
+}
+
+func (p *Padding) Measure(cst Constraints) (size Size, err error) {
+	cst.MinWidth -= p.Left + p.Right
+	cst.MinHeight -= p.Top + p.Bottom
+	cst.MaxWidth -= p.Left + p.Right
+	cst.MaxHeight -= p.Top + p.Bottom
+	cst.MaxHeight = max(0, cst.MaxHeight)
+
+	var childSize Size
+	if childSize, err = p.Item.Measure(cst); err != nil {
+		return
+	}
+	checkOverflow(cst, childSize)
+
+	size.Width = childSize.Width + p.Left + p.Right
+	size.Height = childSize.Height + p.Top + p.Bottom
+	p.layoutSize = size
+	return
+}
+
+func (p *Padding) Arrange(pt Point) error {
+	return p.Item.Arrange(Point{
+		X: pt.X + p.Left,
+		Y: pt.Y + p.Top,
+	})
 }

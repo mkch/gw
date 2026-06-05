@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
@@ -151,10 +152,6 @@ func clamp(value, minBound, maxBound metrics.Dip) metrics.Dip {
 	return min(max(value, minBound), maxBound)
 }
 
-func PxToDP[T ~int | ~int32 | ~uint32](px T, dpi win32.UINT) metrics.Dip {
-	return metrics.Dip(metrics.DPIConv(px, dpi, win32.USER_DEFAULT_SCREEN_DPI))
-}
-
 // ClientSize returns the size of the client area of the given window in DPs.
 func ClientSize(hwnd win32.HWND) (size Size, err error) {
 	var clientRect win32.RECT
@@ -169,27 +166,23 @@ func ClientSize(hwnd win32.HWND) (size Size, err error) {
 		return
 	}
 	size = Size{
-		Width:  PxToDP(clientRect.Right-clientRect.Left, dpi),
-		Height: PxToDP(clientRect.Bottom-clientRect.Top, dpi),
+		Width:  metrics.Px(clientRect.Right - clientRect.Left).Dip(dpi),
+		Height: metrics.Px(clientRect.Bottom - clientRect.Top).Dip(dpi),
 	}
 	return
 }
 
-func setWindowPos(hwnd win32.HWND, x, y, width, height metrics.Dip) (err error) {
+func positionWindow(hwnd win32.HWND, x, y, width, height metrics.Dip) (err error) {
 	var dpi win32.UINT
 	dpi, err = win32.GetDpiForWindow(hwnd)
 	if err != nil {
-		return err
-	}
-	err = win32.SetWindowPos(hwnd, 0,
-		win32.INT(metrics.ToPx(x, dpi).Value()),
-		win32.INT(metrics.ToPx(y, dpi).Value()),
-		win32.INT(metrics.ToPx(width, dpi).Value()),
-		win32.INT(metrics.ToPx(height, dpi).Value()), win32.SWP_NOZORDER)
-	if err != nil {
 		return
 	}
-	return
+	return win32.SetWindowPos(hwnd, 0,
+		metrics.ToPx(x, dpi).Value(),
+		metrics.ToPx(y, dpi).Value(),
+		metrics.ToPx(width, dpi).Value(),
+		metrics.ToPx(height, dpi).Value(), win32.SWP_NOZORDER)
 }
 
 func checkOverflow(cst Constraints, size Size) {
@@ -197,4 +190,15 @@ func checkOverflow(cst Constraints, size Size) {
 		size.Height < cst.MinHeight || size.Height > cst.MaxHeight {
 		panic(fmt.Sprintf("Size %v is out of constraints %v", size, cst))
 	}
+}
+
+func EventSize(hwnd win32.HWND, event events.SizeEvent) (size Size, err error) {
+	var dpi win32.UINT
+	if dpi, err = win32.GetDpiForWindow(hwnd); err != nil {
+		return
+	}
+	return Size{
+		Width:  metrics.Px(event.Size.Width()).Dip(dpi),
+		Height: metrics.Px(event.Size.Height()).Dip(dpi),
+	}, nil
 }
