@@ -33,14 +33,16 @@ func Example_layout() {
 
 		// Create a Center layout with the button as the item.
 		center := &layout.Center{
-			Item: &layout.Intrinsic{Hwnd: btn.HWND()},
+			Child: &layout.Intrinsic{Hwnd: btn.HWND()},
 		}
+		// Build the layout element tree.
+		tree, _ := layout.Build(center)
 		// Perform the layout for the first time.
-		layout.PerformWindow(center, win.HWND())
+		layout.PerformWindow(tree, win.HWND())
 		// Perform the layout whenever the window is resized.
 		win.SetOnSizeListener(func(event events.SizeEvent) {
 			size, _ := layout.EventSize(win.HWND(), event)
-			layout.Perform(center, size)
+			layout.Perform(tree, size)
 		})
 
 		win.Show(win32.SW_SHOW)

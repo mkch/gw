@@ -42,12 +42,13 @@ func TestCenter(t *testing.T) {
 		}))
 
 		center := &layout.Center{
-			Item: &layout.Intrinsic{
+			Child: &layout.Intrinsic{
 				Hwnd: btn.HWND(),
 			},
 		}
 
-		chkerr.MustOK(layout.PerformWindow(center, win.HWND()))
+		tree := chkerr.Must(layout.Build(center))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		winRect := chkerr.Must(win.GetClientRect())
 		btnRect := chkerr.Must(btn.GetWindowRect())
@@ -97,7 +98,7 @@ func TestColumn(t *testing.T) {
 		}))
 
 		column := &layout.Column{
-			Items: []layout.Layout{
+			Children: []layout.Widget{
 				&layout.Intrinsic{
 					Hwnd: btn1.HWND(),
 				},
@@ -106,7 +107,9 @@ func TestColumn(t *testing.T) {
 				},
 			},
 		}
-		chkerr.MustOK(layout.PerformWindow(column, win.HWND()))
+
+		tree := chkerr.Must(layout.Build(column))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		x1, y1, w1, h1 := chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -138,7 +141,8 @@ func TestColumn(t *testing.T) {
 
 		column.CrossAxisAlign = layout.AlignCenter
 
-		chkerr.MustOK(layout.PerformWindow(column, win.HWND()))
+		tree = chkerr.Must(layout.Build(column))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -170,7 +174,8 @@ func TestColumn(t *testing.T) {
 
 		column.CrossAxisAlign = layout.AlignEnd
 
-		chkerr.MustOK(layout.PerformWindow(column, win.HWND()))
+		tree = chkerr.Must(layout.Build(column))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -234,7 +239,7 @@ func TestRow(t *testing.T) {
 		}))
 
 		row := &layout.Row{
-			Items: []layout.Layout{
+			Children: []layout.Widget{
 				&layout.Intrinsic{
 					Hwnd: btn1.HWND(),
 				},
@@ -244,7 +249,8 @@ func TestRow(t *testing.T) {
 			},
 		}
 
-		chkerr.MustOK(layout.PerformWindow(row, win.HWND()))
+		tree := chkerr.Must(layout.Build(row))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		x1, y1, w1, h1 := chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -276,7 +282,8 @@ func TestRow(t *testing.T) {
 
 		row.CrossAxisAlign = layout.AlignCenter
 
-		chkerr.MustOK(layout.PerformWindow(row, win.HWND()))
+		tree = chkerr.Must(layout.Build(row))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -308,7 +315,8 @@ func TestRow(t *testing.T) {
 
 		row.CrossAxisAlign = layout.AlignEnd
 
-		chkerr.MustOK(layout.PerformWindow(row, win.HWND()))
+		tree = chkerr.Must(layout.Build(row))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if x1 != 0 {
@@ -340,7 +348,8 @@ func TestRow(t *testing.T) {
 
 		row.MainAxisAlign = layout.AlignCenter
 
-		chkerr.MustOK(layout.PerformWindow(row, win.HWND()))
+		tree = chkerr.Must(layout.Build(row))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
 		if y1 != 100 {
@@ -394,12 +403,13 @@ func TestPadding(t *testing.T) {
 		padding := &layout.Padding{
 			Left: metrics.Dip(5),
 			Top:  metrics.Dip(10),
-			Item: &layout.Intrinsic{
+			Child: &layout.Intrinsic{
 				Hwnd: btn.HWND(),
 			},
 		}
 
-		chkerr.MustOK(layout.PerformWindow(padding, win.HWND()))
+		tree := chkerr.Must(layout.Build(padding))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		dpi := chkerr.Must(win32.GetDpiForWindow(win.HWND()))
 
