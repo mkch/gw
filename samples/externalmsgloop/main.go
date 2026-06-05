@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mkch/gg/errortrace/chkerr"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/static"
@@ -28,7 +29,7 @@ func main() {
 	mainWindow := chkerr.Must(window.New(&window.Spec{
 		Text:      "Hello, World!",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
-		X:         metrics.Px(win32.CW_USEDEFAULT),
+		X:         gw.CW_USEDEFAULT,
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },

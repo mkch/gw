@@ -41,8 +41,8 @@ func (w *MainWindow) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.W
 	case win32.WM_SIZE:
 		dpi := gg.Must(win32.GetDpiForWindow(hwnd))
 		winWidth := win32.INT(win32.GET_X_LPARAM(lParam))
-		padding := metrics.Dip(5).Px(dpi)
-		h := metrics.Dip(100).Px(dpi)
+		padding := win32.INT(metrics.Dip(5).Px(dpi))
+		h := win32.INT(metrics.Dip(100).Px(dpi))
 		win32.SetWindowPos(w.label.HWND(), 0, padding, padding, winWidth-padding*2, h, win32.SWP_NOZORDER)
 	}
 	return w.Window.WndProc(hwnd, message, wParam, lParam)
@@ -69,7 +69,7 @@ func ui(app *app.App) {
 	win := chkerr.Must(NewMainWindow(&window.Spec{
 		Text:      "Key Name",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
-		X:         metrics.Px(win32.CW_USEDEFAULT),
+		X:         gw.CW_USEDEFAULT,
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },

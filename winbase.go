@@ -19,7 +19,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-var CW_USEDEFAULT = metrics.Px(win32.CW_USEDEFAULT)
+const CW_USEDEFAULT = metrics.Px(win32.CW_USEDEFAULT)
 
 // windowProp is the window property to associate a [BaseWindow] instance with an HWND.
 var windowProp = win32util.NewWindowProp[BaseWindow]("github.com/mkch/gw#WindowProp")

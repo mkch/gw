@@ -253,19 +253,25 @@ func (w *Window) CreateHandle() (win32.HWND, error) {
 	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexw
 	// If an overlapped window is created with the WS_VISIBLE style bit set and the x parameter is set to CW_USEDEFAULT,
 	// then the y parameter determines how the window is shown.
-	if w.Spec.X.Unit == metrics.PX && w.Spec.X.Value == win32.CW_USEDEFAULT {
+	if w.Spec.X == gw.CW_USEDEFAULT {
 		useDefPos = true
 		x = win32.CW_USEDEFAULT
 		if visible {
 			// If an overlapped window is created with the WS_VISIBLE style bit set and the x parameter is set to CW_USEDEFAULT,
 			// then the y parameter determines how the window is shown.
-			showCmd = gg.If(w.Spec.Y.Value == win32.CW_USEDEFAULT, win32.SW_SHOW, win32.SHOW_WINDOW_CMD(w.Spec.Y.Value))
+			var y win32.INT
+			if w.Spec.Y == nil {
+				y = 0
+			} else {
+				y = w.Spec.Y.(metrics.Px).Value() // Must be a Px.
+			}
+			showCmd = gg.If(y == win32.CW_USEDEFAULT, win32.SW_SHOW, win32.SHOW_WINDOW_CMD(y))
 		}
 	}
 
 	// For overlapped windows, if width is CW_USEDEFAULT, the system selects a default width and height for the window
 	// and ignores the height.
-	if w.Spec.Width.Unit == metrics.PX && w.Spec.Width.Value == win32.CW_USEDEFAULT {
+	if w.Spec.Width == gw.CW_USEDEFAULT {
 		useDefSize = true
 		cx = win32.CW_USEDEFAULT
 	}
@@ -292,15 +298,15 @@ func (w *Window) CreateHandle() (win32.HWND, error) {
 	if useDefPos {
 		swpFlags |= win32.SWP_NOMOVE
 	} else {
-		x = w.Spec.X.Px(dpi)
-		y = w.Spec.Y.Px(dpi)
+		x = metrics.ToPx(w.Spec.X, dpi).Value()
+		y = metrics.ToPx(w.Spec.Y, dpi).Value()
 	}
 
 	if useDefSize {
 		swpFlags |= win32.SWP_NOSIZE
 	} else {
-		cx = w.Spec.Width.Px(dpi)
-		cy = w.Spec.Height.Px(dpi)
+		cx = metrics.ToPx(w.Spec.Width, dpi).Value()
+		cy = metrics.ToPx(w.Spec.Height, dpi).Value()
 	}
 
 	if !useDefPos || !useDefSize {

@@ -1,6 +1,7 @@
 package layout
 
 import (
+	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
 )
 
@@ -100,14 +101,14 @@ func (c *Center) Measure(cst Constraints) (size Size, err error) {
 	if c.WidthFactor == 0 {
 		size.Width = cst.MaxWidth
 	} else if c.WidthFactor >= 1 {
-		size.Width = DIP(round(float64(childSize.Width) * c.WidthFactor))
+		size.Width = metrics.Dip(float64(childSize.Width) * c.WidthFactor)
 	} else {
 		panic("WidthFactor must be 0 or >= 1")
 	}
 	if c.HeightFactor == 0 {
 		size.Height = cst.MaxHeight
 	} else if c.HeightFactor >= 1 {
-		size.Height = DIP(round(float64(childSize.Height) * c.HeightFactor))
+		size.Height = metrics.Dip(float64(childSize.Height) * c.HeightFactor)
 	} else {
 		panic("HeightFactor must be 0 or >= 1")
 	}
@@ -171,8 +172,8 @@ func (c *Column) Children() []Layout {
 }
 
 func (c *Column) Measure(cst Constraints) (size Size, err error) {
-	var maxWidth DIP
-	var totalHeight DIP
+	var maxWidth metrics.Dip
+	var totalHeight metrics.Dip
 	var availHeight = cst.MaxHeight
 	for _, item := range c.Items {
 		var itemSize Size
@@ -272,8 +273,8 @@ func (r *Row) Children() []Layout {
 }
 
 func (r *Row) Measure(cst Constraints) (size Size, err error) {
-	var maxHeight DIP
-	var totalWidth DIP
+	var maxHeight metrics.Dip
+	var totalWidth metrics.Dip
 	var availWidth = cst.MaxWidth
 	for _, item := range r.Items {
 		var itemSize Size

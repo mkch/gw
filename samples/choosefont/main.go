@@ -89,7 +89,7 @@ func ui(app *app.App) {
 	win := chkerr.Must(NewMainWindow(&window.Spec{
 		Text:      "Test font",
 		Style:     win32.WS_OVERLAPPEDWINDOW,
-		X:         metrics.Px(win32.CW_USEDEFAULT),
+		X:         gw.CW_USEDEFAULT,
 		Width:     metrics.Dip(500),
 		Height:    metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },

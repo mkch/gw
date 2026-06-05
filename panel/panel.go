@@ -107,10 +107,10 @@ func (p *Panel) CreateHandle() (win32.HWND, error) {
 		ClassName: className,
 		Style:     win32.WS_CHILD | win32.WS_VISIBLE,
 		ExStyle:   p.Spec.ExStyle,
-		X:         p.Spec.X.Px(dpi),
-		Y:         p.Spec.Y.Px(dpi),
-		Width:     p.Spec.Width.Px(dpi),
-		Height:    p.Spec.Height.Px(dpi),
+		X:         metrics.ToPx(p.Spec.X, dpi).Value(),
+		Y:         metrics.ToPx(p.Spec.Y, dpi).Value(),
+		Width:     metrics.ToPx(p.Spec.Width, dpi).Value(),
+		Height:    metrics.ToPx(p.Spec.Height, dpi).Value(),
 		WndParent: p.Spec.Parent.HWND(),
 	})
 }

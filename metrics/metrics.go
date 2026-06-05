@@ -1,59 +1,92 @@
 // Package metrics implements conversion between
-// physical pixels(PX) and device-independent pixels(DIP).
+// physical pixels(Px) and device-independent pixels(Dip).
 package metrics
 
 import (
-	"github.com/mkch/gg"
+	"math"
+
 	"github.com/mkch/gw/win32"
+	"golang.org/x/exp/constraints"
 )
 
 // DPIConv converts a value from old DPI to new DPI.
-func DPIConv[T ~int | ~int32 | ~uint32](oldValue T, oldDPI, newDPI win32.UINT) (newValue T) {
-	return T(win32.MulDiv(win32.INT(oldValue), win32.INT(newDPI), win32.INT(oldDPI)))
+func DPIConv[T constraints.Integer | constraints.Float, DPI constraints.Integer](oldValue T, oldDPI, newDPI DPI) (newValue T) {
+	return oldValue * T(newDPI) / T(oldDPI)
 }
 
 // FromDefaultDPI convert value from USER_DEFAULT_SCREEN_DPI(96) to a new DPI.
-func FromDefaultDPI[T ~int | ~int32 | ~uint32](value T, dpi win32.UINT) T {
+func FromDefaultDPI[T constraints.Integer | constraints.Float, DPI constraints.Integer](value T, dpi DPI) T {
 	return DPIConv(value, win32.USER_DEFAULT_SCREEN_DPI, dpi)
 }
 
-// Unit is a measurement uit.
-type Unit uint8
-
-const (
-	// Physical Pixel.
-	PX Unit = iota
-	// Device-Independent Pixel.
-	// When the DPI is equal to 96, 1 DIP is equal to 1 PX.
-	DIP
-)
-
-// Dimension represents a dimension with value and unit.
-// For example, Dimension{1, PX} means 1 px, and Dimension{2, DIP} means 2 dips.
-type Dimension struct {
-	Value win32.INT
-	Unit  Unit
+// ToDefaultDPI convert value from a DPI to USER_DEFAULT_SCREEN_DPI(96).
+func ToDefaultDPI[T constraints.Integer | constraints.Float, DPI constraints.Integer](value T, dpi DPI) T {
+	return DPIConv(value, dpi, win32.USER_DEFAULT_SCREEN_DPI)
 }
 
-// Px converts the dimension to physical pixels in the given DPI.
-func (dim Dimension) Px(dpi win32.UINT) win32.INT {
-	if dim.Unit == PX {
-		return dim.Value
+// Dimension represents a dimension that can be converted between Px and Dip.
+type Dimension interface {
+	// Px converts the dimension to physical pixels using the given DPI.
+	Px(dpi win32.UINT) Px
+	// Dip converts the dimension to device-independent pixels using the given DPI.
+	Dip(dpi win32.UINT) Dip
+}
+
+// Px is a [Dimension] that represents physical pixels.
+type Px win32.INT
+
+func (p Px) Value() win32.INT {
+	return win32.INT(p)
+}
+
+func (p Px) Px(dpi win32.UINT) Px {
+	return p
+}
+
+func (p Px) Dip(dpi win32.UINT) Dip {
+	return ToDefaultDPI(Dip(p), dpi)
+}
+
+// Dip is a [Dimension] that represents device-independent pixels.
+type Dip float64
+
+func (d Dip) Value() float64 {
+	return float64(d)
+}
+
+func (d Dip) Px(dpi win32.UINT) Px {
+	return Px(round(float64(FromDefaultDPI(d, dpi))))
+}
+
+func (d Dip) Dip(dpi win32.UINT) Dip {
+	return d
+}
+
+// ToPx converts a Dimension to Px using the given DPI.
+// If d is nil, it returns 0.
+func ToPx(d Dimension, dpi win32.UINT) Px {
+	if d == nil {
+		return 0
 	}
-	return FromDefaultDPI(dim.Value, dpi)
+	return d.Px(dpi)
 }
 
-// WindowPx converts the dimension to physical pixels in the DPI of the given window.
-func (dim Dimension) WidowPx(hwnd win32.HWND) win32.INT {
-	return dim.Px(gg.Must(win32.GetDpiForWindow(hwnd)))
+// ToDip converts a Dimension to Dip using the given DPI.
+// If d is nil, it returns 0.
+func ToDip(d Dimension, dpi win32.UINT) Dip {
+	if d == nil {
+		return 0
+	}
+	return d.Dip(dpi)
 }
 
-// Px creates a Dimension in physical pixels.
-func Px(n win32.INT) Dimension {
-	return Dimension{n, PX}
-}
+// round converts a float64 to int.
+// -1 is returned if f is NaN, Inf or out of int bounds.
+func round(f float64) int32 {
+	f = math.Round(f)
 
-// Dip creates a Dimension in device-independent pixels.
-func Dip(n win32.INT) Dimension {
-	return Dimension{n, DIP}
+	if math.IsNaN(f) || math.IsInf(f, 0) || f < float64(math.MinInt32) || f > float64(math.MaxInt32) {
+		return -1
+	}
+	return int32(f)
 }

@@ -9,25 +9,12 @@ import (
 	"github.com/mkch/gw/win32/win32util"
 )
 
-// round converts a float64 to int.
-// -1 is returned if f is NaN, Inf or out of int bounds.
-func round(f float64) int32 {
-	f = math.Round(f)
-
-	if math.IsNaN(f) || math.IsInf(f, 0) || f < float64(math.MinInt32) || f > float64(math.MaxInt32) {
-		return -1
-	}
-	return int32(f)
-}
-
-type DIP win32.INT
-
 // Infinity represents an infinite size(unbounded) constraint.
 const Infinity = math.MaxInt32
 
 type Size struct {
-	Width  DIP
-	Height DIP
+	Width  metrics.Dip
+	Height metrics.Dip
 }
 
 func (s *Size) String() string {
@@ -35,7 +22,7 @@ func (s *Size) String() string {
 }
 
 type Point struct {
-	X, Y DIP
+	X, Y metrics.Dip
 }
 
 func (pt Point) String() string {
@@ -43,7 +30,7 @@ func (pt Point) String() string {
 }
 
 type Rect struct {
-	Left, Top, Right, Bottom DIP
+	Left, Top, Right, Bottom metrics.Dip
 }
 
 func NewRect(pt Point, size Size) Rect {
@@ -62,11 +49,11 @@ func (r *Rect) Size() Size {
 	}
 }
 
-func (r *Rect) Width() DIP {
+func (r *Rect) Width() metrics.Dip {
 	return r.Right - r.Left
 }
 
-func (r *Rect) Height() DIP {
+func (r *Rect) Height() metrics.Dip {
 	return r.Bottom - r.Top
 }
 
@@ -80,10 +67,10 @@ func (r *Rect) BottomRight() Point {
 
 // Constraints represents layout constraints.
 type Constraints struct {
-	MinWidth  DIP
-	MinHeight DIP
-	MaxWidth  DIP
-	MaxHeight DIP
+	MinWidth  metrics.Dip
+	MinHeight metrics.Dip
+	MaxWidth  metrics.Dip
+	MaxHeight metrics.Dip
 }
 
 func (c *Constraints) String() string {
@@ -130,12 +117,12 @@ func (c *Constraints) Clamp(size Size) Size {
 }
 
 // ClampHeight clamps height between the constraints.
-func (c *Constraints) ClampWidth(width DIP) DIP {
+func (c *Constraints) ClampWidth(width metrics.Dip) metrics.Dip {
 	return clamp(width, c.MinWidth, c.MaxWidth)
 }
 
 // ClampHeight clamps height between the constraints.
-func (c *Constraints) ClampHeight(height DIP) DIP {
+func (c *Constraints) ClampHeight(height metrics.Dip) metrics.Dip {
 	return clamp(height, c.MinHeight, c.MaxHeight)
 }
 
@@ -160,12 +147,12 @@ func (c *Constraints) TightMin() Constraints {
 }
 
 // clamp clamps value between min and max.
-func clamp(value, minBound, maxBound DIP) DIP {
+func clamp(value, minBound, maxBound metrics.Dip) metrics.Dip {
 	return min(max(value, minBound), maxBound)
 }
 
-func PxToDP[T ~int | ~int32 | ~uint32](px T, dpi win32.UINT) DIP {
-	return DIP(metrics.DPIConv(px, dpi, win32.USER_DEFAULT_SCREEN_DPI))
+func PxToDP[T ~int | ~int32 | ~uint32](px T, dpi win32.UINT) metrics.Dip {
+	return metrics.Dip(metrics.DPIConv(px, dpi, win32.USER_DEFAULT_SCREEN_DPI))
 }
 
 // ClientSize returns the size of the client area of the given window in DPs.
@@ -188,17 +175,17 @@ func ClientSize(hwnd win32.HWND) (size Size, err error) {
 	return
 }
 
-func setWindowPos(hwnd win32.HWND, x, y, width, height DIP) (err error) {
+func setWindowPos(hwnd win32.HWND, x, y, width, height metrics.Dip) (err error) {
 	var dpi win32.UINT
 	dpi, err = win32.GetDpiForWindow(hwnd)
 	if err != nil {
 		return err
 	}
 	err = win32.SetWindowPos(hwnd, 0,
-		metrics.Dip(win32.INT(x)).Px(dpi),
-		metrics.Dip(win32.INT(y)).Px(dpi),
-		metrics.Dip(win32.INT(width)).Px(dpi),
-		metrics.Dip(win32.INT(height)).Px(dpi), win32.SWP_NOZORDER)
+		win32.INT(metrics.ToPx(x, dpi).Value()),
+		win32.INT(metrics.ToPx(y, dpi).Value()),
+		win32.INT(metrics.ToPx(width, dpi).Value()),
+		win32.INT(metrics.ToPx(height, dpi).Value()), win32.SWP_NOZORDER)
 	if err != nil {
 		return
 	}

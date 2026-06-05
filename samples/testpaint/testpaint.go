@@ -79,7 +79,7 @@ func (w *MainWindow) OnInit() error {
 		Parent: w.HWND(),
 		Text:   "500 X 500",
 		Style:  win32.WS_POPUP | win32.WS_CAPTION | win32.WS_VISIBLE,
-		X:      metrics.Px(win32.CW_USEDEFAULT),
+		X:      gw.CW_USEDEFAULT,
 		Y:      metrics.Px(win32.INT(win32.SW_SHOWNORMAL)),
 		Width:  metrics.Dip(500),
 		Height: metrics.Dip(500),
@@ -189,9 +189,9 @@ func ui(app *app.App) {
 	mainWin := chkerr.Must(NewMainWindow(&window.Spec{
 		Text:      "Full screen",
 		Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
-		X:         metrics.Px(win32.CW_USEDEFAULT),
+		X:         gw.CW_USEDEFAULT,
 		Y:         metrics.Px(win32.INT(win32.SW_SHOWMAXIMIZED)),
-		Width:     metrics.Px(win32.CW_USEDEFAULT),
+		Width:     gw.CW_USEDEFAULT,
 		OnDestroy: func() { app.Quit(0) },
 	}))
 	gg.Must(win32util.MessageBox(mainWin.HWND(), "Use context menu to change display", "Hint", win32.MB_ICONINFORMATION))

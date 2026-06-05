@@ -61,7 +61,7 @@ func ui(app *app.App) {
 	win := chkerr.Must(NewMyWindow(&window.Spec{
 		Text:  "Panel demo",
 		Style: win32.WS_OVERLAPPEDWINDOW,
-		X:     metrics.Px(win32.CW_USEDEFAULT),
+		X:     gw.CW_USEDEFAULT,
 		Width: metrics.Dip(500), Height: metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
 	}))

@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg/errortrace/chkerr"
+	"github.com/mkch/gw"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -34,7 +35,7 @@ func Show(parent C.HWND) {
 		Parent: win32.HWND(unsafe.Pointer(parent)),
 		Text:   "GW window",
 		Style:  win32.WS_OVERLAPPEDWINDOW,
-		X:      metrics.Px(win32.CW_USEDEFAULT),
+		X:      gw.CW_USEDEFAULT,
 		Width:  metrics.Dip(500),
 		Height: metrics.Dip(300),
 	}))

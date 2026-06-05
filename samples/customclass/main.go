@@ -26,7 +26,7 @@ func ui(app *app.App) {
 	win := chkerr.Must(window.New(&window.Spec{
 		Text:  "Default Class Window",
 		Style: win32.WS_OVERLAPPEDWINDOW,
-		X:     metrics.Px(win32.CW_USEDEFAULT),
+		X:     gw.CW_USEDEFAULT,
 		Width: metrics.Dip(500), Height: metrics.Dip(300),
 		OnDestroy: func() { app.Quit(0) },
 	}))
@@ -48,7 +48,7 @@ func ui(app *app.App) {
 		ClassName: windowClassName,
 		Text:      fmt.Sprintf("Window Class Name: %q", windowClassName),
 		Style:     win32.WS_OVERLAPPEDWINDOW,
-		X:         metrics.Px(win32.CW_USEDEFAULT),
+		X:         gw.CW_USEDEFAULT,
 		Width:     metrics.Dip(400), Height: metrics.Dip(200),
 		OnDestroy: func() { app.Quit(0) },
 	}))
