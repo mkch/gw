@@ -48,7 +48,7 @@ func TestSimple(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get window style: %v", err)
 		}
-		if win32.WINDOW_STYLE(style)&win32.WS_OVERLAPPEDWINDOW == 0 {
+		if win32.WindowStyle(style)&win32.WS_OVERLAPPEDWINDOW == 0 {
 			t.Fatalf("Expected window style to include WS_OVERLAPPEDWINDOW, got %x", style)
 		}
 

@@ -9,20 +9,20 @@ import (
 )
 
 const (
-	ES_LEFT        win32.WINDOW_STYLE = 0x0000
-	ES_CENTER      win32.WINDOW_STYLE = 0x0001
-	ES_RIGHT       win32.WINDOW_STYLE = 0x0002
-	ES_MULTILINE   win32.WINDOW_STYLE = 0x0004
-	ES_UPPERCASE   win32.WINDOW_STYLE = 0x0008
-	ES_LOWERCASE   win32.WINDOW_STYLE = 0x0010
-	ES_PASSWORD    win32.WINDOW_STYLE = 0x0020
-	ES_AUTOVSCROLL win32.WINDOW_STYLE = 0x0040
-	ES_AUTOHSCROLL win32.WINDOW_STYLE = 0x0080
-	ES_NOHIDESEL   win32.WINDOW_STYLE = 0x0100
-	ES_OEMCONVERT  win32.WINDOW_STYLE = 0x0400
-	ES_READONLY    win32.WINDOW_STYLE = 0x0800
-	ES_WANTRETURN  win32.WINDOW_STYLE = 0x1000
-	ES_NUMBER      win32.WINDOW_STYLE = 0x2000
+	ES_LEFT        win32.WindowStyle = 0x0000
+	ES_CENTER      win32.WindowStyle = 0x0001
+	ES_RIGHT       win32.WindowStyle = 0x0002
+	ES_MULTILINE   win32.WindowStyle = 0x0004
+	ES_UPPERCASE   win32.WindowStyle = 0x0008
+	ES_LOWERCASE   win32.WindowStyle = 0x0010
+	ES_PASSWORD    win32.WindowStyle = 0x0020
+	ES_AUTOVSCROLL win32.WindowStyle = 0x0040
+	ES_AUTOHSCROLL win32.WindowStyle = 0x0080
+	ES_NOHIDESEL   win32.WindowStyle = 0x0100
+	ES_OEMCONVERT  win32.WindowStyle = 0x0400
+	ES_READONLY    win32.WindowStyle = 0x0800
+	ES_WANTRETURN  win32.WindowStyle = 0x1000
+	ES_NUMBER      win32.WindowStyle = 0x2000
 )
 
 const (
@@ -81,8 +81,8 @@ type Spec struct {
 	Y       metrics.Dimension
 	Width   metrics.Dimension
 	Height  metrics.Dimension
-	Style   win32.WINDOW_STYLE
-	ExStyle win32.WINDOW_EX_STYLE
+	Style   win32.WindowStyle
+	ExStyle win32.WindowExStyle
 }
 
 func (e *Edit) OnInit() error {

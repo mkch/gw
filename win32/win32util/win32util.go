@@ -106,8 +106,8 @@ func RegisterClass(cls *WndClass) (win32.ATOM, error) {
 type Wnd struct {
 	ClassName  string
 	WindowName string
-	Style      win32.WINDOW_STYLE
-	ExStyle    win32.WINDOW_EX_STYLE
+	Style      win32.WindowStyle
+	ExStyle    win32.WindowExStyle
 	X          win32.INT
 	Y          win32.INT
 	Width      win32.INT
@@ -228,8 +228,8 @@ func CreatePen(style win32.PEN_STYLE, width win32.DWORD, color win32.COLORREF) (
 }
 
 type ModifyStyleSpec struct {
-	Add    win32.WINDOW_STYLE
-	Remove win32.WINDOW_STYLE
+	Add    win32.WindowStyle
+	Remove win32.WindowStyle
 }
 
 // ModifyWindowStyle modifies the window style of the specified window by removing and adding styles.
@@ -245,8 +245,8 @@ func ModifyWindowStyle(hwnd win32.HWND, spec ModifyStyleSpec) error {
 }
 
 type ModifyExStyleSpec struct {
-	Add    win32.WINDOW_EX_STYLE
-	Remove win32.WINDOW_EX_STYLE
+	Add    win32.WindowExStyle
+	Remove win32.WindowExStyle
 }
 
 // ModifyWindowExStyle modifies the extended window style of the specified window by removing and adding styles.
@@ -341,4 +341,57 @@ func KeyName(vk win32.VKCode, doNotCareLeftRight bool, keyboardLayout win32.HKL)
 		panic("buffer too small")
 	}
 	return GoString(&nameBuf[0], int(n+1)), nil
+}
+
+// SetClientSize modifies the size of the window to ensure a desired client size.
+func SetClientSize(hwnd win32.HWND, width, height win32.INT) error {
+	style, err := win32.GetWindowLongPtrW(hwnd, win32.GWL_STYLE)
+	if err != nil {
+		return err
+	}
+	exStyle, err := win32.GetWindowLongPtrW(hwnd, win32.GWL_EXSTYLE)
+	if err != nil {
+		return err
+	}
+	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-adjustwindowrectex
+	exStyle &^= win32.LONG_PTR(win32.WS_OVERLAPPED)
+
+	var rect = win32.RECT{Right: win32.LONG(width), Bottom: win32.LONG(height)}
+	// Calculate the estimated window size based on the desired client area size and the window styles.
+	menu, err := win32.GetMenu(hwnd)
+	if err != nil {
+		return err
+	}
+	if err = win32.AdjustWindowRectEx(&rect, win32.WindowStyle(style), menu != 0, win32.WindowExStyle(exStyle)); err != nil {
+		return err
+	}
+	// Set the window to the estimated size.
+	if err = win32.SetWindowPos(hwnd, 0, 0, 0, win32.INT(rect.Right-rect.Left), win32.INT(rect.Bottom-rect.Top), win32.SWP_NOMOVE|win32.SWP_NOZORDER); err != nil {
+		return err
+	}
+
+	// Get the actual client area size after resizing.
+	var clientRect win32.RECT
+	if err = win32.GetClientRect(hwnd, &clientRect); err != nil {
+		return err
+	}
+	// Do any correction if the actual client area size is different from the desired size.
+	// Usually caused by menu bar wrapping.
+	var diffX = clientRect.Width() - win32.LONG(width)
+	var diffY = clientRect.Height() - win32.LONG(height)
+	if diffX != 0 || diffY != 0 {
+		// Get the new window size.
+		err = win32.GetWindowRect(hwnd, &rect)
+		if err != nil {
+			return err
+		}
+		// Calculate the fixed window size.
+		fixedWidth := win32.INT(rect.Right - rect.Left - diffX)
+		fixedHeight := win32.INT(rect.Bottom - rect.Top - diffY)
+		// Set the window to the fixed size.
+		if err = win32.SetWindowPos(hwnd, 0, 0, 0, fixedWidth, fixedHeight, win32.SWP_NOMOVE|win32.SWP_NOZORDER); err != nil {
+			return err
+		}
+	}
+	return nil
 }

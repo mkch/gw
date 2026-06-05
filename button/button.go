@@ -43,8 +43,8 @@ type Spec struct {
 	Y       metrics.Dimension
 	Width   metrics.Dimension
 	Height  metrics.Dimension
-	Style   win32.WINDOW_STYLE
-	ExStyle win32.WINDOW_EX_STYLE
+	Style   win32.WindowStyle
+	ExStyle win32.WindowExStyle
 }
 
 func (b *Button) OnInit() error {

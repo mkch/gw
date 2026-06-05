@@ -89,8 +89,13 @@ type BaseWindow interface {
 	// See Context.Value() in context package for the concept and usage of associated value.
 	SetValue(key, value any)
 
+	// SetDoubleBuffered set whether the subsequent OnPaint calls use double buffering.
+	// Double buffering is off by default.
+	SetDoubleBuffered(bool) error
 	// Dimensions returns the dimensions of the window in parent client area.
 	Dimensions() (left, top, width, height int, err error)
+	// SetClientSize modifies the window size so that the client area has the specified size.
+	SetClientSize(width, height int) error
 
 	SetOnLButtonUpListener(func(event events.MouseClickEvent))
 	SetOnLButtonDownListener(func(event events.MouseClickEvent))
@@ -99,10 +104,6 @@ type BaseWindow interface {
 	SetOnLButtonDoubleClickListener(func(event events.MouseClickEvent))
 	SetOnSizeListener(func(event events.SizeEvent))
 	SetOnDestroyListener(func())
-
-	// SetDoubleBuffered set whether the subsequent OnPaint calls use double buffering.
-	// Double buffering is off by default.
-	SetDoubleBuffered(bool) error
 
 	// WndProc is called when a message is received in the window procedure.
 	// The default implementation calls the native window procedure.
@@ -602,6 +603,10 @@ func (w *BaseWindowImpl) Dimensions() (left, top, right, bottom int, err error) 
 		return
 	}
 	return int(rect.Left), int(rect.Top), int(rect.Width()), int(rect.Height()), nil
+}
+
+func (w *BaseWindowImpl) SetClientSize(width, height int) error {
+	return win32util.SetClientSize(w.HWND(), win32.INT(width), win32.INT(height))
 }
 
 // wiErrAlreadyAttached is returned by Attach if the HWND or *WindowBase

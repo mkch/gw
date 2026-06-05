@@ -47,7 +47,7 @@ type Spec struct {
 	Y         metrics.Dimension
 	Width     metrics.Dimension
 	Height    metrics.Dimension
-	ExStyle   win32.WINDOW_EX_STYLE
+	ExStyle   win32.WindowExStyle
 }
 
 type Panel struct {

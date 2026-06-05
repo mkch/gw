@@ -117,68 +117,68 @@ func GetClassNameW(hwnd HWND, buffer *WCHAR, maxCount int) (int, error) {
 	return sysutil.MustNotZero[int](lzGetClassNameW.Call(uintptr(hwnd), uintptr(unsafe.Pointer(buffer)), uintptr(maxCount)))
 }
 
-type WINDOW_EX_STYLE DWORD
+type WindowExStyle DWORD
 
 const (
-	WS_EX_ACCEPTFILES         WINDOW_EX_STYLE = 0x00000010
-	WS_EX_APPWINDOW           WINDOW_EX_STYLE = 0x00040000
-	WS_EX_CLIENTEDGE          WINDOW_EX_STYLE = 0x00000200
-	WS_EX_COMPOSITED          WINDOW_EX_STYLE = 0x02000000
-	WS_EX_CONTEXTHELP         WINDOW_EX_STYLE = 0x00000400
-	WS_EX_CONTROLPARENT       WINDOW_EX_STYLE = 0x00010000
-	WS_EX_DLGMODALFRAME       WINDOW_EX_STYLE = 0x00000001
-	WS_EX_LAYERED             WINDOW_EX_STYLE = 0x00080000
-	WS_EX_LAYOUTRTL           WINDOW_EX_STYLE = 0x00400000
-	WS_EX_LEFT                WINDOW_EX_STYLE = 0x00000000
-	WS_EX_LEFTSCROLLBAR       WINDOW_EX_STYLE = 0x00004000
-	WS_EX_LTRREADING          WINDOW_EX_STYLE = 0x00000000
-	WS_EX_MDICHILD            WINDOW_EX_STYLE = 0x00000040
-	WS_EX_NOACTIVATE          WINDOW_EX_STYLE = 0x08000000
-	WS_EX_NOINHERITLAYOUT     WINDOW_EX_STYLE = 0x00100000
-	WS_EX_NOPARENTNOTIFY      WINDOW_EX_STYLE = 0x00000004
-	WS_EX_NOREDIRECTIONBITMAP WINDOW_EX_STYLE = 0x00200000
-	WS_EX_OVERLAPPEDWINDOW    WINDOW_EX_STYLE = WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE
-	WS_EX_PALETTEWINDOW       WINDOW_EX_STYLE = WS_EX_WINDOWEDGE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST
-	WS_EX_RIGHT               WINDOW_EX_STYLE = 0x00001000
-	WS_EX_RIGHTSCROLLBAR      WINDOW_EX_STYLE = 0x00000000
-	WS_EX_RTLREADING          WINDOW_EX_STYLE = 0x00002000
-	WS_EX_STATICEDGE          WINDOW_EX_STYLE = 0x00020000
-	WS_EX_TOOLWINDOW          WINDOW_EX_STYLE = 0x00000080
-	WS_EX_TOPMOST             WINDOW_EX_STYLE = 0x00000008
-	WS_EX_TRANSPARENT         WINDOW_EX_STYLE = 0x00000020
-	WS_EX_WINDOWEDGE          WINDOW_EX_STYLE = 0x00000100
+	WS_EX_ACCEPTFILES         WindowExStyle = 0x00000010
+	WS_EX_APPWINDOW           WindowExStyle = 0x00040000
+	WS_EX_CLIENTEDGE          WindowExStyle = 0x00000200
+	WS_EX_COMPOSITED          WindowExStyle = 0x02000000
+	WS_EX_CONTEXTHELP         WindowExStyle = 0x00000400
+	WS_EX_CONTROLPARENT       WindowExStyle = 0x00010000
+	WS_EX_DLGMODALFRAME       WindowExStyle = 0x00000001
+	WS_EX_LAYERED             WindowExStyle = 0x00080000
+	WS_EX_LAYOUTRTL           WindowExStyle = 0x00400000
+	WS_EX_LEFT                WindowExStyle = 0x00000000
+	WS_EX_LEFTSCROLLBAR       WindowExStyle = 0x00004000
+	WS_EX_LTRREADING          WindowExStyle = 0x00000000
+	WS_EX_MDICHILD            WindowExStyle = 0x00000040
+	WS_EX_NOACTIVATE          WindowExStyle = 0x08000000
+	WS_EX_NOINHERITLAYOUT     WindowExStyle = 0x00100000
+	WS_EX_NOPARENTNOTIFY      WindowExStyle = 0x00000004
+	WS_EX_NOREDIRECTIONBITMAP WindowExStyle = 0x00200000
+	WS_EX_OVERLAPPEDWINDOW    WindowExStyle = WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE
+	WS_EX_PALETTEWINDOW       WindowExStyle = WS_EX_WINDOWEDGE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST
+	WS_EX_RIGHT               WindowExStyle = 0x00001000
+	WS_EX_RIGHTSCROLLBAR      WindowExStyle = 0x00000000
+	WS_EX_RTLREADING          WindowExStyle = 0x00002000
+	WS_EX_STATICEDGE          WindowExStyle = 0x00020000
+	WS_EX_TOOLWINDOW          WindowExStyle = 0x00000080
+	WS_EX_TOPMOST             WindowExStyle = 0x00000008
+	WS_EX_TRANSPARENT         WindowExStyle = 0x00000020
+	WS_EX_WINDOWEDGE          WindowExStyle = 0x00000100
 )
 
-type WINDOW_STYLE DWORD
+type WindowStyle DWORD
 
 const (
-	WS_BORDER           WINDOW_STYLE = 0x00800000
-	WS_CAPTION          WINDOW_STYLE = 0x00C00000
-	WS_CHILD            WINDOW_STYLE = 0x40000000
-	WS_CHILDWINDOW      WINDOW_STYLE = 0x40000000
-	WS_CLIPCHILDREN     WINDOW_STYLE = 0x02000000
-	WS_CLIPSIBLINGS     WINDOW_STYLE = 0x04000000
-	WS_DISABLED         WINDOW_STYLE = 0x08000000
-	WS_DLGFRAME         WINDOW_STYLE = 0x00400000
-	WS_GROUP            WINDOW_STYLE = 0x00020000
-	WS_HSCROLL          WINDOW_STYLE = 0x00100000
-	WS_ICONIC           WINDOW_STYLE = 0x20000000
-	WS_MAXIMIZE         WINDOW_STYLE = 0x01000000
-	WS_MAXIMIZEBOX      WINDOW_STYLE = 0x00010000
-	WS_MINIMIZE         WINDOW_STYLE = 0x20000000
-	WS_MINIMIZEBOX      WINDOW_STYLE = 0x00020000
-	WS_OVERLAPPED       WINDOW_STYLE = 0x00000000
-	WS_OVERLAPPEDWINDOW WINDOW_STYLE = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
-	WS_POPUP            WINDOW_STYLE = 0x80000000
-	WS_POPUPWINDOW      WINDOW_STYLE = WS_POPUP | WS_BORDER | WS_SYSMENU
-	WS_SIZEBOX          WINDOW_STYLE = 0x0004000
-	WS_SYSMENU          WINDOW_STYLE = 0x00080000
-	WS_TABSTOP          WINDOW_STYLE = 0x00010000
-	WS_THICKFRAME       WINDOW_STYLE = 0x00040000
-	WS_TILED            WINDOW_STYLE = 0x00000000
-	WS_TILEDWINDOW      WINDOW_STYLE = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
-	WS_VISIBLE          WINDOW_STYLE = 0x10000000
-	WS_VSCROLL          WINDOW_STYLE = 0x00200000
+	WS_BORDER           WindowStyle = 0x00800000
+	WS_CAPTION          WindowStyle = 0x00C00000
+	WS_CHILD            WindowStyle = 0x40000000
+	WS_CHILDWINDOW      WindowStyle = 0x40000000
+	WS_CLIPCHILDREN     WindowStyle = 0x02000000
+	WS_CLIPSIBLINGS     WindowStyle = 0x04000000
+	WS_DISABLED         WindowStyle = 0x08000000
+	WS_DLGFRAME         WindowStyle = 0x00400000
+	WS_GROUP            WindowStyle = 0x00020000
+	WS_HSCROLL          WindowStyle = 0x00100000
+	WS_ICONIC           WindowStyle = 0x20000000
+	WS_MAXIMIZE         WindowStyle = 0x01000000
+	WS_MAXIMIZEBOX      WindowStyle = 0x00010000
+	WS_MINIMIZE         WindowStyle = 0x20000000
+	WS_MINIMIZEBOX      WindowStyle = 0x00020000
+	WS_OVERLAPPED       WindowStyle = 0x00000000
+	WS_OVERLAPPEDWINDOW WindowStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+	WS_POPUP            WindowStyle = 0x80000000
+	WS_POPUPWINDOW      WindowStyle = WS_POPUP | WS_BORDER | WS_SYSMENU
+	WS_SIZEBOX          WindowStyle = 0x0004000
+	WS_SYSMENU          WindowStyle = 0x00080000
+	WS_TABSTOP          WindowStyle = 0x00010000
+	WS_THICKFRAME       WindowStyle = 0x00040000
+	WS_TILED            WindowStyle = 0x00000000
+	WS_TILEDWINDOW      WindowStyle = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+	WS_VISIBLE          WindowStyle = 0x10000000
+	WS_VSCROLL          WindowStyle = 0x00200000
 )
 
 const CW_USEDEFAULT INT = -2147483648 //0x80000000
@@ -186,10 +186,10 @@ const CW_USEDEFAULT INT = -2147483648 //0x80000000
 var lzCreateWindowExW = lzUser32.NewProc("CreateWindowExW")
 
 func CreateWindowExW(
-	exStyle WINDOW_EX_STYLE,
+	exStyle WindowExStyle,
 	className *WCHAR,
 	windowName *WCHAR,
-	style WINDOW_STYLE,
+	style WindowStyle,
 	x INT, y INT, width INT, height INT,
 	wndParent HWND,
 	menu HMENU,
@@ -633,7 +633,13 @@ func SetMenuInfo(menu HMENU, mi *MENUINFO) error {
 	return sysutil.MustTrue(lzSetMenuInfo.Call(uintptr(menu), uintptr(unsafe.Pointer(mi))))
 }
 func GetMenu(hwnd HWND) (HMENU, error) {
-	return sysutil.MustNotZero[HMENU](lzGetMenu.Call(uintptr(hwnd)))
+	menu, _, err := lzGetMenu.Call(uintptr(hwnd))
+	if menu != 0 {
+		return HMENU(menu), nil
+	} else if !errors.Is(err, windows.ERROR_SUCCESS) {
+		return 0, err
+	}
+	return 0, nil
 }
 
 func HIWORD[T ~uintptr](l T) WORD {
@@ -2024,4 +2030,10 @@ func EnumChildWindows(parent HWND, callback func(HWND) bool) {
 	p.Pin()
 	defer p.Unpin()
 	lzEnumChildWindows.Call(uintptr(parent), enumChildWindowsCallback, uintptr(unsafe.Pointer(p)))
+}
+
+var lzAdjustWindowRectEx = lzUser32.NewProc("AdjustWindowRectEx")
+
+func AdjustWindowRectEx(rect *RECT, style WindowStyle, hasMenu bool, exStyle WindowExStyle) error {
+	return sysutil.MustTrue(lzAdjustWindowRectEx.Call(uintptr(unsafe.Pointer(rect)), uintptr(style), gg.If[uintptr](hasMenu, 1, 0), uintptr(exStyle)))
 }

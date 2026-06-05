@@ -46,8 +46,8 @@ type Spec struct {
 	Parent    win32.HWND
 	ClassName string // Custom class name. If empty, the default class will be used.
 	Text      string
-	Style     win32.WINDOW_STYLE
-	ExStyle   win32.WINDOW_EX_STYLE
+	Style     win32.WindowStyle
+	ExStyle   win32.WindowExStyle
 	X         metrics.Dimension
 	Y         metrics.Dimension
 	Width     metrics.Dimension
