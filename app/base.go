@@ -169,7 +169,7 @@ func (b *BaseApp) DestroyAllWindows() (nDestroyed int) {
 	// Find all message-only windows and destroy them.
 	var hwnd win32.HWND
 	for {
-		hwnd, _ = win32.FindWindowExW(win32.HWND_MESSAGE, hwnd, nil, nil)
+		hwnd = win32.FindWindowExW(win32.HWND_MESSAGE, hwnd, nil, nil)
 		if hwnd == 0 {
 			break
 		}

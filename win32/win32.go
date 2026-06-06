@@ -2059,13 +2059,6 @@ const (
 
 var lzFindWindowExW = lzUser32.NewProc("FindWindowExW")
 
-func FindWindowExW(parent, childAfter HWND, className, windowName *WCHAR) (HWND, error) {
-	r, _, err := lzFindWindowExW.Call(uintptr(parent), uintptr(childAfter), uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(windowName)))
-	if r == 0 {
-		if errors.Is(err, windows.ERROR_SUCCESS) {
-			return 0, nil
-		}
-		return 0, err
-	}
-	return HWND(r), nil
+func FindWindowExW(parent, childAfter HWND, className, windowName *WCHAR) HWND {
+	return sysutil.As[HWND](lzFindWindowExW.Call(uintptr(parent), uintptr(childAfter), uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(windowName))))
 }
