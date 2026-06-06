@@ -2,6 +2,7 @@ package app
 
 import (
 	"math"
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -17,7 +18,7 @@ var tlsApp = gg.Must(win32.TlsAlloc())
 
 //go:linkname threadLocalApp github.com/mkch/gw/internal/app.ThreadLocalApp
 func threadLocalApp() *BaseApp {
-	return (*BaseApp)(win32.PVOID(unsafe.Pointer(gg.Must(win32.TlsGetValue(tlsApp)))))
+	return (*BaseApp)(gg.Must(win32.TlsGetValue(tlsApp)))
 }
 
 //go:linkname app_AddMsgPreTranslator github.com/mkch/gw/internal/app.AddMsgPreTranslator
@@ -50,6 +51,7 @@ type BaseApp struct {
 	getMsgHook        win32.HHOOK
 	msgPreTranslators map[win32.HWND]func(msg *win32.MSG) bool
 	msgRetListeners   map[MessageRetListenerKey]MessageRetListener
+	pinner            runtime.Pinner
 }
 
 // NewBase creates a [BaseApp] that do not manage the message loop.
@@ -76,6 +78,13 @@ func (b *BaseApp) init(hookGetMsg bool) *BaseApp {
 	// See https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagew#remarks
 
 	// Initialize message queue
+
+	// https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagew
+	// PeekMessageW "dispatches incoming nonqueued messages..."
+	//
+	// If undestroyed windows from a previous instance still exist, they may receive
+	// messages when the new instance calls win32.PeekMessageW before the TLS value is set.
+	// This will cause a nil-pointer panic in the window procedure.
 	win32.PeekMessageW(&win32.MSG{}, 0, 0, 0, win32.PM_NOREMOVE)
 
 	// Install WH_GETMESSAGE hook
@@ -114,6 +123,7 @@ func (b *BaseApp) init(hookGetMsg bool) *BaseApp {
 	}
 	b.getMsgHook = gg.Must(win32.SetWindowsHookExW(win32.WH_GETMESSAGE, windows.NewCallback(msgHookProc), 0, b.uiThreadId))
 
+	b.pinner.Pin(b)
 	gg.MustOK(win32.TlsSetValue(tlsApp, win32.PVOID(unsafe.Pointer(b))))
 	return b
 }
@@ -138,7 +148,35 @@ func (b *BaseApp) RemoveMessageRetListener(key MessageRetListenerKey) {
 func (b *BaseApp) Destroy() {
 	gg.MustOK(win32.UnhookWindowsHookEx(b.getMsgHook))
 	gg.MustOK(win32.TlsSetValue(tlsApp, nil))
+	b.pinner.Unpin()
 	*b = BaseApp{} // Clear all fields
+}
+
+// DestroyAllWindows destroys all non-child windows associated with the application's
+// UI thread (including message-only windows).
+//
+// It returns the number of windows successfully destroyed.
+//
+// This method is particularly useful in unit tests to ensure a clean state after
+// each test case, preventing stale windows from interfering with subsequent tests.
+func (b *BaseApp) DestroyAllWindows() (nDestroyed int) {
+	// Enumerate all non-child windows associated with the UI thread and destroy them.
+	win32.EnumThreadWindows(b.uiThreadId, func(hwnd win32.HWND) bool {
+		win32.DestroyWindow(hwnd)
+		nDestroyed++
+		return true
+	})
+	// Find all message-only windows and destroy them.
+	var hwnd win32.HWND
+	for {
+		hwnd, _ = win32.FindWindowExW(win32.HWND_MESSAGE, hwnd, nil, nil)
+		if hwnd == 0 {
+			break
+		}
+		win32.DestroyWindow(hwnd)
+		nDestroyed++
+	}
+	return
 }
 
 // preTranslateMessage should be called in the external message loop before TranslateMessage.
@@ -158,6 +196,9 @@ func (b *BaseApp) preTranslateMessage(msg *win32.MSG) (processed bool) {
 // callMsgRetListeners calls all message return listeners with the given parameters.
 // It should be called in the WNDPROC after processing a message and before returning the result.
 func (b *BaseApp) callMsgRetListeners(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT) {
+	// If a nil-pointer panic occurs here, there may be windows that were not properly destroyed
+	// by a previous app instance.
+	// See wndProc variable and [BaseApp.Init] for details.
 	for _, listener := range b.msgRetListeners {
 		listener(hwnd, message, wParam, lParam, result)
 	}

@@ -65,7 +65,7 @@ func TestSimple(t *testing.T) {
 			t.Fatalf("Unexpected text after SetText: %q", text)
 		}
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if ret != 1 {
 		t.Fatalf("Unexpected app return value: %d", ret)
@@ -125,7 +125,7 @@ func TestWrapper(t *testing.T) {
 			t.Fatalf("Unexpected text after SetText: %q", text)
 		}
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if ret != 1 {
 		t.Fatalf("Unexpected app return value: %d", ret)

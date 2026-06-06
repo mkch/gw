@@ -45,7 +45,7 @@ func Test_SetClientSize_Child(t *testing.T) {
 
 		app.Quit(0)
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }
 
 func Test_SetClientSize_Popup(t *testing.T) {
@@ -72,7 +72,7 @@ func Test_SetClientSize_Popup(t *testing.T) {
 
 		app.Quit(0)
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }
 
 func Test_SetClientSize_PopupWithMenu(t *testing.T) {
@@ -108,5 +108,5 @@ func Test_SetClientSize_PopupWithMenu(t *testing.T) {
 
 		app.Quit(0)
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }

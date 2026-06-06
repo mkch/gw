@@ -57,7 +57,7 @@ func TestSimple(t *testing.T) {
 			t.Fatalf("Unexpected background color after SetBackgroundColor: %v", got)
 		}
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if ret != 1 {
 		t.Fatalf("Unexpected app return value: %d", ret)
@@ -120,7 +120,7 @@ func TestWrapper(t *testing.T) {
 			t.Fatalf("Unexpected background color after SetBackgroundColor: %v", got)
 		}
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if ret != 1 {
 		t.Fatalf("Unexpected app return value: %d", ret)

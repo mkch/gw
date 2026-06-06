@@ -67,7 +67,7 @@ func TestSimple(t *testing.T) {
 			t.Fatal("Button OnClick was not called after being set again")
 		}
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if ret != 1 {
 		t.Fatalf("Unexpected app return value: %d", ret)
@@ -129,7 +129,7 @@ func TestWrapper(t *testing.T) {
 			t.Fatal("Button OnClick was not called after being set again")
 		}
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if ret != 1 {
 		t.Fatalf("Unexpected app return value: %d", ret)

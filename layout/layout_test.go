@@ -67,7 +67,7 @@ func TestCenter(t *testing.T) {
 
 		win.Close()
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 }
 
@@ -208,7 +208,7 @@ func TestColumn(t *testing.T) {
 
 		win.Close()
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 }
 
@@ -379,7 +379,7 @@ func TestRow(t *testing.T) {
 
 		win.Close()
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 }
 
@@ -432,7 +432,7 @@ func TestPadding(t *testing.T) {
 
 		app.Quit(0)
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }
 
 func TestPaddingWithHwnd(t *testing.T) {
@@ -493,7 +493,7 @@ func TestPaddingWithHwnd(t *testing.T) {
 
 		app.Quit(0)
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }
 
 func TestSized(t *testing.T) {
@@ -542,8 +542,7 @@ func TestSized(t *testing.T) {
 		}
 
 		app.Quit(0)
-
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }
 
 func TestSizedHwnd(t *testing.T) {
@@ -587,5 +586,5 @@ func TestSizedHwnd(t *testing.T) {
 
 		app.Quit(0)
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }

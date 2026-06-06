@@ -423,6 +423,16 @@ func (w *BaseWindowImpl) defWndProc(hwnd win32.HWND, message win32.UINT, wParam 
 // wndProc is the native window procedure for all windows created or attached by this package.
 var wndProc = windows.NewCallback(func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) (result win32.LRESULT) {
 	result = LookupWindow(hwnd).WndProc(hwnd, message, wParam, lParam)
+	// If a nil-pointer panic occurs here, there may be windows that were not properly destroyed
+	// by a previous app instance.
+	// These stale windows can receive messages when the new app instance calls
+	// win32.PeekMessageW before the TLS value is initialized in [BaseApp.Init].
+	//
+	// Ref: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-peekmessagew
+	// As per MSDN, PeekMessageW "dispatches incoming nonqueued messages..."
+	//
+	// To avoid this issue in tests, always invoke app.DestroyAllWindows()
+	// before calling app.Quit().
 	internal_app.CallMsgRetListeners(internal_app.ThreadLocalApp(), hwnd, message, wParam, lParam, result)
 	return
 })

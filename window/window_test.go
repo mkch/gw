@@ -67,7 +67,7 @@ func TestSimple(t *testing.T) {
 			t.Fatal("Expected panic when calling Text() on a closed window, but did not panic")
 		}
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }
 
 func TestWrapper(t *testing.T) {
@@ -100,7 +100,7 @@ func TestWrapper(t *testing.T) {
 
 		w.Close()
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if ret != 1 {
 		t.Fatalf("Expected app to quit with code 1, got %d", ret)
@@ -130,7 +130,7 @@ func TestClose(t *testing.T) {
 
 		w.Destroy()
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }
 
 type ClosableWindow struct {
@@ -170,5 +170,5 @@ func TestClosableWindow(t *testing.T) {
 			t.Fatal("Window should be invalid after Close() with OnCloseListener returning true")
 		}
 
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 }

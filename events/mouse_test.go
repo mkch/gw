@@ -119,7 +119,7 @@ func TestMouseListeners(t *testing.T) {
 
 		simulateAllMouseEvents(hwnd)
 		win32.PostMessageW(hwnd, win32.WM_CLOSE, 0, 0)
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if lButtonDown == nil {
 		t.Fatal("LButtonDownListener was not called")
@@ -173,7 +173,7 @@ func TestMouseListenerCoordinates(t *testing.T) {
 
 		win32util.SimulateLButtonDown(hwnd, opts, loc)
 		win32.PostMessageW(hwnd, win32.WM_CLOSE, 0, 0)
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if got == nil {
 		t.Fatal("LButtonDownListener was not called")
@@ -216,7 +216,7 @@ func TestMouseOnMethods(t *testing.T) {
 
 		simulateAllMouseEvents(hwnd)
 		win32.PostMessageW(hwnd, win32.WM_CLOSE, 0, 0)
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if wnd.onLButtonDown == nil {
 		t.Fatal("OnLButtonDown was not called")
@@ -272,7 +272,7 @@ func TestMouseListenerNil(t *testing.T) {
 		win32util.SimulateLButtonClick(hwnd, 0, 0)
 
 		win32.PostMessageW(hwnd, win32.WM_CLOSE, 0, 0)
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	if callCount != 1 {
 		t.Fatalf("LButtonDown listener call count: got %d, want 1", callCount)

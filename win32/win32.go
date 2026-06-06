@@ -3,6 +3,7 @@ package win32
 import (
 	"errors"
 	"structs"
+	"sync"
 	"unsafe"
 
 	"github.com/mkch/gw/util"
@@ -1876,7 +1877,7 @@ func TlsGetValue(dwTlsIndex DWORD) (PVOID, error) {
 	if r == 0 {
 		// Check failure or NULL value.
 		if sysutil.IsNoError(err) {
-			return PVOID(unsafe.Add(nil, r)), nil
+			return nil, nil
 		}
 	}
 	return PVOID(unsafe.Add(nil, r)), nil
@@ -2016,24 +2017,55 @@ func UpdateWindow(hwnd HWND) error {
 
 var lzEnumChildWindows = lzUser32.NewProc("EnumChildWindows")
 
-type enumChildWindowPinner = util.DataPinner[func(hwnd HWND) bool]
+type enumWindowsPinner = util.DataPinner[func(hwnd HWND) bool]
 
-var enumChildWindowsCallback = windows.NewCallback(func(hwnd HWND, lParam LPARAM) uintptr {
-	p := (*enumChildWindowPinner)(unsafe.Add(nil, lParam))
-	return gg.If((*p.Data)(hwnd), uintptr(1), uintptr(0))
-})
+var enumWindowsCallback = sync.OnceValue(
+	func() uintptr {
+		return windows.NewCallback(func(hwnd HWND, lParam LPARAM) uintptr {
+			p := (*enumWindowsPinner)(unsafe.Add(nil, lParam))
+			return gg.If((*p.Data)(hwnd), uintptr(1), uintptr(0))
+		})
+	},
+)
 
 // EnumChildWindows enumerates the child windows of a parent window.
 // The callback returns true to continue enumeration, or false to stop enumeration.
 func EnumChildWindows(parent HWND, callback func(HWND) bool) {
-	p := &enumChildWindowPinner{Data: &callback}
+	p := &enumWindowsPinner{Data: &callback}
 	p.Pin()
 	defer p.Unpin()
-	lzEnumChildWindows.Call(uintptr(parent), enumChildWindowsCallback, uintptr(unsafe.Pointer(p)))
+	lzEnumChildWindows.Call(uintptr(parent), enumWindowsCallback(), uintptr(unsafe.Pointer(p)))
 }
 
 var lzAdjustWindowRectEx = lzUser32.NewProc("AdjustWindowRectEx")
 
 func AdjustWindowRectEx(rect *RECT, style WindowStyle, hasMenu bool, exStyle WindowExStyle) error {
 	return sysutil.MustTrue(lzAdjustWindowRectEx.Call(uintptr(unsafe.Pointer(rect)), uintptr(style), gg.If[uintptr](hasMenu, 1, 0), uintptr(exStyle)))
+}
+
+var lzEnumThreadWindows = lzUser32.NewProc("EnumThreadWindows")
+
+func EnumThreadWindows(threadId DWORD, callback func(HWND) bool) {
+	p := &enumWindowsPinner{Data: &callback}
+	p.Pin()
+	defer p.Unpin()
+	lzEnumThreadWindows.Call(uintptr(threadId), enumWindowsCallback(), uintptr(unsafe.Pointer(p)))
+}
+
+const (
+	HWND_BROADCAST HWND = 0xffff
+	HWND_MESSAGE   HWND = ^HWND(3 - 1) // HWND(-3)
+)
+
+var lzFindWindowExW = lzUser32.NewProc("FindWindowExW")
+
+func FindWindowExW(parent, childAfter HWND, className, windowName *WCHAR) (HWND, error) {
+	r, _, err := lzFindWindowExW.Call(uintptr(parent), uintptr(childAfter), uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(windowName)))
+	if r == 0 {
+		if errors.Is(err, windows.ERROR_SUCCESS) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return HWND(r), nil
 }
