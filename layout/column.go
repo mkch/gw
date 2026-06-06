@@ -57,108 +57,20 @@ func (c *Column) ChildWidgets() iter.Seq2[int, Widget] {
 }
 
 func (c *Column) CreateElement() (Element, error) {
-	return &columnElement{
+	return &colRowElement{
 		BaseElement: BaseElement{
 			widget: c,
 		},
+		MainSize:       func(s *Size) *metrics.Dip { return &s.Height },
+		CrossSize:      func(s *Size) *metrics.Dip { return &s.Width },
+		MaxMainSize:    func(c *Constraints) *metrics.Dip { return &c.MaxHeight },
+		MinMainSize:    func(c *Constraints) *metrics.Dip { return &c.MinHeight },
+		MaxCrossSize:   func(c *Constraints) *metrics.Dip { return &c.MaxWidth },
+		MinCrossSize:   func(c *Constraints) *metrics.Dip { return &c.MinWidth },
+		MainCoord:      func(p *Point) *metrics.Dip { return &p.Y },
+		CrossCoord:     func(p *Point) *metrics.Dip { return &p.X },
+		MainAxisSize:   func() AxisSize { return c.MainAxisSize },
+		MainAxisAlign:  func() AxisAlignment { return c.MainAxisAlign },
+		CrossAxisAlign: func() AxisAlignment { return c.CrossAxisAlign },
 	}, nil
-}
-
-type columnElement struct {
-	BaseElement
-	layoutSize  Size
-	itemSizes   []Size
-	itemOffsets []Point
-}
-
-func (e *columnElement) Measure(cst Constraints) (size Size, err error) {
-	w := e.Widget().(*Column)
-
-	var maxWidth metrics.Dip
-	var totalHeight metrics.Dip
-	var availHeight = cst.MaxHeight
-	for _, child := range e.Children() {
-		var itemSize Size
-		itemSize, err = child.Measure(Constraints{
-			MinWidth: cst.MinWidth, MaxWidth: cst.MaxWidth,
-			MinHeight: cst.MinHeight, MaxHeight: availHeight})
-		if err != nil {
-			return
-		}
-
-		checkOverflow(cst, itemSize)
-		availHeight -= itemSize.Height
-
-		if itemSize.Width > maxWidth {
-			maxWidth = itemSize.Width
-		}
-		totalHeight += itemSize.Height
-		e.itemSizes = append(e.itemSizes, itemSize)
-	}
-
-	size.Width = maxWidth
-	if w.MainAxisSize == AxisSizeMin {
-		size.Height = totalHeight
-	} else {
-		size.Height = cst.MaxHeight
-	}
-	e.layoutSize = size
-
-	for i, itemSize := range e.itemSizes {
-		var offset Point
-		switch w.CrossAxisAlign {
-		case AlignStart:
-			offset.X = 0
-		case AlignCenter:
-			offset.X = (maxWidth - itemSize.Width) / 2
-		case AlignEnd:
-			offset.X = maxWidth - itemSize.Width
-		}
-		if i == 0 {
-			switch w.MainAxisAlign {
-			case AlignStart:
-				// NOP
-			case AlignCenter:
-				offset.Y = (size.Height - totalHeight) / 2
-			case AlignEnd:
-				offset.Y = size.Height - totalHeight
-			}
-		} else {
-			offset.Y = e.itemSizes[i-1].Height + e.itemOffsets[i-1].Y
-		}
-		e.itemOffsets = append(e.itemOffsets, offset)
-	}
-	return
-}
-
-func (e *columnElement) Arrange(pt Point) (err error) {
-	defer func() {
-		e.layoutSize = Size{}
-		e.itemSizes = e.itemSizes[:0]
-		e.itemOffsets = e.itemOffsets[:0]
-	}()
-	w := e.Widget().(*Column)
-	if w.Hwnd != 0 {
-		if err = positionWindow(w.Hwnd, pt.X, pt.Y, e.layoutSize.Width, e.layoutSize.Height); err != nil {
-			return err
-		}
-		for i, item := range e.children {
-			if err = item.Arrange(Point{
-				e.itemOffsets[i].X,
-				e.itemOffsets[i].Y,
-			}); err != nil {
-				return
-			}
-		}
-		return nil
-	}
-	for i, item := range e.children {
-		if err = item.Arrange(Point{
-			X: pt.X + e.itemOffsets[i].X,
-			Y: pt.Y + e.itemOffsets[i].Y,
-		}); err != nil {
-			return
-		}
-	}
-	return nil
 }
