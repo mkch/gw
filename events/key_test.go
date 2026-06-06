@@ -128,7 +128,7 @@ func TestKeyEventDispatch(t *testing.T) {
 
 		// Post WM_CLOSE to trigger window destruction and quit the message loop.
 		win32.PostMessageW(hwnd, win32.WM_CLOSE, 0, 0)
-	}, nil)
+	}, func(app *app.App) { app.DestroyAllWindows() })
 
 	// Verify WM_KEYDOWN was dispatched to OnKeyDown with correct event data.
 	if wnd.keyDownEvent == nil {
