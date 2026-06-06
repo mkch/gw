@@ -433,3 +433,53 @@ func TestPadding(t *testing.T) {
 
 	}, nil)
 }
+
+func TestSized(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		win := chkerr.Must(window.New(&window.Spec{
+			Text:   "Test Sized Layout",
+			Style:  win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
+			X:      gw.CW_USEDEFAULT,
+			Width:  metrics.Px(600),
+			Height: metrics.Px(500),
+		}))
+
+		btn := chkerr.Must(button.New(&button.Spec{
+			Parent: win,
+			Style:  win32.WS_VISIBLE,
+			Text:   "Button",
+			Width:  metrics.Px(300),
+			Height: metrics.Px(100),
+		}))
+
+		sized := &layout.Sized{
+			Child:  &layout.Intrinsic{Hwnd: btn.HWND()},
+			Width:  metrics.Dip(50),
+			Height: metrics.Dip(100),
+		}
+
+		tree := chkerr.Must(layout.Build(sized))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
+
+		dpi := chkerr.Must(win32.GetDpiForWindow(win.HWND()))
+
+		dip50 := int(metrics.Dip(50).Px(dpi).Value())
+		dip100 := int(metrics.Dip(100).Px(dpi).Value())
+		x, y, w, h := chkerr.Must4(btn.Dimensions())
+		if x != 0 {
+			t.Errorf("x=%v, want %v", x, 0)
+		}
+		if y != 0 {
+			t.Errorf("y=%v, want %v", y, 0)
+		}
+		if w != dip50 {
+			t.Errorf("w=%v, want %v", w, dip50)
+		}
+		if h != dip100 {
+			t.Errorf("h=%v, want %v", h, dip100)
+		}
+
+		app.Quit(0)
+
+	}, nil)
+}
