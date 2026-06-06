@@ -9,6 +9,7 @@ import (
 	"github.com/mkch/gw/button"
 	"github.com/mkch/gw/layout"
 	"github.com/mkch/gw/metrics"
+	"github.com/mkch/gw/panel"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
 	"github.com/mkch/gw/window"
@@ -424,6 +425,67 @@ func TestPadding(t *testing.T) {
 		}
 		if w != 300 {
 			t.Errorf("w=%v, want %v", w, 300)
+		}
+		if h != 100 {
+			t.Errorf("h=%v, want %v", h, 100)
+		}
+
+		app.Quit(0)
+
+	}, nil)
+}
+
+func TestPaddingWithHwnd(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		win := chkerr.Must(window.New(&window.Spec{
+			Text:  "Test Padding Layout",
+			Style: win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
+			X:     gw.CW_USEDEFAULT,
+		}))
+		win32util.SetClientSize(win.HWND(), 600, 500)
+
+		pnl := chkerr.Must(panel.New(&panel.Spec{
+			Parent: win,
+		}))
+		pnl.SetBackgroundColor(win32.COLORREF(0xFF0000))
+
+		btn := chkerr.Must(button.New(&button.Spec{
+			Parent: pnl,
+			Style:  win32.WS_VISIBLE,
+			Text:   "Button",
+			Width:  metrics.Px(200),
+			Height: metrics.Px(100),
+		}))
+
+		center := &layout.Center{
+			Child: &layout.Padding{
+				Hwnd: pnl.HWND(),
+				Left: metrics.Dip(6),
+				Top:  metrics.Dip(10),
+				Child: &layout.Intrinsic{
+					Hwnd: btn.HWND(),
+				},
+			},
+		}
+
+		tree := chkerr.Must(layout.Build(center))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
+
+		dpi := chkerr.Must(win32.GetDpiForWindow(win.HWND()))
+
+		dip6 := win32.LONG(metrics.Dip(6).Px(dpi).Value())
+		dip10 := win32.LONG(metrics.Dip(10).Px(dpi).Value())
+		btnRect := chkerr.Must(btn.GetWindowRect())
+		chkerr.MustOK(win32util.ScreenToClient(win.HWND(), btnRect))
+		x, y, w, h := btnRect.Left, btnRect.Top, btnRect.Width(), btnRect.Height()
+		if desiredX := (600-200-dip6)/2 + dip6; x != desiredX {
+			t.Errorf("x=%v, want %v", x, desiredX)
+		}
+		if desiredY := (500-100-dip10)/2 + dip10; y != desiredY {
+			t.Errorf("y=%v, want %v", y, desiredY)
+		}
+		if w != 200 {
+			t.Errorf("w=%v, want %v", w, 200)
 		}
 		if h != 100 {
 			t.Errorf("h=%v, want %v", h, 100)
