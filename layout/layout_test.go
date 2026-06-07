@@ -85,7 +85,7 @@ func TestColumn(t *testing.T) {
 		btn1 := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Px(300),
+			Width:  metrics.Px(250),
 			Height: metrics.Px(100),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
@@ -93,8 +93,8 @@ func TestColumn(t *testing.T) {
 		btn2 := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Px(200),
-			Height: metrics.Px(200),
+			Width:  metrics.Px(150),
+			Height: metrics.Px(300),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
 
@@ -119,7 +119,7 @@ func TestColumn(t *testing.T) {
 		if y1 != 0 {
 			t.Errorf("y1=%v", y1)
 		}
-		if w1 != 300 {
+		if w1 != 250 {
 			t.Errorf(" w1=%v", w1)
 		}
 		if h1 != 100 {
@@ -133,10 +133,10 @@ func TestColumn(t *testing.T) {
 		if y2 != 100 {
 			t.Errorf("y2=%v", y2)
 		}
-		if w2 != 200 {
+		if w2 != 150 {
 			t.Errorf(" w2=%v", w2)
 		}
-		if h2 != 200 {
+		if h2 != 300 {
 			t.Errorf("h2=%v", h2)
 		}
 
@@ -152,7 +152,7 @@ func TestColumn(t *testing.T) {
 		if y1 != 0 {
 			t.Errorf("y1=%v", y1)
 		}
-		if w1 != 300 {
+		if w1 != 250 {
 			t.Errorf(" w1=%v", w1)
 		}
 		if h1 != 100 {
@@ -166,10 +166,10 @@ func TestColumn(t *testing.T) {
 		if y2 != 100 {
 			t.Errorf("y2=%v", y2)
 		}
-		if w2 != 200 {
+		if w2 != 150 {
 			t.Errorf(" w2=%v", w2)
 		}
-		if h2 != 200 {
+		if h2 != 300 {
 			t.Errorf("h2=%v", h2)
 		}
 
@@ -185,7 +185,7 @@ func TestColumn(t *testing.T) {
 		if y1 != 0 {
 			t.Errorf("y1=%v", y1)
 		}
-		if w1 != 300 {
+		if w1 != 250 {
 			t.Errorf(" w1=%v", w1)
 		}
 		if h1 != 100 {
@@ -199,10 +199,10 @@ func TestColumn(t *testing.T) {
 		if y2 != 100 {
 			t.Errorf("y2=%v", y2)
 		}
-		if w2 != 200 {
+		if w2 != 150 {
 			t.Errorf("w2=%v", w2)
 		}
-		if h2 != 200 {
+		if h2 != 300 {
 			t.Errorf("h2=%v", h2)
 		}
 
@@ -226,16 +226,16 @@ func TestRow(t *testing.T) {
 		btn1 := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Px(300),
-			Height: metrics.Px(100),
+			Width:  metrics.Px(280),
+			Height: metrics.Px(220),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
 
 		btn2 := chkerr.Must(button.New(&button.Spec{
 			Parent: win,
 			Text:   "Button",
-			Width:  metrics.Px(200),
-			Height: metrics.Px(200),
+			Width:  metrics.Px(180),
+			Height: metrics.Px(100),
 			Style:  win32.WS_CHILD | win32.WS_VISIBLE,
 		}))
 
@@ -260,24 +260,24 @@ func TestRow(t *testing.T) {
 		if y1 != 0 {
 			t.Errorf("y1=%v", y1)
 		}
-		if w1 != 300 {
+		if w1 != 280 {
 			t.Errorf("w1=%v", w1)
 		}
-		if h1 != 100 {
+		if h1 != 220 {
 			t.Errorf("h1=%v", h1)
 		}
 
 		x2, y2, w2, h2 := chkerr.Must4(btn2.Dimensions())
-		if x2 != 300 {
+		if x2 != 280 {
 			t.Errorf("x2=%v", x2)
 		}
 		if y2 != 0 {
 			t.Errorf("y2=%v", y2)
 		}
-		if w2 != 200 {
+		if w2 != 180 {
 			t.Errorf("w2=%v", w2)
 		}
-		if h2 != 200 {
+		if h2 != 100 {
 			t.Errorf("h2=%v", h2)
 		}
 
@@ -290,27 +290,27 @@ func TestRow(t *testing.T) {
 		if x1 != 0 {
 			t.Errorf("x1=%v", x1)
 		}
-		if y1 != 50 {
+		if y1 != 0 {
 			t.Errorf("y1=%v", y1)
 		}
-		if w1 != 300 {
+		if w1 != 280 {
 			t.Errorf("w1=%v", w1)
 		}
-		if h1 != 100 {
+		if h1 != 220 {
 			t.Errorf("h1=%v", h1)
 		}
 
 		x2, y2, w2, h2 = chkerr.Must4(btn2.Dimensions())
-		if x2 != 300 {
+		if x2 != 280 {
 			t.Errorf("x2=%v", x2)
 		}
-		if y2 != 0 {
+		if y2 != 60 {
 			t.Errorf("y2=%v", y2)
 		}
-		if w2 != 200 {
+		if w2 != 180 {
 			t.Errorf("w2=%v", w2)
 		}
-		if h2 != 200 {
+		if h2 != 100 {
 			t.Errorf("h2=%v", h2)
 		}
 
@@ -323,27 +323,27 @@ func TestRow(t *testing.T) {
 		if x1 != 0 {
 			t.Errorf("x1=%v", x1)
 		}
-		if y1 != 100 {
+		if y1 != 0 {
 			t.Errorf("y1=%v", y1)
 		}
-		if w1 != 300 {
+		if w1 != 280 {
 			t.Errorf("w1=%v", w1)
 		}
-		if h1 != 100 {
+		if h1 != 220 {
 			t.Errorf("h1=%v", h1)
 		}
 
 		x2, y2, w2, h2 = chkerr.Must4(btn2.Dimensions())
-		if x2 != 300 {
+		if x2 != 280 {
 			t.Errorf("x2=%v", x2)
 		}
-		if y2 != 0 {
+		if y2 != 120 {
 			t.Errorf("y2=%v", y2)
 		}
-		if w2 != 200 {
+		if w2 != 180 {
 			t.Errorf("w2=%v", w2)
 		}
-		if h2 != 200 {
+		if h2 != 100 {
 			t.Errorf("h2=%v", h2)
 		}
 
@@ -353,13 +353,13 @@ func TestRow(t *testing.T) {
 		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
 
 		x1, y1, w1, h1 = chkerr.Must4(btn1.Dimensions())
-		if y1 != 100 {
+		if y1 != 0 {
 			t.Errorf("y1=%v", y1)
 		}
-		if w1 != 300 {
+		if w1 != 280 {
 			t.Errorf("w1=%v", w1)
 		}
-		if h1 != 100 {
+		if h1 != 220 {
 			t.Errorf("h1=%v", h1)
 		}
 
@@ -367,13 +367,13 @@ func TestRow(t *testing.T) {
 		if x2 != x1+w1 {
 			t.Errorf("x2=%v", x2)
 		}
-		if y2 != 0 {
+		if y2 != 120 {
 			t.Errorf("y2=%v", y2)
 		}
-		if w2 != 200 {
+		if w2 != 180 {
 			t.Errorf("w2=%v", w2)
 		}
-		if h2 != 200 {
+		if h2 != 100 {
 			t.Errorf("h2=%v", h2)
 		}
 
@@ -586,5 +586,153 @@ func TestSizedHwnd(t *testing.T) {
 
 		app.Quit(0)
 
+	}, func(app *app.App) { app.DestroyAllWindows() })
+}
+
+func TestExpanded(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		win := chkerr.Must(window.New(&window.Spec{
+			Text:      "Test Expanded Layout",
+			Style:     win32.WS_OVERLAPPEDWINDOW | win32.WS_VISIBLE,
+			X:         gw.CW_USEDEFAULT,
+			Width:     metrics.Px(600),
+			Height:    metrics.Px(500),
+			OnDestroy: func() { app.Quit(0) },
+		}))
+
+		// btn1 has a fixed intrinsic size used as the non-Expanded sibling.
+		btn1 := chkerr.Must(button.New(&button.Spec{
+			Parent: win,
+			Text:   "Button1",
+			Width:  metrics.Px(250),
+			Height: metrics.Px(100),
+		}))
+
+		// btn2 and btn3 have no initial size; they will be sized by Expanded.
+		btn2 := chkerr.Must(button.New(&button.Spec{
+			Parent: win,
+			Text:   "Button2",
+		}))
+
+		btn3 := chkerr.Must(button.New(&button.Spec{
+			Parent: win,
+			Text:   "Button3",
+		}))
+
+		clientRect := chkerr.Must(win.GetClientRect())
+		clientW := int(clientRect.Width())
+		clientH := int(clientRect.Height())
+
+		// Case 1: Column with one fixed Intrinsic child followed by one Expanded child.
+		// The Expanded child must fill the remaining height and the full client width.
+		column := &layout.Column{
+			Children: []layout.Widget{
+				&layout.Intrinsic{Hwnd: btn1.HWND()},
+				&layout.Expanded{
+					Flex:  1,
+					Child: &layout.Intrinsic{Hwnd: btn2.HWND()},
+				},
+			},
+		}
+		tree := chkerr.Must(layout.Build(column))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
+
+		x1, y1, w1, h1 := chkerr.Must4(btn1.Dimensions())
+		if x1 != 0 {
+			t.Errorf("case1: x1=%v, want 0", x1)
+		}
+		if y1 != 0 {
+			t.Errorf("case1: y1=%v, want 0", y1)
+		}
+		if w1 != 250 {
+			t.Errorf("case1: w1=%v, want 250", w1)
+		}
+		if h1 != 100 {
+			t.Errorf("case1: h1=%v, want 100", h1)
+		}
+
+		x2, y2, w2, h2 := chkerr.Must4(btn2.Dimensions())
+		if x2 != 0 {
+			t.Errorf("case1: x2=%v, want 0", x2)
+		}
+		if y2 != 100 {
+			t.Errorf("case1: y2=%v, want 100", y2)
+		}
+		if w2 != clientW {
+			t.Errorf("case1: w2=%v, want %v (clientW)", w2, clientW)
+		}
+		if h2 != clientH-100 {
+			t.Errorf("case1: h2=%v, want %v (clientH-100)", h2, clientH-100)
+		}
+
+		// Case 2: Column with two Expanded children with Flex 1:2.
+		// Their heights must sum to clientH, and the second child must be taller than the first.
+		column2 := &layout.Column{
+			Children: []layout.Widget{
+				&layout.Expanded{
+					Flex:  1,
+					Child: &layout.Intrinsic{Hwnd: btn2.HWND()},
+				},
+				&layout.Expanded{
+					Flex:  2,
+					Child: &layout.Intrinsic{Hwnd: btn3.HWND()},
+				},
+			},
+		}
+		tree = chkerr.Must(layout.Build(column2))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
+
+		_, y2, _, h2 = chkerr.Must4(btn2.Dimensions())
+		_, y3, _, h3 := chkerr.Must4(btn3.Dimensions())
+		if y2 != 0 {
+			t.Errorf("case2: y2=%v, want 0", y2)
+		}
+		if y3 != h2 {
+			t.Errorf("case2: y3=%v, want %v (h2)", y3, h2)
+		}
+		if h2+h3 != clientH {
+			t.Errorf("case2: h2+h3=%v, want %v (clientH)", h2+h3, clientH)
+		}
+		if h2 >= h3 {
+			t.Errorf("case2: expected h2 < h3 for Flex 1:2, got h2=%v h3=%v", h2, h3)
+		}
+
+		// Case 3: Row with one fixed Intrinsic child followed by one Expanded child.
+		// The Expanded child must fill the remaining width and the full client height.
+		row := &layout.Row{
+			Children: []layout.Widget{
+				&layout.Intrinsic{Hwnd: btn1.HWND()},
+				&layout.Expanded{
+					Flex:  1,
+					Child: &layout.Intrinsic{Hwnd: btn2.HWND()},
+				},
+			},
+		}
+		tree = chkerr.Must(layout.Build(row))
+		chkerr.MustOK(layout.PerformWindow(tree, win.HWND()))
+
+		_, _, w1, h1 = chkerr.Must4(btn1.Dimensions())
+		if w1 != 250 {
+			t.Errorf("case3: w1=%v, want 250", w1)
+		}
+		if h1 != 100 {
+			t.Errorf("case3: h1=%v, want 100", h1)
+		}
+
+		x2, y2, w2, h2 = chkerr.Must4(btn2.Dimensions())
+		if x2 != 250 {
+			t.Errorf("case3: x2=%v, want 250", x2)
+		}
+		if y2 != 0 {
+			t.Errorf("case3: y2=%v, want 0", y2)
+		}
+		if w2 != clientW-250 {
+			t.Errorf("case3: w2=%v, want %v (clientW-250)", w2, clientW-250)
+		}
+		if h2 != clientH {
+			t.Errorf("case3: h2=%v, want %v (clientH)", h2, clientH)
+		}
+
+		win.Close()
 	}, func(app *app.App) { app.DestroyAllWindows() })
 }

@@ -39,28 +39,65 @@ func (e *colRowElement) Measure(cst Constraints) (size Size, err error) {
 	var maxCross metrics.Dip
 	var totalMain metrics.Dip
 	var availMain = *e.MaxMainSize(&cst)
-	for _, item := range e.children {
-		var itemSize Size
-		var childCst Constraints
-		*e.MinMainSize(&childCst) = *e.MinMainSize(&cst) //
-		*e.MaxMainSize(&childCst) = availMain
-		*e.MinCrossSize(&childCst) = *e.MinCrossSize(&cst)
-		*e.MaxCrossSize(&childCst) = *e.MaxCrossSize(&cst)
-		itemSize, err = item.Measure(childCst)
-		if err != nil {
+	e.itemSizes = make([]Size, len(e.children))
+	e.itemOffsets = make([]Point, len(e.children))
+
+	err = MeasureChildren(cst, e.children,
+		func(index int, cst Constraints) (size Size, err error) {
+			var childCst Constraints
+			*e.MinMainSize(&childCst) = *e.MinMainSize(&cst)
+			*e.MaxMainSize(&childCst) = availMain
+			*e.MinCrossSize(&childCst) = *e.MinCrossSize(&cst)
+			*e.MaxCrossSize(&childCst) = *e.MaxCrossSize(&cst)
+			size, err = e.children[index].Measure(childCst)
+			if err != nil {
+				return
+			}
+			checkOverflow(cst, size)
+			availMain -= *e.MainSize(&size)
+
+			if *e.CrossSize(&size) > maxCross {
+				maxCross = *e.CrossSize(&size)
+			}
+			totalMain += *e.MainSize(&size)
+			e.itemSizes[index] = size
 			return
-		}
-		checkOverflow(cst, itemSize)
-		availMain -= *e.MainSize(&itemSize)
+		},
+		func(cst Constraints, used Size) Constraints {
+			// Subtract the used space from the main axis of constraints.
+			*e.MinMainSize(&cst) = max(0, *e.MinMainSize(&cst)-*e.MainSize(&used))
+			*e.MaxMainSize(&cst) = max(0, *e.MaxMainSize(&cst)-*e.MainSize(&used))
+			return cst
+		},
+		func(size1, size2 Size) (result Size) {
+			// Add the main axises of size1 and size2.
+			*e.MainSize(&size1) += *e.MainSize(&size2)
+			return size1
+		},
+		func(cst Constraints, used Size) (remain metrics.Dip) {
+			// Calculate the remaining space of the main axis.
+			remain = max(0, *e.MaxMainSize(&cst)-*e.MainSize(&used))
+			return
+		},
+		func(allocatedSize metrics.Dip) (result Constraints) {
+			result = cst
+			// Set the allocated size to the main axis of constraints.
+			*e.MinMainSize(&result) = allocatedSize
+			*e.MaxMainSize(&result) = allocatedSize
+			return
+		},
+		func(index int, size Size) {
+			// Callback for each measured Expanded child with non-zero size.
+			availMain -= *e.MainSize(&size)
+			if *e.CrossSize(&size) > maxCross {
+				maxCross = *e.CrossSize(&size)
+			}
+			totalMain += *e.MainSize(&size)
+			e.itemSizes[index] = size
+		},
+	)
 
-		if itemSize.Height > maxCross {
-			maxCross = *e.CrossSize(&itemSize)
-		}
-		totalMain += *e.MainSize(&itemSize)
-		e.itemSizes = append(e.itemSizes, itemSize)
-	}
-
-	size.Height = maxCross
+	*e.CrossSize(&size) = maxCross
 	if e.MainAxisSize() == AxisSizeMin {
 		*e.MainSize(&size) = totalMain
 	} else {
@@ -91,7 +128,7 @@ func (e *colRowElement) Measure(cst Constraints) (size Size, err error) {
 		} else {
 			*e.MainCoord(&offset) = *e.MainSize(&e.itemSizes[i-1]) + *e.MainCoord(&e.itemOffsets[i-1])
 		}
-		e.itemOffsets = append(e.itemOffsets, offset)
+		e.itemOffsets[i] = offset
 	}
 	return
 }

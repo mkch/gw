@@ -1,6 +1,12 @@
 package layout
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrWrongRoot is returned by [Perform] and [PerformWindow] if the root layout has an associated window.
+var ErrWrongRoot = errors.New("root layout must not have an associated window")
 
 // NoChildError is returned by a layout that requires a child but the child is nil.
 type NoChildError struct {
@@ -28,4 +34,13 @@ type NoHwndError struct {
 
 func (e *NoHwndError) Error() string {
 	return fmt.Sprintf("%s layout must have a non-zero Hwnd", e.Layout)
+}
+
+// InvalidFlexError is returned when a Flex factor is invalid.
+type InvalidFlexError struct {
+	Flex float64
+}
+
+func (e *InvalidFlexError) Error() string {
+	return fmt.Sprintf("invalid Flex %v: must be non-negative", e.Flex)
 }

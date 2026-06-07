@@ -10,8 +10,6 @@
 package layout
 
 import (
-	"errors"
-
 	"github.com/mkch/gw/win32"
 )
 
@@ -43,9 +41,6 @@ func PerformWindow(root Element, hwnd win32.HWND) (err error) {
 	}
 	return Perform(root, size)
 }
-
-// ErrWrongRoot is returned by [Perform] and [PerformWindow] if the root layout has an associated window.
-var ErrWrongRoot = errors.New("root layout must not have an associated window")
 
 // Perform performs the layout by measuring the layout with the given size constraint and arranging the layout at (0, 0).
 // The root must not have an associated window.
