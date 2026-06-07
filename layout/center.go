@@ -24,9 +24,6 @@ type Center struct {
 	// A 0 HeightFactor means to take all available height from parent.
 	// A non-zero HeightFactor must be greater than 1, or it panics.
 	HeightFactor float64
-
-	layoutSize  Size
-	childOffset Point
 }
 
 func (c *Center) HWND() win32.HWND {
@@ -72,6 +69,7 @@ func (e *centerElement) Measure(cst Constraints) (size Size, err error) {
 	if childSize, err = child.Measure(cst); err != nil {
 		return Size{}, err
 	}
+	checkOverflow(cst, childSize)
 
 	if w.WidthFactor == 0 {
 		size.Width = cst.MaxWidth
