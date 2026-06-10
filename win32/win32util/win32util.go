@@ -41,7 +41,12 @@ func CStrLen(str *win32.WCHAR, bufSize int) int {
 
 // GoString converts a null terminated C string to go string.
 // size is the buffer length of C string, includes terminating null.
+//
+// If size is -1, the buffer size will be calculated using CStrLen(p, 0xFFF)+1.
 func GoString(p *win32.WCHAR, size int) string {
+	if size == -1 {
+		size = CStrLen(p, 0xFFF) + 1
+	}
 	s := unsafe.Slice((*uint16)(unsafe.Pointer(p)), size-1) // size-1 to exclude the terminating null.
 	return string(utf16.Decode(s))
 }
@@ -101,6 +106,12 @@ func RegisterClass(cls *WndClass) (win32.ATOM, error) {
 	}
 
 	return win32.RegisterClassExW(&wndClass)
+}
+
+func UnregisterClass(className string, instance win32.HINSTANCE) error {
+	var classNameBuf []win32.WCHAR
+	CString(className, &classNameBuf)
+	return win32.UnregisterClassW(&classNameBuf[0], instance)
 }
 
 type Wnd struct {

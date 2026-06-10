@@ -1,6 +1,7 @@
 package win32_test
 
 import (
+	"slices"
 	"testing"
 	"unsafe"
 
@@ -60,4 +61,43 @@ func TestCreateWindow(t *testing.T) {
 
 func testCreateWindowWndproc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 	return win32.DefWindowProcW(hwnd, message, wParam, lParam)
+}
+
+func TestAlignSlice(t *testing.T) {
+	empty := []byte{}
+	empty = win32.AlignSlice(empty)
+	if len(empty) != 0 {
+		t.Errorf("empty slice should remain empty, got %v", empty)
+	}
+
+	buf := []uint16{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	for i := range len(buf) - 1 {
+		s := buf[i:]
+		orig := slices.Clone(s)
+		s = win32.AlignSlice(s)
+		if uintptr(unsafe.Pointer(&s[0]))%unsafe.Sizeof(uintptr(0)) != 0 {
+			t.Errorf("slice starting at index %d is not aligned: %p", i, &s[0])
+		}
+		if !slices.Equal(s, orig) {
+			t.Errorf("aligning slice starting at index %d changed its contents: got %v, want %v", i, s, orig)
+		}
+	}
+
+	type S struct {
+		a int
+		b byte
+	}
+
+	buf2 := []S{{1, 2}, {3, 4}, {5, 6}, {7, 8}, {9, 10}, {11, 12}, {13, 14}, {15, 16}}
+	for i := range len(buf2) - 1 {
+		s := buf2[i:]
+		orig := slices.Clone(s)
+		s = win32.AlignSlice(s)
+		if uintptr(unsafe.Pointer(&s[0]))%unsafe.Sizeof(uintptr(0)) != 0 {
+			t.Errorf("slice starting at index %d is not aligned: %p", i, &s[0])
+		}
+		if !slices.Equal(s, orig) {
+			t.Errorf("aligning slice starting at index %d changed its contents: got %v, want %v", i, s, orig)
+		}
+	}
 }

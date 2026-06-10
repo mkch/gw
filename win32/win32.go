@@ -81,6 +81,8 @@ type WNDCLASSEXW struct {
 	IconSm     HICON
 }
 
+const DLGWINDOWEXTRA = 30
+
 const (
 	CS_BYTEALIGNCLIENT CLASS_STYLE = 0x1000
 	CS_BYTEALIGNWINDOW CLASS_STYLE = 0x2000
@@ -100,6 +102,12 @@ var lzRegisterClassExW = lzUser32.NewProc("RegisterClassExW")
 
 func RegisterClassExW(cls *WNDCLASSEXW) (ATOM, error) {
 	return sysutil.MustNotZero[ATOM](lzRegisterClassExW.Call(uintptr(unsafe.Pointer(cls))))
+}
+
+var lzUnregisterClassW = lzUser32.NewProc("UnregisterClassW")
+
+func UnregisterClassW(className *WCHAR, instance HINSTANCE) error {
+	return sysutil.MustTrue(lzUnregisterClassW.Call(uintptr(unsafe.Pointer(className)), uintptr(instance)))
 }
 
 var lzGetClassInfoExW = lzUser32.NewProc("GetClassInfoExW")
@@ -212,6 +220,12 @@ var lzDefWindowProcW = lzUser32.NewProc("DefWindowProcW")
 
 func DefWindowProcW(hwnd HWND, message UINT, wParam WPARAM, lParam LPARAM) LRESULT {
 	return sysutil.As[LRESULT](lzDefWindowProcW.Call(uintptr(hwnd), uintptr(message), uintptr(wParam), uintptr(lParam)))
+}
+
+var lzDefDlgProcW = lzUser32.NewProc("DefDlgProcW")
+
+func DefDlgProcW(hwnd HWND, message UINT, wParam WPARAM, lParam LPARAM) LRESULT {
+	return sysutil.As[LRESULT](lzDefDlgProcW.Call(uintptr(hwnd), uintptr(message), uintptr(wParam), uintptr(lParam)))
 }
 
 var lzGetModuleHandleW = lzKernel32.NewProc("GetModuleHandleW")
@@ -692,26 +706,28 @@ type ACCEL struct {
 	Cmd  WORD
 }
 
-// alignSlice makes &s[0] word-aligned.
+// AlignSlice returns a slice with the same length and elements as s,
+// but with the first element's address aligned to the machine word size.
 // If len(s) == 0, s is unchanged.
-func alignSlice[T any](s *[]T) {
+func AlignSlice[T any, S ~[]T](s S) S {
 	const WordSize = unsafe.Sizeof(uintptr(0))
-	if len(*s) == 0 || uintptr(unsafe.Pointer(&(*s)[0]))%WordSize == 0 {
-		return
+	if len(s) == 0 || uintptr(unsafe.Pointer(&s[0]))%WordSize == 0 {
+		return s
 	}
-	// p = alloc(slice_data_size+WordSize)
-	p := make([]byte, len(*s)*int(unsafe.Sizeof((*s)[0]))+int(WordSize))
-	// aligned = p+WordSize-(p%WordSize)
-	aligned := unsafe.Slice((*T)(unsafe.Pointer(uintptr(unsafe.Pointer(&p[0]))+WordSize-uintptr(unsafe.Pointer(&p[0]))%WordSize)), len(*s))
-	copy(aligned, *s)
-	*s = aligned
+	// p = alloc(slice_data_size+WordSize-1)
+	p := make([]byte, len(s)*int(unsafe.Sizeof(s[0]))+int(WordSize-1))
+	shift := uintptr(unsafe.Pointer(&p[0])) % WordSize
+	// aligned = p+shift
+	aligned := unsafe.Slice((*T)(unsafe.Add(unsafe.Pointer(&p[0]), shift)), len(s))
+	copy(aligned, s)
+	return aligned
 }
 
 var lzCreateAcceleratorTableW = lzUser32.NewProc("CreateAcceleratorTableW")
 
 func CreateAcceleratorTableW(accel []ACCEL) (HACCEL, error) {
 	// For some reason, &accel[0] may not be aligned.
-	alignSlice(&accel)
+	accel = AlignSlice(accel)
 	r, r2, err := lzCreateAcceleratorTableW.Call(uintptr(unsafe.Pointer(&accel[0])), uintptr(len(accel)))
 	return sysutil.MustNotZero[HACCEL](r, r2, err)
 }
