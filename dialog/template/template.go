@@ -90,7 +90,7 @@ func (t *Template) Add(controls ...*Control) {
 	}
 }
 
-// addControl add a control to the dialog box template.
+// addControl adds a control to the dialog box template.
 func (t *Template) addControl(control *Control) {
 	// Each DLGITEMTEMPLATEEX structure must be aligned on a DWORD boundary
 	if r := len(t.buf) % 4; r != 0 {
