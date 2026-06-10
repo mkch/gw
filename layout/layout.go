@@ -13,22 +13,72 @@ import (
 	"github.com/mkch/gw/win32"
 )
 
-// Build builds the element tree for the given layout tree.
+// Build constructs an Element tree from the specified Widget tree.
+//
+// All windowed widgets in the tree must form a valid Win32 parent-child
+// hierarchy. Widgets that do not own a window (HWND == 0) are treated as
+// logical containers and do not affect parent-child validation.
+//
+// If an invalid parent-child relationship is detected, Build returns a
+// [*WrongParentError] identifying the location of the offending widget.
 func Build(root Widget) (tree Element, err error) {
+	var parent win32.HWND
+	return build(root, &parent, nil)
+}
+
+// build recursively constructs an Element subtree rooted at root.
+//
+// The parent parameter points to the expected Win32 parent window for the
+// current branch of the tree. Logical containers (HWND == 0) inherit and
+// propagate this expectation unchanged. If no expected parent has been
+// established yet, the first windowed widget encountered determines it for
+// all subsequently visited descendants until another windowed widget is
+// reached.
+//
+// If a widget has a window, its actual parent window is validated against
+// the expected parent. That widget's window then becomes the expected parent
+// for its own children.
+//
+// The indices slice records the widget's position within the tree and is used
+// to construct a *WrongParentError when validation fails.
+func build(root Widget, parent *win32.HWND, indices []int) (tree Element, err error) {
 	tree, err = root.CreateElement()
 	if err != nil {
 		return
 	}
+	hwnd := tree.Widget().HWND()
+	if *parent != 0 {
+		if hwnd != 0 {
+			var realParent win32.HWND
+			if realParent, err = win32.GetParent(hwnd); err != nil {
+				return
+			}
+			if realParent != *parent {
+				return nil, &WrongParentError{Indices: indices, Widget: root}
+			}
+		}
+	} else if hwnd != 0 {
+		var realParent win32.HWND
+		if realParent, err = win32.GetParent(hwnd); err != nil {
+			return
+		}
+		*parent = realParent
+	}
 
-	for _, child := range root.ChildWidgets() {
+	var parentForChildren *win32.HWND
+	if hwnd != 0 {
+		parentForChildren = &hwnd
+	} else {
+		parentForChildren = parent
+	}
+	for i, child := range root.ChildWidgets() {
 		var childTree Element
-		childTree, err = Build(child)
+		childTree, err = build(child, parentForChildren, append(indices, i))
 		if err != nil {
 			return
 		}
 		element_AddChild(tree, childTree)
 	}
-
 	return
 }
 

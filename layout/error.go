@@ -8,6 +8,20 @@ import (
 // ErrWrongRoot is returned by [Perform] and [PerformWindow] if the root layout has an associated window.
 var ErrWrongRoot = errors.New("root layout must not have an associated window")
 
+// WrongParentError is returned by [Build] if a Widget's actual Win32 parent window
+// does not match the parent window expected by the widget tree structure.
+//
+// Indices identifies the path from the root widget to the offending widget.
+// Each element is the child index within its parent's ChildWidgets slice.
+type WrongParentError struct {
+	Indices []int
+	Widget  Widget
+}
+
+func (e *WrongParentError) Error() string {
+	return fmt.Sprintf("widget of type %T at %v has an unexpected native parent window", e.Widget, e.Indices)
+}
+
 // NoChildError is returned by a layout that requires a child but the child is nil.
 type NoChildError struct {
 	Layout string

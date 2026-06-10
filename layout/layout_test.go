@@ -1,6 +1,8 @@
 package layout_test
 
 import (
+	"errors"
+	"slices"
 	"testing"
 
 	"github.com/mkch/gg/errortrace/chkerr"
@@ -734,5 +736,139 @@ func TestExpanded(t *testing.T) {
 		}
 
 		win.Close()
+	}, func(app *app.App) { app.DestroyAllWindows() })
+}
+
+// TestBuild_LogicalTreeStructure verifies that Build correctly links parent and
+// child elements when the entire tree consists of logical containers (HWND == 0).
+// No real window is required.
+func TestBuild_LogicalTreeStructure(t *testing.T) {
+	inner := &layout.Column{}
+	outer := &layout.Column{
+		Children: []layout.Widget{inner},
+	}
+
+	tree, err := layout.Build(outer)
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	if tree.Widget() != outer {
+		t.Errorf("tree.Widget() = %v, want outer Column", tree.Widget())
+	}
+
+	// Collect child elements.
+	var childElements []layout.Element
+	for _, c := range tree.Children() {
+		childElements = append(childElements, c)
+	}
+	if len(childElements) != 1 {
+		t.Fatalf("tree has %d children, want 1", len(childElements))
+	}
+	child := childElements[0]
+	if child.Widget() != inner {
+		t.Errorf("child.Widget() = %v, want inner Column", child.Widget())
+	}
+	if child.Parent() != tree {
+		t.Errorf("child.Parent() = %v, want tree", child.Parent())
+	}
+}
+
+// TestBuild_CreateElementError verifies that an error returned by the root
+// widget's CreateElement is propagated unchanged by Build.
+func TestBuild_CreateElementError(t *testing.T) {
+	// Center.Child == nil → CreateElement returns *NoChildError.
+	_, err := layout.Build(&layout.Center{Child: nil})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var nce *layout.NoChildError
+	if !errors.As(err, &nce) {
+		t.Errorf("expected *NoChildError, got %T: %v", err, err)
+	}
+}
+
+// TestBuild_ChildCreateElementError verifies that an error returned by a child
+// widget's CreateElement is propagated unchanged by Build.
+func TestBuild_ChildCreateElementError(t *testing.T) {
+	// Column's own CreateElement succeeds, but its sole child Center{nil} fails.
+	col := &layout.Column{
+		Children: []layout.Widget{
+			&layout.Center{Child: nil},
+		},
+	}
+	_, err := layout.Build(col)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	var nce *layout.NoChildError
+	if !errors.As(err, &nce) {
+		t.Errorf("expected *NoChildError, got %T: %v", err, err)
+	}
+}
+
+// TestBuild_WrongParent verifies that Build returns *WrongParentError when a
+// windowed widget's actual Win32 parent does not match the expected parent, and
+// that Indices correctly encodes the path through logical containers to the
+// offending widget.
+//
+// Tree structure:
+//
+//	Column (HWND=0)
+//	├── Intrinsic{btn1}        [index 0: establishes expected parent = win1]
+//	└── Column (HWND=0)        [index 1: logical container, propagates expected parent]
+//	    └── Intrinsic{btn2}    [index 0: btn2's parent is win2 ≠ win1 → WrongParentError]
+//
+// Expected: WrongParentError.Indices == []int{1, 0}
+func TestBuild_WrongParent(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		win1 := chkerr.Must(window.New(&window.Spec{
+			Text:  "WrongParent win1",
+			Style: win32.WS_OVERLAPPEDWINDOW,
+			X:     gw.CW_USEDEFAULT,
+		}))
+		win2 := chkerr.Must(window.New(&window.Spec{
+			Text:  "WrongParent win2",
+			Style: win32.WS_OVERLAPPEDWINDOW,
+			X:     gw.CW_USEDEFAULT,
+		}))
+
+		btn1 := chkerr.Must(button.New(&button.Spec{
+			Parent: win1,
+			Text:   "B1",
+			Width:  metrics.Px(100),
+			Height: metrics.Px(30),
+			Style:  win32.WS_CHILD,
+		}))
+		btn2 := chkerr.Must(button.New(&button.Spec{
+			Parent: win2,
+			Text:   "B2",
+			Width:  metrics.Px(100),
+			Height: metrics.Px(30),
+			Style:  win32.WS_CHILD,
+		}))
+
+		tree := &layout.Column{
+			Children: []layout.Widget{
+				&layout.Intrinsic{Hwnd: btn1.HWND()},
+				&layout.Column{
+					Children: []layout.Widget{
+						&layout.Intrinsic{Hwnd: btn2.HWND()},
+					},
+				},
+			},
+		}
+
+		_, err := layout.Build(tree)
+		if err == nil {
+			t.Error("expected *WrongParentError, got nil")
+		} else {
+			if wpe, ok := errors.AsType[*layout.WrongParentError](err); !ok {
+				t.Errorf("expected *WrongParentError, got %T: %v", err, err)
+			} else if !slices.Equal(wpe.Indices, []int{1, 0}) {
+				t.Errorf("WrongParentError.Indices = %v, want [1 0]", wpe.Indices)
+			}
+		}
+
+		app.Quit(0)
 	}, func(app *app.App) { app.DestroyAllWindows() })
 }
