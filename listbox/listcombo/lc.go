@@ -249,6 +249,8 @@ func (l *ListCombo) checkCanUseItemString() error {
 // AppendItem adds an item with the specified data to a listbox or combobox and returns any error that occurred.
 // If the listbox or combobox is not an owner-drawn control without the HASSTRINGS style, the newly added item
 // will have an empty string.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-addstring for details.
 func (l *ListCombo) AppendItem(data any) error {
 	if !l.noItemStrings {
 		i, err := l.addString("") // Must add an item before setting item data
@@ -267,6 +269,8 @@ func (l *ListCombo) AppendItem(data any) error {
 }
 
 // AppendItemString adds a string to a listbox or combobox and returns the index of the new item, or an error if the operation failed.
+//
+// // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-addstring for details.
 func (l *ListCombo) AppendItemString(s string) (int, error) {
 	if err := l.checkCanUseItemString(); err != nil {
 		return 0, err
@@ -288,6 +292,8 @@ func (l *ListCombo) addString(s string) (int, error) {
 }
 
 // GetItemString retrieves the string of the item at the specified index in a listbox or combobox.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-gettext for details.
 func (l *ListCombo) GetItemString(index int) (string, error) {
 	if err := l.checkCanUseItemString(); err != nil {
 		return "", err
@@ -319,6 +325,8 @@ func (l *ListCombo) insertItemString(index int, s string) (int, error) {
 
 // InsertItemString inserts a string at the specified index in a listbox or combobox and returns
 // any error that occurred.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-insertstring for details.
 func (l *ListCombo) InsertItemString(index int, s string) error {
 	if err := l.checkCanUseItemString(); err != nil {
 		return err
@@ -328,6 +336,8 @@ func (l *ListCombo) InsertItemString(index int, s string) error {
 }
 
 // DeleteItem deletes the item at the specified index in a listbox or combobox and returns any error that occurred.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-deletestring for details.
 func (l *ListCombo) DeleteItem(index int) error {
 	// Delete item data
 	_, data, err := l.getItemData(index)
@@ -343,6 +353,8 @@ func (l *ListCombo) DeleteItem(index int) error {
 }
 
 // DeleteAllItems removes all items from a listbox or combobox and returns any error that occurred.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-resetcontent for details.
 func (l *ListCombo) DeleteAllItems() error {
 	// Delete all item data
 	itemCount, err := l.ItemCount()
@@ -368,6 +380,8 @@ func (l *ListCombo) DeleteAllItems() error {
 }
 
 // ItemCount returns the number of items in the listbox or an error if the operation failed.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-getcount for details.
 func (l *ListCombo) ItemCount() (int, error) {
 	i, err := SendMessageRet[int](l.HWND(), l.config.MsgGetItemCount, 0, 0)
 	if err != nil {
@@ -402,6 +416,8 @@ func (l *ListCombo) getItemData(index int) (uintptr, *ItemData, error) {
 // SetItemData sets the item data of the item at the specified index in a listbox or combobox and returns any error that occurred.
 // If data is nil, it removes the item data of the item.
 // If the item already has item data that was not set by gw itself, it returns [ErrExternalItemData].
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-setitemdata for details.
 func (l *ListCombo) SetItemData(index int, data any) error {
 	_, p, err := l.getItemData(index)
 	if err != nil {
@@ -439,6 +455,8 @@ func (l *ListCombo) SetItemData(index int, data any) error {
 // ItemData retrieves the item data of the item at the specified index in a listbox or combobox, or an error if the operation failed.
 // If the item data is not set by gw itself, it returns the data as a uintptr.
 // If the item does not have item data, it returns (uintptr(0), nil).
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-getitemdata for details.
 func (l *ListCombo) ItemData(index int) (any, error) {
 	i, p, err := l.getItemData(index)
 	if err == ErrExternalItemData {
@@ -472,6 +490,7 @@ func (l *ListCombo) ItemDataFromRaw(raw uintptr) any {
 // If no item is selected, it returns (-1, nil).
 // If applied to multiple-selection list box or combobox, it returns the index of the item that
 // has the focus rectangle. If no items are selected, the returned index is 0.
+//
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-getcursel for details.
 func (l *ListCombo) CurSelected() (int, error) {
 	i, err := SendMessageRet[int](l.HWND(), l.config.MsgGetCurSel, 0, 0)
@@ -484,6 +503,8 @@ func (l *ListCombo) CurSelected() (int, error) {
 // SetCurSelected sets the selection to the item at the specified index in a listbox or combobox and returns any error that occurred.
 // If index is -1, it removes the selection from all items.
 // If applied to multiple-selection list box or combobox, it returns [ErrFailed].
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-setcursel for details.
 func (l *ListCombo) SetCurSelected(index int) error {
 	i, err := SendMessageRet[win32.LRESULT](l.HWND(), l.config.MsgSetCurSel, index, 0)
 	if err != nil {
@@ -509,6 +530,8 @@ func (l *ListCombo) SetCurSelected(index int) error {
 // what this method does depends on whether SORT style is used.
 // If SORT style is not set, it returns [ErrFindStringNotSupported], otherwise it
 // calls CompareItem method to determine which item matches the specified string.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-findstring for details.
 func (l *ListCombo) FindItemStringIndex(startIndex int, prefix string) (int, error) {
 	if l.noItemStrings && !l.sorted {
 		return 0, ErrFindStringNotSupported
@@ -534,6 +557,8 @@ func (l *ListCombo) FindItemString(item string) (int, error) {
 // what this method does depends on whether SORT style is used.
 // If SORT style is not set, it returns [ErrFindStringNotSupported], otherwise it
 // calls CompareItem method to determine which item matches the specified string.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lb-findstringexact for details.
 func (l *ListCombo) FindItemStringExactIndex(startIndex int, s string) (int, error) {
 	if l.noItemStrings && !l.sorted {
 		return 0, ErrFindStringNotSupported
@@ -561,6 +586,7 @@ func (l *ListCombo) SetHorizontalExtent(extent int) error {
 }
 
 // HorizontalExtent returns the value sets by [ListCombo.SetHorizontalExtent] or 0 if SetHorizontalExtent is not called.
+//
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-gethorizontalextent for details.
 func (l *ListCombo) HorizontalExtent() (int, error) {
 	return SendMessageRet[int](l.HWND(), l.config.MsgGetHorizontalExtent, 0, 0)
