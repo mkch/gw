@@ -28,30 +28,36 @@ func (w *Intrinsic) CreateElement() (Element, error) {
 	if w.Hwnd == 0 {
 		return nil, &NoHwndError{Layout: "Intrinsic"}
 	}
+
+	var rect win32.RECT
+	if err := win32.GetWindowRect(w.Hwnd, &rect); err != nil {
+		return nil, err
+	}
+	dpi, err := win32.GetDpiForWindow(w.Hwnd)
+	if err != nil {
+		return nil, err
+	}
+
 	return &intrinsicElement{
 		BaseElement: BaseElement{
 			widget: w,
+		},
+		intrinsicSize: Size{
+			Width:  metrics.Px(rect.Width()).Dip(dpi),
+			Height: metrics.Px(rect.Height()).Dip(dpi),
 		},
 	}, nil
 }
 
 type intrinsicElement struct {
 	BaseElement
-	layoutSize Size
+
+	intrinsicSize Size
+	layoutSize    Size
 }
 
 func (e *intrinsicElement) Measure(cst Constraints) (size Size, err error) {
-	w := e.Widget().(*Intrinsic)
-
-	var winSize win32.RECT
-	if err = win32.GetWindowRect(w.Hwnd, &winSize); err != nil {
-		return
-	}
-	dpi, err := win32.GetDpiForWindow(w.Hwnd)
-	size = cst.Clamp(Size{
-		Width:  metrics.Px(winSize.Right - winSize.Left).Dip(dpi),
-		Height: metrics.Px(winSize.Bottom - winSize.Top).Dip(dpi),
-	})
+	size = cst.Clamp(e.intrinsicSize)
 	e.layoutSize = size
 	return
 }

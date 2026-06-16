@@ -40,7 +40,7 @@ func CStrLen(str *win32.WCHAR, bufSize int) int {
 }
 
 // GoString converts a null terminated C string to go string.
-// size is the buffer length of C string, includes terminating null.
+// size is the buffer length of C string, including the terminating null.
 //
 // If size is -1, the buffer size will be calculated using CStrLen(p, 0xFFF)+1.
 func GoString(p *win32.WCHAR, size int) string {
@@ -52,7 +52,7 @@ func GoString(p *win32.WCHAR, size int) string {
 }
 
 // CopyCString copies null terminated C string src to dest.
-// Returns the count of win32.WCHAR copied, includes terminating null.
+// Returns the count of win32.WCHAR copied, including the terminating null.
 func CopyCString(dest, src []win32.WCHAR) (charCopied int) {
 	charCopied = copy(dest[:len(dest)-1], src)
 	if charCopied < len(src) {

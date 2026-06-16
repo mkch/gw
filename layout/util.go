@@ -7,7 +7,6 @@ import (
 	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
-	"github.com/mkch/gw/win32/win32util"
 )
 
 // Infinity represents an infinite size(unbounded) constraint.
@@ -158,16 +157,13 @@ func ClientSize(hwnd win32.HWND) (size Size, err error) {
 	if err = win32.GetClientRect(hwnd, &clientRect); err != nil {
 		return
 	}
-	if err = win32util.ScreenToClient(hwnd, &clientRect); err != nil {
-		return
-	}
 	dpi, err := win32.GetDpiForWindow(hwnd)
 	if err != nil {
 		return
 	}
 	size = Size{
-		Width:  metrics.Px(clientRect.Right - clientRect.Left).Dip(dpi),
-		Height: metrics.Px(clientRect.Bottom - clientRect.Top).Dip(dpi),
+		Width:  metrics.Px(clientRect.Width()).Dip(dpi),
+		Height: metrics.Px(clientRect.Height()).Dip(dpi),
 	}
 	return
 }
@@ -178,11 +174,13 @@ func positionWindow(hwnd win32.HWND, x, y, width, height metrics.Dip) (err error
 	if err != nil {
 		return
 	}
+
 	return win32.SetWindowPos(hwnd, 0,
 		metrics.ToPx(x, dpi).Value(),
 		metrics.ToPx(y, dpi).Value(),
 		metrics.ToPx(width, dpi).Value(),
-		metrics.ToPx(height, dpi).Value(), win32.SWP_NOZORDER)
+		metrics.ToPx(height, dpi).Value(),
+		win32.SWP_NOZORDER)
 }
 
 func checkOverflow(cst Constraints, size Size) {

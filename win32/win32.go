@@ -657,20 +657,20 @@ func GetMenu(hwnd HWND) (HMENU, error) {
 	return 0, nil
 }
 
-func HIWORD[T ~uintptr](l T) WORD {
+func HIWORD[T ~int32 | ~uint32 | ~int64 | ~uint64 | ~uintptr](l T) WORD {
 	return WORD((l >> 16) & 0xFFFF)
 }
 
-func LOWORD[T ~uintptr](l T) WORD {
+func LOWORD[T ~int32 | ~uint32 | ~int64 | ~uint64 | ~uintptr](l T) WORD {
 	return WORD(l & 0xFFFF)
 }
 
-func MAKEWORD[T ~byte](a, b T) WORD {
-	return WORD(a) | WORD(b)<<8
+func MAKEWORD[T ~byte](l, h T) WORD {
+	return WORD(l) | WORD(h)<<8
 }
 
-func MAKELONG[T ~uint16](a, b T) LONG {
-	return LONG(uint32(a) | uint32(b)<<16)
+func MAKELONG[T ~uint16](l, h T) LONG {
+	return LONG(uint32(l) | uint32(h)<<16)
 }
 
 func LOBYTE[T ~uint16](w T) BYTE {
@@ -700,7 +700,7 @@ const (
 )
 
 type ACCEL struct {
-	structs.HostLayout
+	_    structs.HostLayout
 	Virt ACCEL_FVIRT
 	Key  WORD
 	Cmd  WORD
@@ -779,10 +779,12 @@ const (
 )
 
 type POINT struct {
+	_    structs.HostLayout
 	X, Y LONG
 }
 
 type RECT struct {
+	_                        structs.HostLayout
 	Left, Top, Right, Bottom LONG
 }
 
@@ -2078,3 +2080,112 @@ var lzFindWindowExW = lzUser32.NewProc("FindWindowExW")
 func FindWindowExW(parent, childAfter HWND, className, windowName *WCHAR) HWND {
 	return sysutil.As[HWND](lzFindWindowExW.Call(uintptr(parent), uintptr(childAfter), uintptr(unsafe.Pointer(className)), uintptr(unsafe.Pointer(windowName))))
 }
+
+type COMPAREITEMSTRUCT struct {
+	_         structs.HostLayout
+	CtlType   OwnerDrawCtrlType
+	CtlID     UINT
+	HwndItem  HWND
+	ItemID1   UINT
+	ItemData1 ULONG_PTR
+	ItemID2   UINT
+	ItemData2 ULONG_PTR
+	LocaleId  DWORD
+}
+
+type MEASUREITEMSTRUCT struct {
+	_          structs.HostLayout
+	CtlType    OwnerDrawCtrlType
+	CtlID      UINT
+	ItemID     UINT
+	ItemWidth  UINT
+	ItemHeight UINT
+	ItemData   ULONG_PTR
+}
+
+type DRAWITEMSTRUCT struct {
+	_          structs.HostLayout
+	CtlType    OwnerDrawCtrlType
+	CtlID      UINT
+	ItemID     UINT
+	ItemAction OwnerDrawAction
+	ItemState  OwnerDrawState
+	HwndItem   HWND
+	HDC        HDC
+	RcItem     RECT
+	ItemData   ULONG_PTR
+}
+
+type OwnerDrawCtrlType UINT
+
+const (
+	ODT_MENU     OwnerDrawCtrlType = 1
+	ODT_LISTBOX  OwnerDrawCtrlType = 2
+	ODT_COMBOBOX OwnerDrawCtrlType = 3
+	ODT_BUTTON   OwnerDrawCtrlType = 4
+	ODT_STATIC   OwnerDrawCtrlType = 5
+	ODT_HEADER   OwnerDrawCtrlType = 100
+	ODT_TAB      OwnerDrawCtrlType = 101
+	ODT_LISTVIEW OwnerDrawCtrlType = 102
+)
+
+type OwnerDrawAction UINT
+
+const (
+	ODA_DRAWENTIRE OwnerDrawAction = 0x0001
+	ODA_SELECT     OwnerDrawAction = 0x0002
+	ODA_FOCUS      OwnerDrawAction = 0x0004
+)
+
+type OwnerDrawState UINT
+
+const (
+	ODS_SELECTED     OwnerDrawState = 0x0001
+	ODS_GRAYED       OwnerDrawState = 0x0002
+	ODS_DISABLED     OwnerDrawState = 0x0004
+	ODS_CHECKED      OwnerDrawState = 0x0008
+	ODS_FOCUS        OwnerDrawState = 0x0010
+	ODS_DEFAULT      OwnerDrawState = 0x0020
+	ODS_COMBOBOXEDIT OwnerDrawState = 0x1000
+	ODS_HOTLIGHT     OwnerDrawState = 0x0040
+	ODS_INACTIVE     OwnerDrawState = 0x0080
+	ODS_NOACCEL      OwnerDrawState = 0x0100
+	ODS_NOFOCUSRECT  OwnerDrawState = 0x0200
+)
+
+type SystemState DWORD
+
+const (
+	STATE_SYSTEM_UNAVAILABLE     SystemState = 0x00000001 // Disabled
+	STATE_SYSTEM_SELECTED        SystemState = 0x00000002
+	STATE_SYSTEM_FOCUSED         SystemState = 0x00000004
+	STATE_SYSTEM_PRESSED         SystemState = 0x00000008
+	STATE_SYSTEM_CHECKED         SystemState = 0x00000010
+	STATE_SYSTEM_MIXED           SystemState = 0x00000020 // 3-state checkbox or toolbar button
+	STATE_SYSTEM_INDETERMINATE   SystemState = STATE_SYSTEM_MIXED
+	STATE_SYSTEM_READONLY        SystemState = 0x00000040
+	STATE_SYSTEM_HOTTRACKED      SystemState = 0x00000080
+	STATE_SYSTEM_DEFAULT         SystemState = 0x00000100
+	STATE_SYSTEM_EXPANDED        SystemState = 0x00000200
+	STATE_SYSTEM_COLLAPSED       SystemState = 0x00000400
+	STATE_SYSTEM_BUSY            SystemState = 0x00000800
+	STATE_SYSTEM_FLOATING        SystemState = 0x00001000 // Children "owned" not "contained" by parent
+	STATE_SYSTEM_MARQUEED        SystemState = 0x00002000
+	STATE_SYSTEM_ANIMATED        SystemState = 0x00004000
+	STATE_SYSTEM_INVISIBLE       SystemState = 0x00008000
+	STATE_SYSTEM_OFFSCREEN       SystemState = 0x00010000
+	STATE_SYSTEM_SIZEABLE        SystemState = 0x00020000
+	STATE_SYSTEM_MOVEABLE        SystemState = 0x00040000
+	STATE_SYSTEM_SELFVOICING     SystemState = 0x00080000
+	STATE_SYSTEM_FOCUSABLE       SystemState = 0x00100000
+	STATE_SYSTEM_SELECTABLE      SystemState = 0x00200000
+	STATE_SYSTEM_LINKED          SystemState = 0x00400000
+	STATE_SYSTEM_TRAVERSED       SystemState = 0x00800000
+	STATE_SYSTEM_MULTISELECTABLE SystemState = 0x01000000 // Supports multiple selection
+	STATE_SYSTEM_EXTSELECTABLE   SystemState = 0x02000000 // Supports extended selection
+	STATE_SYSTEM_ALERT_LOW       SystemState = 0x04000000 // This information is of low priority
+	STATE_SYSTEM_ALERT_MEDIUM    SystemState = 0x08000000 // This information is of medium priority
+	STATE_SYSTEM_ALERT_HIGH      SystemState = 0x10000000 // This information is of high priority
+	STATE_SYSTEM_PROTECTED       SystemState = 0x20000000 // access to this is restricted
+	STATE_SYSTEM_VALID           SystemState = 0x3FFFFFFF
+)

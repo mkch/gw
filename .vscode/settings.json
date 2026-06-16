@@ -4,4 +4,7 @@
            "-ldflags=-H=windowsgui"
         ]
     },
+    "chat.tools.terminal.autoApprove": {
+        "go": true
+    },
 }

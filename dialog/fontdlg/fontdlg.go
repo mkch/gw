@@ -4,6 +4,7 @@ import (
 	"runtime"
 	"unsafe"
 
+	"github.com/mkch/gw/combobox"
 	"github.com/mkch/gw/paint/font"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
@@ -118,14 +119,14 @@ func effectsColor(dlg win32.HWND) (win32.COLORREF, error) {
 	if err != nil {
 		return 0, err
 	}
-	i, err := win32.SendMessageW(combo, win32.CB_GETCURSEL, 0, 0)
+	i, err := win32.SendMessageW(combo, combobox.CB_GETCURSEL, 0, 0)
 	if err != nil {
 		return 0, err
 	}
 	if i < 0 {
 		return 0, nil
 	}
-	color, err := win32.SendMessageW(combo, win32.CB_GETITEMDATA, win32.WPARAM(i), 0)
+	color, err := win32.SendMessageW(combo, combobox.CB_GETITEMDATA, win32.WPARAM(i), 0)
 	if err != nil {
 		return 0, err
 	}

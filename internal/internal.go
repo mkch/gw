@@ -1,8 +1,6 @@
 package internal
 
-import "math"
-
 const (
 	MinMenuItemID = 0xFF
-	MaxMenuItemID = math.MaxUint16
+	MaxMenuItemID = 0x3FF
 )

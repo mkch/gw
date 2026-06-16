@@ -3,14 +3,17 @@ package gw
 import (
 	"errors"
 	"iter"
+	"math"
 	"unsafe"
 
 	"github.com/mkch/gg"
 	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/events"
+	"github.com/mkch/gw/internal"
 	internal_app "github.com/mkch/gw/internal/app"
 	"github.com/mkch/gw/internal/appmsg"
+	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint"
@@ -96,6 +99,14 @@ type BaseWindow interface {
 	Dimensions() (left, top, width, height int, err error)
 	// SetClientSize modifies the window size so that the client area has the specified size.
 	SetClientSize(width, height int) error
+	// AssignID assigns an ID to the child window and returns the ID.
+	// If child is not a child of this window, an error is returned.
+	// If the child window already has an ID assigned, an error is returned.
+	AssignID(child win32.HWND) error
+	// RemoveID removes the child window with the specified ID from the lookup map and set the id of
+	// child to 0.
+	// If child is not a child of this window, an error is returned.
+	RemoveID(child win32.HWND) error
 
 	SetOnLButtonUpListener(func(event events.MouseClickEvent))
 	SetOnLButtonDownListener(func(event events.MouseClickEvent))
@@ -104,6 +115,9 @@ type BaseWindow interface {
 	SetOnLButtonDoubleClickListener(func(event events.MouseClickEvent))
 	SetOnSizeListener(func(event events.SizeEvent))
 	SetOnDestroyListener(func())
+
+	// DefWndProc calls the default window procedure of the window.
+	DefWndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT
 
 	// WndProc is called when a message is received in the window procedure.
 	// The default implementation calls the native window procedure.
@@ -166,6 +180,8 @@ var _ BaseWindow = (*BaseWindowImpl)(nil)
 // BaseWindowImpl is a helper implementation of [BaseWindow].
 // It can be embedded in concrete window types to implement [BaseWindow].
 type BaseWindowImpl struct {
+	hwnd                       win32.HWND
+	oldWndProc                 uintptr // The original window procedure before attaching.
 	lButtonUpListener          func(event events.MouseClickEvent)
 	lButtonDownListener        func(event events.MouseClickEvent)
 	rButtonUpListener          func(event events.MouseClickEvent)
@@ -176,8 +192,7 @@ type BaseWindowImpl struct {
 	destroyListener            func()
 	msgListeners               map[win32.UINT]msgListenerMap
 	values                     map[any]any
-	hwnd                       win32.HWND
-	oldWndProc                 uintptr // The original window procedure before attaching.
+	childIDMap                 *objectmap.ObjectMap[win32.HWND]
 }
 
 func (w *BaseWindowImpl) CreateHandle() (win32.HWND, error) {
@@ -320,12 +335,12 @@ func (w *BaseWindowImpl) OnInit() error { return nil }
 
 func (w *BaseWindowImpl) OnDestroy() {
 	w.callOnDestroyListener()
-	w.defWndProc(w.hwnd, win32.WM_DESTROY, 0, 0)
+	w.DefWndProc(w.hwnd, win32.WM_DESTROY, 0, 0)
 }
 
 func (w *BaseWindowImpl) OnPaint(event *events.PaintEvent) {
 	// For performance, do not call h.HWND()
-	event.CallDefProc(w.defWndProc)
+	event.CallDefProc(w.DefWndProc)
 }
 
 func (w *BaseWindowImpl) Destroy() error {
@@ -350,20 +365,62 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 			w.paintBuffer = nil
 		}
 		LookupWindow(hwnd).OnDestroy()
+		return 0
 	case win32.WM_CTLCOLORSTATIC:
+		// Process WM_CTLCOLORSTATIC here instead of in Window type to support STATIC in child controls.
 		if ret, err := win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_CTLCOLORSTATIC, wParam, lParam); err == nil && ret != 0 {
 			return ret
 		}
+	case win32.WM_COMMAND:
+		// Process WM_COMMAND here instead of in Window type to support commands in child controls.
+		if lParam != 0 { // Control command
+			win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_COMMAND, wParam, lParam)
+		}
+	case win32.WM_MENUCOMMAND:
+		// Process WM_MENUCOMMAND here instead of in Window type to support TrackPopupMenu of child windows.
+		menu.OnWmMenuCommand(wParam, lParam)
+		return 0
+	case win32.WM_COMPAREITEM:
+		data := (*win32.COMPAREITEMSTRUCT)(unsafe.Add(nil, lParam))
+		result, _ := win32.SendMessageW(data.HwndItem, appmsg.REFLECT_COMPAREITEM, wParam, lParam)
+		return result
+	case win32.WM_MEASUREITEM:
+		s := (*win32.MEASUREITEMSTRUCT)(unsafe.Add(nil, lParam))
+		switch s.CtlType {
+		case win32.ODT_MENU:
+			// NOP
+		default:
+			child := w.lookupChild(win32.WORD(s.CtlID))
+			if child == 0 {
+				break
+			}
+			win32.SendMessageW(child, appmsg.REFLECT_MEASUREITEM, wParam, lParam)
+			return 1
+		}
+	case win32.WM_DRAWITEM:
+		s := (*win32.DRAWITEMSTRUCT)(unsafe.Add(nil, lParam))
+		switch s.CtlType {
+		case win32.ODT_MENU:
+			// NOP
+		default:
+			win32.SendMessageW(s.HwndItem, appmsg.REFLECT_DRAWITEM, wParam, lParam)
+			return 1
+		}
 	case win32.WM_LBUTTONUP:
 		LookupWindow(hwnd).OnLButtonUp(new(events.NewMouseClickEvent(wParam, lParam)))
+		return 0
 	case win32.WM_LBUTTONDOWN:
 		LookupWindow(hwnd).OnLButtonDown(new(events.NewMouseClickEvent(wParam, lParam)))
+		return 0
 	case win32.WM_RBUTTONUP:
 		LookupWindow(hwnd).OnRButtonUp(new(events.NewMouseClickEvent(wParam, lParam)))
+		return 0
 	case win32.WM_RBUTTONDOWN:
 		LookupWindow(hwnd).OnRButtonDown(new(events.NewMouseClickEvent(wParam, lParam)))
+		return 0
 	case win32.WM_LBUTTONDBLCLK:
 		LookupWindow(hwnd).OnLButtonDoubleClick(new(events.NewMouseClickEvent(wParam, lParam)))
+		return 0
 	case win32.WM_KEYDOWN:
 		LookupWindow(hwnd).OnKeyDown(new(events.NewKeyEvent(wParam, lParam)))
 		return 0
@@ -398,6 +455,7 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 			chkerr.MustOK(w.paintBuffer.Resize(int(evt.Size.Width()), int(evt.Size.Height())))
 		}
 		LookupWindow(hwnd).OnSize(&evt)
+		return 0
 	case win32.WM_DPICHANGED:
 		// For top level windows.
 		suggested := (*win32.RECT)(unsafe.Pointer(uintptr(unsafe.Add(nil, lParam))))
@@ -405,7 +463,7 @@ func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win
 			win32.INT(suggested.Left), win32.INT(suggested.Top), win32.INT(suggested.Width()), win32.INT(suggested.Height()),
 			win32.SWP_NOZORDER|win32.SWP_NOACTIVATE)
 	}
-	return w.defWndProc(hwnd, message, wParam, lParam)
+	return w.DefWndProc(hwnd, message, wParam, lParam)
 }
 
 // sendToChildren sends the message to all child windows of hwnd recursively.
@@ -416,7 +474,7 @@ func sendToChildren(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lP
 	}
 }
 
-func (w *BaseWindowImpl) defWndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+func (w *BaseWindowImpl) DefWndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 	return win32.CallWindowProcW(w.oldWndProc, hwnd, message, wParam, lParam)
 }
 
@@ -438,49 +496,49 @@ var wndProc = windows.NewCallback(func(hwnd win32.HWND, message win32.UINT, wPar
 })
 
 func (w *BaseWindowImpl) OnKeyDown(event *events.KeyEvent) {
-	w.defWndProc(w.hwnd, win32.WM_KEYDOWN, event.VKCode, win32.LPARAM(event.State))
+	w.DefWndProc(w.hwnd, win32.WM_KEYDOWN, event.VKCode, win32.LPARAM(event.State))
 }
 
 func (w *BaseWindowImpl) OnSysKeyDown(event *events.KeyEvent) {
-	w.defWndProc(w.hwnd, win32.WM_SYSKEYDOWN, event.VKCode, win32.LPARAM(event.State))
+	w.DefWndProc(w.hwnd, win32.WM_SYSKEYDOWN, event.VKCode, win32.LPARAM(event.State))
 }
 
 func (w *BaseWindowImpl) OnKeyUp(event *events.KeyEvent) {
-	w.defWndProc(w.hwnd, win32.WM_KEYUP, event.VKCode, win32.LPARAM(event.State))
+	w.DefWndProc(w.hwnd, win32.WM_KEYUP, event.VKCode, win32.LPARAM(event.State))
 }
 
 func (w *BaseWindowImpl) OnSysKeyUp(event *events.KeyEvent) {
-	w.defWndProc(w.hwnd, win32.WM_SYSKEYUP, event.VKCode, win32.LPARAM(event.State))
+	w.DefWndProc(w.hwnd, win32.WM_SYSKEYUP, event.VKCode, win32.LPARAM(event.State))
 }
 
 func (w *BaseWindowImpl) OnLButtonDown(event *events.MouseClickEvent) {
 	w.callOnLButtonDownListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_LBUTTONDOWN, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
+	w.DefWndProc(w.hwnd, win32.WM_LBUTTONDOWN, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 func (w *BaseWindowImpl) OnLButtonUp(event *events.MouseClickEvent) {
 	w.callOnLButtonUpListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_LBUTTONUP, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
+	w.DefWndProc(w.hwnd, win32.WM_LBUTTONUP, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 func (w *BaseWindowImpl) OnRButtonDown(event *events.MouseClickEvent) {
 	w.callOnRButtonDownListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_RBUTTONDOWN, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
+	w.DefWndProc(w.hwnd, win32.WM_RBUTTONDOWN, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 func (w *BaseWindowImpl) OnRButtonUp(event *events.MouseClickEvent) {
 	w.callOnRButtonUpListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_RBUTTONUP, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
+	w.DefWndProc(w.hwnd, win32.WM_RBUTTONUP, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 func (w *BaseWindowImpl) OnLButtonDoubleClick(event *events.MouseClickEvent) {
 	w.callOnLButtonDoubleClickListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_LBUTTONDBLCLK, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
+	w.DefWndProc(w.hwnd, win32.WM_LBUTTONDBLCLK, win32.WPARAM(event.Opt), win32.LPARAM(event.Pt))
 }
 
 func (w *BaseWindowImpl) OnSize(event *events.SizeEvent) {
 	w.callOnSizeChangedListener(*event)
-	w.defWndProc(w.hwnd, win32.WM_SIZE, win32.WPARAM(event.Type), win32.LPARAM(event.Size))
+	w.DefWndProc(w.hwnd, win32.WM_SIZE, win32.WPARAM(event.Type), win32.LPARAM(event.Size))
 }
 
 type PopupMenuSpec struct {
@@ -617,6 +675,55 @@ func (w *BaseWindowImpl) Dimensions() (left, top, right, bottom int, err error) 
 
 func (w *BaseWindowImpl) SetClientSize(width, height int) error {
 	return win32util.SetClientSize(w.HWND(), win32.INT(width), win32.INT(height))
+}
+
+func (w *BaseWindowImpl) AssignID(child win32.HWND) error {
+	if p, err := win32.GetAncestor(child, win32.GA_PARENT); err != nil {
+		return err
+	} else if p != w.HWND() {
+		return errors.New("the specified window is not a child of this window")
+	}
+	if w.childIDMap == nil {
+		w.childIDMap = objectmap.New[win32.HWND](internal.MinMenuItemID+1, math.MaxUint16)
+	} else {
+		id, err := win32.GetWindowLongPtrW(child, win32.GWLP_ID)
+		if err != nil {
+			return err
+		}
+		if _, exists := w.childIDMap.Value(objectmap.Handle(id)); exists {
+			return errors.New("the specified child window already has an ID assigned")
+		}
+	}
+	id := w.childIDMap.Add(child)
+	_, err := win32.SetWindowLongPtrW(child, win32.GWLP_ID, win32.LONG_PTR(id))
+	return err
+}
+
+// lookupChild looks up the child window with the specified ID and returns its HWND.
+// If no child window with the ID is found, it returns 0.
+func (w *BaseWindowImpl) lookupChild(id win32.WORD) win32.HWND {
+	if w.childIDMap == nil {
+		return 0
+	}
+	hwnd, _ := w.childIDMap.Value(objectmap.Handle(id))
+	return hwnd
+}
+
+func (w *BaseWindowImpl) RemoveID(child win32.HWND) error {
+	if p, err := win32.GetAncestor(child, win32.GA_PARENT); err != nil {
+		return err
+	} else if p != w.HWND() {
+		return errors.New("the specified window is not a child of this window")
+	}
+	if w.childIDMap == nil {
+		return nil
+	}
+	id, err := win32.SetWindowLongPtrW(child, win32.GWLP_ID, 0)
+	if err != nil {
+		return err
+	}
+	w.childIDMap.Remove(objectmap.Handle(id))
+	return nil
 }
 
 // wiErrAlreadyAttached is returned by Attach if the HWND or *WindowBase

@@ -9,7 +9,6 @@ import (
 	"github.com/mkch/gw"
 	"github.com/mkch/gw/internal"
 	"github.com/mkch/gw/internal/app"
-	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
@@ -148,7 +147,7 @@ func (w *Window) rebuildAccelTable() error {
 	processMenuItemAccelTable(w.popupMenuAccel)
 
 	if len(table) > 0 {
-		h, err := win32.CreateAcceleratorTableW(table)
+		h, err := win32.CreateAcceleratorTableW(win32.AlignSlice(table))
 		if err != nil {
 			return err
 		}
@@ -327,19 +326,14 @@ func (w *Window) CreateHandle() (win32.HWND, error) {
 func (w *Window) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 	switch message {
 	case win32.WM_COMMAND:
-		if lParam != 0 { // Control command
-			win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_COMMAND, wParam, lParam)
-		} else { // Menu or accelerator command
+		if lParam == 0 {
+			// Menu or accelerator command
 			// Because all the menus are notified by position,
 			// only accelerator commands goes here.
 			if item, ok := w.accelToMenuItemMap[win32.LOWORD(wParam)]; ok {
 				item.OnClick()
 			}
 		}
-		return 0
-	case win32.WM_MENUCOMMAND:
-		menu.OnWmMenuCommand(wParam, lParam)
-		return 0
 	case win32.WM_CLOSE:
 		oc, ok := gw.LookupWindow(w.HWND()).(interface{ OnClose() bool })
 		if ok && !oc.OnClose() {
