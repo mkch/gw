@@ -104,7 +104,7 @@ type DrawItemInfo struct {
 // ListCombo represents the common functionality for listbox and combobox controls.
 type ListCombo struct {
 	control.Control
-	spec           Config
+	config         Config
 	pinnedItemData gg.Set[*ItemData]
 	// Whether the listbox or combobox is an owner-drawn control.
 	ownerDraw bool
@@ -121,7 +121,7 @@ func (l *ListCombo) OnInit(spec Config) (err error) {
 		return
 	}
 
-	l.spec = spec
+	l.config = spec
 
 	hwnd := l.HWND()
 
@@ -131,10 +131,10 @@ func (l *ListCombo) OnInit(spec Config) (err error) {
 	}
 	style := win32.WindowStyle(ls)
 
-	ownerDraw := style&l.spec.StyleOwnerDrawFixed != 0 || style&l.spec.StyleOwnerDrawVariable != 0
+	ownerDraw := style&l.config.StyleOwnerDrawFixed != 0 || style&l.config.StyleOwnerDrawVariable != 0
 	l.ownerDraw = ownerDraw
-	l.noItemStrings = ownerDraw && style&l.spec.StyleHasStrings == 0
-	l.sorted = style&l.spec.StyleSort != 0
+	l.noItemStrings = ownerDraw && style&l.config.StyleHasStrings == 0
+	l.sorted = style&l.config.StyleSort != 0
 
 	if ownerDraw {
 		var p win32.HWND
@@ -209,10 +209,10 @@ func (l *ListCombo) WndProc(hwnd win32.HWND, msg win32.UINT, wParam win32.WPARAM
 // It should return -1 if item1 is less than item2, 0 if they are equal, and 1 if item1 is greater than item2.
 // The default implementation calls the item comparator(See [ListCombo.SetItemComparator]) if it is not nil, otherwise it returns 0.
 func (l *ListCombo) OnCompareItem(item1, item2 any, locale win32.DWORD) int {
-	if l.spec.OnCompareItem == nil {
+	if l.config.OnCompareItem == nil {
 		return 0
 	}
-	return l.spec.OnCompareItem(item1, item2, locale)
+	return l.config.OnCompareItem(item1, item2, locale)
 }
 
 // OnMeasureItem is called when the control needs to know the size of an item in an owner-drawn control.
@@ -221,19 +221,19 @@ func (l *ListCombo) OnCompareItem(item1, item2 any, locale win32.DWORD) int {
 // It should return the width and height of the item in pixels.
 // The default implementation calls the OnMeasureItem of the [Config] if it is not nil, otherwise it returns 0, 0.
 func (l *ListCombo) OnMeasureItem(index int, itemData any) (width, height int) {
-	if l.spec.OnMeasureItem == nil {
+	if l.config.OnMeasureItem == nil {
 		return 0, 0
 	}
-	return l.spec.OnMeasureItem(index, itemData)
+	return l.config.OnMeasureItem(index, itemData)
 }
 
 // OnDrawItem is called when the control needs to draw an item in an owner-drawn control.
 // The default implementation calls the OnDrawItem of the [Config] if it is not nil.
 func (l *ListCombo) OnDrawItem(info *DrawItemInfo) {
-	if l.spec.OnDrawItem == nil {
+	if l.config.OnDrawItem == nil {
 		return
 	}
-	l.spec.OnDrawItem(info)
+	l.config.OnDrawItem(info)
 }
 
 // ItemData is the data associated with an item in a listbox or combobox.
@@ -263,7 +263,7 @@ func (l *ListCombo) AppendItem(data any) error {
 		l.pinnedItemData = make(gg.Set[*ItemData])
 	}
 	l.pinnedItemData.Add(d)
-	return SendMessageOkay(l.HWND(), l.spec.MsgAddString, 0, unsafe.Pointer(d))
+	return SendMessageOkay(l.HWND(), l.config.MsgAddString, 0, unsafe.Pointer(d))
 }
 
 // AppendItemString adds a string to a listbox or combobox and returns the index of the new item, or an error if the operation failed.
@@ -277,7 +277,7 @@ func (l *ListCombo) AppendItemString(s string) (int, error) {
 func (l *ListCombo) addString(s string) (int, error) {
 	var buf []win32.WCHAR
 	win32util.CString(s, &buf)
-	i, err := SendMessageRet[int](l.HWND(), l.spec.MsgAddString, 0, unsafe.Pointer(&buf[0]))
+	i, err := SendMessageRet[int](l.HWND(), l.config.MsgAddString, 0, unsafe.Pointer(&buf[0]))
 	if err != nil {
 		return 0, err
 	}
@@ -292,12 +292,12 @@ func (l *ListCombo) GetItemString(index int) (string, error) {
 	if err := l.checkCanUseItemString(); err != nil {
 		return "", err
 	}
-	textLen, err := SendMessageRetNoError[int](l.HWND(), l.spec.MsgGetItemTextLen, index, 0)
+	textLen, err := SendMessageRetNoError[int](l.HWND(), l.config.MsgGetItemTextLen, index, 0)
 	if err != nil {
 		return "", err
 	}
 	buf := make([]win32.WCHAR, textLen+1)
-	textLen, err = SendMessageRetNoError[int](l.HWND(), l.spec.MsgGetItemText, index, unsafe.Pointer(&buf[0]))
+	textLen, err = SendMessageRetNoError[int](l.HWND(), l.config.MsgGetItemText, index, unsafe.Pointer(&buf[0]))
 	if err != nil {
 		return "", err
 	}
@@ -307,7 +307,7 @@ func (l *ListCombo) GetItemString(index int) (string, error) {
 func (l *ListCombo) insertItemString(index int, s string) (int, error) {
 	var buf []win32.WCHAR
 	win32util.CString(s, &buf)
-	i, err := SendMessageRet[int](l.HWND(), l.spec.MsgInsertString, index, unsafe.Pointer(&buf[0]))
+	i, err := SendMessageRet[int](l.HWND(), l.config.MsgInsertString, index, unsafe.Pointer(&buf[0]))
 	if err != nil {
 		return 0, err
 	}
@@ -339,7 +339,7 @@ func (l *ListCombo) DeleteItem(index int) error {
 		l.pinnedItemData.Delete(data)
 	}
 	// Delete the item
-	return SendMessageNoError(l.HWND(), l.spec.MsgDeleteString, index, 0)
+	return SendMessageNoError(l.HWND(), l.config.MsgDeleteString, index, 0)
 }
 
 // DeleteAllItems removes all items from a listbox or combobox and returns any error that occurred.
@@ -361,7 +361,7 @@ func (l *ListCombo) DeleteAllItems() error {
 		l.pinnedItemData.Delete(data)
 	}
 	// Delete all items
-	if _, err = win32.SendMessageW(l.HWND(), l.spec.MsgResetContent, 0, 0); err != nil {
+	if _, err = win32.SendMessageW(l.HWND(), l.config.MsgResetContent, 0, 0); err != nil {
 		return err
 	}
 	return nil
@@ -369,7 +369,7 @@ func (l *ListCombo) DeleteAllItems() error {
 
 // ItemCount returns the number of items in the listbox or an error if the operation failed.
 func (l *ListCombo) ItemCount() (int, error) {
-	i, err := SendMessageRet[int](l.HWND(), l.spec.MsgGetItemCount, 0, 0)
+	i, err := SendMessageRet[int](l.HWND(), l.config.MsgGetItemCount, 0, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -385,7 +385,7 @@ func (l *ListCombo) ItemCount() (int, error) {
 // If the item does not have item data, it returns (0, nil, nil).
 // If the item data is not set by gw itself, it returns the item data as uintptr.
 func (l *ListCombo) getItemData(index int) (uintptr, *ItemData, error) {
-	i, err := SendMessageRetNoError[uintptr](l.HWND(), l.spec.MsgGetItemData, index, 0)
+	i, err := SendMessageRetNoError[uintptr](l.HWND(), l.config.MsgGetItemData, index, 0)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -412,7 +412,7 @@ func (l *ListCombo) SetItemData(index int, data any) error {
 			// Remove item data
 			p.Unpin()
 			l.pinnedItemData.Delete(p)
-			return SendMessageNoError(l.HWND(), l.spec.MsgSetItemData, index, 0)
+			return SendMessageNoError(l.HWND(), l.config.MsgSetItemData, index, 0)
 		} else {
 			// Update the data of the existing itemData
 			p.Data = &data
@@ -432,7 +432,7 @@ func (l *ListCombo) SetItemData(index int, data any) error {
 	}
 	l.pinnedItemData.Add(p)
 
-	return SendMessageNoError(l.HWND(), l.spec.MsgSetItemData, index, unsafe.Pointer(p))
+	return SendMessageNoError(l.HWND(), l.config.MsgSetItemData, index, unsafe.Pointer(p))
 
 }
 
@@ -474,7 +474,7 @@ func (l *ListCombo) ItemDataFromRaw(raw uintptr) any {
 // has the focus rectangle. If no items are selected, the returned index is 0.
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-getcursel for details.
 func (l *ListCombo) CurSelected() (int, error) {
-	i, err := SendMessageRet[int](l.HWND(), l.spec.MsgGetCurSel, 0, 0)
+	i, err := SendMessageRet[int](l.HWND(), l.config.MsgGetCurSel, 0, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -485,7 +485,7 @@ func (l *ListCombo) CurSelected() (int, error) {
 // If index is -1, it removes the selection from all items.
 // If applied to multiple-selection list box or combobox, it returns [ErrFailed].
 func (l *ListCombo) SetCurSelected(index int) error {
-	i, err := SendMessageRet[win32.LRESULT](l.HWND(), l.spec.MsgSetCurSel, index, 0)
+	i, err := SendMessageRet[win32.LRESULT](l.HWND(), l.config.MsgSetCurSel, index, 0)
 	if err != nil {
 		return err
 	}
@@ -515,7 +515,7 @@ func (l *ListCombo) FindItemStringIndex(startIndex int, prefix string) (int, err
 	}
 	var buf []win32.WCHAR
 	win32util.CString(prefix, &buf)
-	return SendMessageRet[int](l.HWND(), l.spec.MsgFindString, win32.WPARAM(startIndex), win32.LPARAM(uintptr(unsafe.Pointer(&buf[0]))))
+	return SendMessageRet[int](l.HWND(), l.config.MsgFindString, win32.WPARAM(startIndex), win32.LPARAM(uintptr(unsafe.Pointer(&buf[0]))))
 }
 
 // FindItemString calls FindItemStringIndex(-1, item).
@@ -541,7 +541,7 @@ func (l *ListCombo) FindItemStringExactIndex(startIndex int, s string) (int, err
 	var buf []win32.WCHAR
 	win32util.CString(s, &buf)
 
-	return SendMessageRet[int](l.HWND(), l.spec.MsgFindStringExact, win32.WPARAM(startIndex), win32.LPARAM(uintptr(unsafe.Pointer(&buf[0]))))
+	return SendMessageRet[int](l.HWND(), l.config.MsgFindStringExact, win32.WPARAM(startIndex), win32.LPARAM(uintptr(unsafe.Pointer(&buf[0]))))
 }
 
 // FindItemStringExact calls FindItemStringExactIndex(-1, item).
@@ -557,13 +557,13 @@ func (l *ListCombo) FindItemStringExact(item string) (int, error) {
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-sethorizontalextent for details.
 func (l *ListCombo) SetHorizontalExtent(extent int) error {
-	return SendMessageNoError(l.HWND(), l.spec.MsgSetHorizontalExtent, extent, 0)
+	return SendMessageNoError(l.HWND(), l.config.MsgSetHorizontalExtent, extent, 0)
 }
 
 // HorizontalExtent returns the value sets by [ListCombo.SetHorizontalExtent] or 0 if SetHorizontalExtent is not called.
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-gethorizontalextent for details.
 func (l *ListCombo) HorizontalExtent() (int, error) {
-	return SendMessageRet[int](l.HWND(), l.spec.MsgGetHorizontalExtent, 0, 0)
+	return SendMessageRet[int](l.HWND(), l.config.MsgGetHorizontalExtent, 0, 0)
 }
 
 // SetItemHeight Sets the height, in pixels, of items in a list box.
@@ -577,7 +577,7 @@ func (l *ListCombo) HorizontalExtent() (int, error) {
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-setitemheight for details.
 func (l *ListCombo) SetItemHeight(itemIndex int, height int) error {
-	return SendMessageNoError(l.HWND(), l.spec.MsgSetItemHeight, itemIndex, height)
+	return SendMessageNoError(l.HWND(), l.config.MsgSetItemHeight, itemIndex, height)
 }
 
 // ItemHeight sets the height of items in a list box.
@@ -588,7 +588,7 @@ func (l *ListCombo) SetItemHeight(itemIndex int, height int) error {
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-getitemheight for details.
 func (l *ListCombo) ItemHeight(itemIndex int) (int, error) {
-	return SendMessageRetNoError[int](l.HWND(), l.spec.MsgGetItemHeight, itemIndex, 0)
+	return SendMessageRetNoError[int](l.HWND(), l.config.MsgGetItemHeight, itemIndex, 0)
 }
 
 // SetLocale sets the current locale of the list box or combo box.
@@ -596,14 +596,14 @@ func (l *ListCombo) ItemHeight(itemIndex int) (int, error) {
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-setlocale for details.
 func (l *ListCombo) SetLocale(locale win32.LCID) (oldLocale win32.LCID, err error) {
-	return SendMessageRetNoError[win32.LCID](l.HWND(), l.spec.MsgSetLocale, win32.WPARAM(locale), 0)
+	return SendMessageRetNoError[win32.LCID](l.HWND(), l.config.MsgSetLocale, win32.WPARAM(locale), 0)
 }
 
 // Locale returns the current locale of the list box.
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-setlocale for details.
 func (l *ListCombo) Locale() (win32.LCID, error) {
-	return SendMessageRetNoError[win32.LCID](l.HWND(), l.spec.MsgGetLocale, 0, 0)
+	return SendMessageRetNoError[win32.LCID](l.HWND(), l.config.MsgGetLocale, 0, 0)
 }
 
 // FirstVisible returns the index of the first visible item in a list box.
@@ -612,14 +612,14 @@ func (l *ListCombo) Locale() (win32.LCID, error) {
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-gettopindex for details.
 func (l *ListCombo) FirstVisible() (int, error) {
-	return SendMessageRet[int](l.HWND(), l.spec.MsgGetTopIndex, 0, 0)
+	return SendMessageRet[int](l.HWND(), l.config.MsgGetTopIndex, 0, 0)
 }
 
 // EnsureVisible scrolls the list box contents so that either the specified item appears at the top of the list box or the maximum scroll range has been reached.
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-settopindex for details.
 func (l *ListCombo) EnsureVisible(index int) error {
-	return SendMessageNoError(l.HWND(), l.spec.MsgSetTopIndex, index, 0)
+	return SendMessageNoError(l.HWND(), l.config.MsgSetTopIndex, index, 0)
 }
 
 // InitStorage pre-allocates memory for storing list items.
@@ -627,7 +627,7 @@ func (l *ListCombo) EnsureVisible(index int) error {
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-initstorage for details.
 func (l *ListCombo) InitStorage(itemCount, avgStringLen int) error {
-	i, err := SendMessageRet[win32.LRESULT](l.HWND(), l.spec.MsgInitStorage, itemCount, itemCount*(avgStringLen+1)*int(unsafe.Sizeof(win32.WCHAR(0))))
+	i, err := SendMessageRet[win32.LRESULT](l.HWND(), l.config.MsgInitStorage, itemCount, itemCount*(avgStringLen+1)*int(unsafe.Sizeof(win32.WCHAR(0))))
 	if err != nil {
 		return err
 	}
@@ -651,7 +651,7 @@ func (l *ListCombo) SelectItemStringIndex(startIndex int, prefix string) error {
 	}
 	var buf []win32.WCHAR
 	win32util.CString(prefix, &buf)
-	_, err := SendMessageRetNoError[int](l.HWND(), l.spec.MsgSelectString, win32.WPARAM(startIndex), win32.LPARAM(uintptr(unsafe.Pointer(&buf[0]))))
+	_, err := SendMessageRetNoError[int](l.HWND(), l.config.MsgSelectString, win32.WPARAM(startIndex), win32.LPARAM(uintptr(unsafe.Pointer(&buf[0]))))
 	return err
 }
 
