@@ -23,7 +23,7 @@ func New[V any](minHandle Handle, maxHandle Handle) *ObjectMap[V] {
 
 func (m *ObjectMap[V]) Add(value V) Handle {
 	var count = m.maxHandle - m.minHandle
-	for i := Handle(0); i < count; i++ {
+	for len(m.m) < int(count) {
 		h := Handle(rand.Uint64()%uint64(count) + uint64(m.minHandle))
 		if _, ok := m.m[h]; !ok {
 			m.m[h] = value
