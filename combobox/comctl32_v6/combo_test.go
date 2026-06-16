@@ -1,4 +1,4 @@
-package comcontrol32v6_test
+package comctl32_v6_test
 
 import (
 	"testing"
