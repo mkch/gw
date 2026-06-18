@@ -37,10 +37,11 @@ func ui(app *app.App) {
 	}))
 
 	list := chkerr.Must(listbox.New(&listbox.Spec{
-		Parent: win,
-		Style:  win32.WS_VISIBLE | listbox.LBS_STANDARD | listbox.LBS_NOINTEGRALHEIGHT | listbox.LBS_USETABSTOPS,
-		Width:  metrics.Dip(200),
-		Height: metrics.Dip(200),
+		Parent:    win,
+		Style:     win32.WS_VISIBLE | listbox.LBS_STANDARD | listbox.LBS_NOINTEGRALHEIGHT | listbox.LBS_USETABSTOPS,
+		Width:     metrics.Dip(200),
+		Height:    metrics.Dip(200),
+		Draggable: true,
 	}))
 
 	list.SetTabStops([]int32{4 * 8, 4 * 16})

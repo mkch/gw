@@ -13,6 +13,7 @@ import (
 	"github.com/mkch/gw/internal"
 	internal_app "github.com/mkch/gw/internal/app"
 	"github.com/mkch/gw/internal/appmsg"
+	"github.com/mkch/gw/internal/msghandler"
 	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/menu"
 	"github.com/mkch/gw/metrics"
@@ -347,12 +348,55 @@ func (w *BaseWindowImpl) Destroy() error {
 	return win32.DestroyWindow(w.HWND())
 }
 
+type MessageHandlerKey struct {
+	message win32.UINT
+	key     msghandler.HandlerKey
+}
+
+// AddMessageHandler adds a message handler for the specified message in the window procedure of all windows in the app.
+// The returned MessageHandlerKey can be used to remove the handler by calling [RemoveMessageHandler].
+func AddMessageHandler(message win32.UINT, handler func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, callPrev win32.WndProc) win32.LRESULT) MessageHandlerKey {
+	m := internal_app.MsgHandlers(internal_app.ThreadLocalApp())
+	c := m[message]
+	if c == nil {
+		c = &msghandler.Chain{}
+		c.AddHandler(func(arg *msghandler.Arg, callPrev func(*msghandler.Arg) win32.LRESULT) win32.LRESULT {
+			return LookupWindow(arg.Hwnd).DefWndProc(arg.Hwnd, arg.Message, arg.WParam, arg.LParam)
+		})
+		m[message] = c
+	}
+	return MessageHandlerKey{
+		message: message,
+		key: c.AddHandler(func(arg *msghandler.Arg, next func(*msghandler.Arg) win32.LRESULT) win32.LRESULT {
+			return handler(arg.Hwnd, arg.Message, arg.WParam, arg.LParam,
+				func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+					return next(&msghandler.Arg{Hwnd: hwnd, Message: message, WParam: wParam, LParam: lParam})
+				})
+		})}
+}
+
+// RemoveMessageHandler removes the message handler added by [AddMessageHandler].
+func RemoveMessageHandler(key MessageHandlerKey) {
+	m := internal_app.MsgHandlers(internal_app.ThreadLocalApp())
+	m[key.message].RemoveHandler(key.key)
+}
+
 func (w *BaseWindowImpl) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-	if w.msgListeners != nil {
-		if listeners := w.msgListeners[message]; listeners != nil {
-			for _, l := range listeners {
-				l(hwnd, message, wParam, lParam)
-			}
+	if c := internal_app.MsgHandlers(internal_app.ThreadLocalApp())[message]; c != nil {
+		return c.Execute(&msghandler.Arg{
+			Hwnd:    hwnd,
+			Message: message,
+			WParam:  wParam,
+			LParam:  lParam,
+		})
+	}
+	return w.realWndProc(hwnd, message, wParam, lParam)
+}
+
+func (w *BaseWindowImpl) realWndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+	if listeners := w.msgListeners[message]; listeners != nil {
+		for _, l := range listeners {
+			l(hwnd, message, wParam, lParam)
 		}
 	}
 	switch message {

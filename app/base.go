@@ -8,6 +8,7 @@ import (
 
 	"github.com/mkch/gg"
 	"github.com/mkch/gw/internal/appmsg"
+	"github.com/mkch/gw/internal/msghandler"
 	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/win32"
 	"golang.org/x/sys/windows"
@@ -36,6 +37,11 @@ func app_callMsgRetListeners(app *BaseApp, hwnd win32.HWND, message win32.UINT, 
 	app.callMsgRetListeners(hwnd, message, wParam, lParam, result)
 }
 
+//go:linkname app_MsgHandlers github.com/mkch/gw/internal/app.MsgHandlers
+func app_MsgHandlers(app *BaseApp) map[win32.UINT]*msghandler.Chain {
+	return app.msgHandlers
+}
+
 // MessageRetListener is a function type used by [BaseApp.AddMessageRetListener] and [App.AddMessageRetListener].
 type MessageRetListener func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT)
 
@@ -51,6 +57,7 @@ type BaseApp struct {
 	getMsgHook        win32.HHOOK
 	msgPreTranslators map[win32.HWND]func(msg *win32.MSG) bool
 	msgRetListeners   map[MessageRetListenerKey]MessageRetListener
+	msgHandlers       map[win32.UINT]*msghandler.Chain
 	pinner            runtime.Pinner
 }
 
@@ -73,6 +80,7 @@ func (b *BaseApp) init(hookGetMsg bool) *BaseApp {
 	b.postMap = safeMap{ObjectMap: objectmap.New[func()](1, math.MaxUint)}
 	b.msgPreTranslators = make(map[win32.HWND]func(msg *win32.MSG) bool)
 	b.msgRetListeners = make(map[MessageRetListenerKey]MessageRetListener)
+	b.msgHandlers = make(map[win32.UINT]*msghandler.Chain)
 
 	// Prepare postMap
 	// See https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagew#remarks

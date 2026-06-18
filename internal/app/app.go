@@ -4,6 +4,7 @@ import (
 	_ "unsafe" // for go:linkname
 
 	"github.com/mkch/gw/app"
+	"github.com/mkch/gw/internal/msghandler"
 	"github.com/mkch/gw/win32"
 )
 
@@ -18,3 +19,6 @@ func RemoveMsgPreTranslator(app *app.BaseApp, hwnd win32.HWND)
 
 //go:linkname CallMsgRetListeners
 func CallMsgRetListeners(app *app.BaseApp, hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, result win32.LRESULT)
+
+//go:linkname MsgHandlers
+func MsgHandlers(app *app.BaseApp) map[win32.UINT]*msghandler.Chain

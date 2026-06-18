@@ -2189,3 +2189,16 @@ const (
 	STATE_SYSTEM_PROTECTED       SystemState = 0x20000000 // access to this is restricted
 	STATE_SYSTEM_VALID           SystemState = 0x3FFFFFFF
 )
+
+var lzRegisterWindowMessageW = lzUser32.NewProc("RegisterWindowMessageW")
+
+func RegisterWindowMessageW(str *WCHAR) (UINT, error) {
+	return sysutil.MustNotZero[UINT](lzRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(str))))
+}
+
+type DRAGLISTINFO struct {
+	_            structs.HostLayout
+	Notification UINT
+	Hwnd         HWND
+	PtCursor     POINT
+}

@@ -1,13 +1,19 @@
 package listbox
 
 import (
+	"errors"
+	"sync"
 	"unsafe"
 
 	"github.com/mkch/gg"
+	"github.com/mkch/gg/errortrace"
+	"github.com/mkch/gg/errortrace/chkerr"
 	"github.com/mkch/gw"
+	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/listbox/listcombo"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
+	"github.com/mkch/gw/win32/comctl32"
 	"github.com/mkch/gw/win32/win32util"
 )
 
@@ -91,11 +97,30 @@ const (
 	LBS_STANDARD          win32.WindowStyle = (LBS_NOTIFY | LBS_SORT | win32.WS_VSCROLL | win32.WS_BORDER)
 )
 
+const (
+	DL_BEGINDRAG  = win32.WM_USER + 133
+	DL_DRAGGING   = win32.WM_USER + 134
+	DL_DROPPED    = win32.WM_USER + 135
+	DL_CANCELDRAG = win32.WM_USER + 136
+)
+
+type DraggingCursor int
+
+const (
+	DL_CURSORSET  DraggingCursor = 0
+	DL_STOPCURSOR DraggingCursor = 1
+	DL_COPYCURSOR DraggingCursor = 2
+	DL_MOVECURSOR DraggingCursor = 3
+)
+
 type Spec struct {
 	Parent              gw.BaseWindow
 	Style               win32.WindowStyle
 	ExStyle             win32.WindowExStyle
 	X, Y, Width, Height metrics.Dimension
+	// Draggable indicates whether the items in list box can be dragged and dropped.
+	// See https://learn.microsoft.com/en-us/windows/win32/api/commctrl/nf-commctrl-makedraglist for details.
+	Draggable bool
 
 	// OnCompareItem is called in [ListBox.OnCompareItem] if not nil.
 	OnCompareItem func(item1, item2 any, locale win32.DWORD) int
@@ -109,10 +134,158 @@ type ListBox struct {
 	listcombo.ListCombo
 	// Spec is used to create the window and is cleared after creation.
 	Spec *Spec
+
+	draggingIndex int // The item being dragged, or -1 if no item is being dragged.
+}
+
+// dragListMessage is the message sent to the parent of a draggable ListBox when a dragging notification occurs.
+var dragListMessage = func() win32.UINT {
+	var buf []win32.WCHAR
+	win32util.CString("commctrl_DragListMsg", &buf)
+	return chkerr.Must(win32.RegisterWindowMessageW(&buf[0]))
+}()
+
+// REFLECT_DRAGLIST is a custom message used to reflect drag list notifications from the parent of a ListBox to the ListBox itself.
+const REFLECT_DRAGLIST = app.LastReflectMessage + 1
+
+// prepareDrag initializes the dragging support for ListBox.
+var prepareDrag = sync.OnceFunc(func() {
+	gw.AddMessageHandler(dragListMessage, func(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM, callPrev win32.WndProc) win32.LRESULT {
+		info := (*win32.DRAGLISTINFO)(unsafe.Add(nil, lParam))
+		r, _ := win32.SendMessageW(info.Hwnd, REFLECT_DRAGLIST, wParam, lParam)
+		return r
+	})
+
+})
+
+// OnBeginDrag is called when the user has clicked the left mouse button on an item
+// of a draggable list box.
+// The from parameter is the index of the item being dragged.
+// Returning true allows the drag operation to begin, while returning false cancels it.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/dl-begindrag for details.
+func (l *ListBox) OnBeginDrag(from int) bool {
+	l.draggingIndex = from
+	return true
+}
+
+// OnDragging is called when the user moves the mouse during a drag operation in a draggable list box.
+// The to parameter is the index of the item that the mouse cursor is currently over.
+// The return value indicates the cursor to display. Returning DL_STOPCURSOR, for example, prevents the user from dropping the item at the current location.
+// If a value out of the constants defined for [DraggingCursor] is returned, the cursor is not changed.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/dl-dragging for details.
+func (l *ListBox) OnDragging(index int) DraggingCursor {
+	hwnd := l.HWND()
+	parent := chkerr.Must(win32.GetParent(hwnd))
+	if index != -1 && index != l.draggingIndex {
+		comctl32.DrawInsert(parent, hwnd, index)
+	} else {
+		comctl32.DrawInsert(parent, hwnd, -1)
+	}
+	return DL_MOVECURSOR
+}
+
+// OnDragDropped is called when the user releases the left mouse button to drop an item during a drag operation in a draggable list box.
+// The parameters from and to are the indexes of the item being dragged and the item that the mouse cursor is currently over, respectively.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/dl-dropped for details.
+func (l *ListBox) OnDragDropped(from, to int) (err error) {
+	hwnd := l.HWND()
+	if from == to {
+		return nil
+	}
+	itemString, err := l.GetItemString(from)
+	var noItemString bool
+	if err != nil {
+		if errors.Is(err, listcombo.ErrItemStringNotSupported) {
+			noItemString = true
+		} else {
+			return
+		}
+	}
+	itemData, err := l.ItemData(from)
+	if err != nil {
+		return
+	}
+	if err = l.DeleteItem(from); err != nil {
+		return
+	}
+
+	if !noItemString {
+		if from < to {
+			to--
+		}
+		if err = l.InsertItemString(to, itemString); err != nil {
+			return
+		}
+	}
+	if itemData != uintptr(0) {
+		return l.SetItemData(to, itemData)
+	}
+	l.draggingIndex = -1
+	parent := chkerr.Must(win32.GetParent(hwnd))
+	comctl32.DrawInsert(parent, hwnd, -1)
+	return nil
+}
+
+// OnDragCancel is called when the user cancels a drag operation in a draggable list box.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/dl-canceldrag for details.
+func (l *ListBox) OnDragCancel() {
+	hwnd := l.HWND()
+	l.draggingIndex = -1
+	parent := chkerr.Must(win32.GetParent(hwnd))
+	comctl32.DrawInsert(parent, hwnd, l.draggingIndex)
+}
+
+func (l *ListBox) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
+	switch message {
+	case REFLECT_DRAGLIST:
+		info := (*win32.DRAGLISTINFO)(unsafe.Add(nil, lParam))
+		switch info.Notification {
+		case DL_BEGINDRAG:
+			from := comctl32.LBItemFromPt(hwnd, info.PtCursor, true)
+			if bg := gw.LookupWindow(hwnd).(interface{ OnBeginDrag(from int) bool }); bg != nil {
+				return win32.LRESULT(gg.If(bg.OnBeginDrag(from), 1, 0))
+			}
+			return 0
+		case DL_DRAGGING:
+			to := comctl32.LBItemFromPt(hwnd, info.PtCursor, true)
+			if d := gw.LookupWindow(hwnd).(interface{ OnDragging(to int) DraggingCursor }); d != nil {
+				return win32.LRESULT(d.OnDragging(to))
+			}
+			return -1 // Do not change cursor.
+		case DL_DROPPED:
+			to := comctl32.LBItemFromPt(hwnd, info.PtCursor, true)
+			if to < 0 || l.draggingIndex < 0 {
+				break
+			}
+			if dd := gw.LookupWindow(hwnd).(interface{ OnDragDropped(from, to int) error }); dd != nil {
+				if err := dd.OnDragDropped(l.draggingIndex, to); err != nil {
+					errortrace.Panic(err)
+				}
+			}
+		case DL_CANCELDRAG:
+			if cd := gw.LookupWindow(hwnd).(interface{ OnCancelDrag() }); cd != nil {
+				cd.OnCancelDrag()
+			}
+		}
+		return 0
+	}
+
+	return l.ListCombo.WndProc(hwnd, message, wParam, lParam)
 }
 
 func (l *ListBox) OnInit() error {
 	defer func() { l.Spec = nil }()
+
+	if l.Spec.Draggable {
+		prepareDrag()
+		if err := comctl32.MakeDragList(l.HWND()); err != nil {
+			return err
+		}
+	}
 
 	return l.ListCombo.OnInit(listcombo.Config{
 		MsgAddString:           LB_ADDSTRING,
