@@ -18,4 +18,26 @@ type Arg struct {
 type HandlerKey = events.HandlerKey[*Arg, win32.LRESULT]
 
 // Chain is a [events.Chain] of message handlers.
-type Chain = events.Chain[*Arg, win32.LRESULT]
+type Chain struct {
+	numHandlers int
+	c           events.Chain[*Arg, win32.LRESULT]
+}
+
+func (c *Chain) NumHandlers() int {
+	return c.numHandlers
+}
+
+func (c *Chain) AddHandler(h func(arg *Arg, callPrev func(*Arg) win32.LRESULT) win32.LRESULT) (key HandlerKey) {
+	key = c.c.AddHandler(h)
+	c.numHandlers++
+	return
+}
+
+func (c *Chain) RemoveHandler(key HandlerKey) {
+	c.c.RemoveHandler(key)
+	c.numHandlers--
+}
+
+func (c *Chain) Execute(arg *Arg) win32.LRESULT {
+	return c.c.Execute(arg)
+}
