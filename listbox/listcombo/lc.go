@@ -7,8 +7,8 @@ import (
 
 	"github.com/mkch/gg"
 	"github.com/mkch/gw"
+	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/control"
-	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/util"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
@@ -167,14 +167,14 @@ func (l *ListCombo) OnDestroy() {
 
 func (l *ListCombo) WndProc(hwnd win32.HWND, msg win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) (result win32.LRESULT) {
 	switch msg {
-	case appmsg.REFLECT_COMPAREITEM:
+	case app.MSG_REFLECT_COMPAREITEM:
 		cmp := (*win32.COMPAREITEMSTRUCT)(unsafe.Add(nil, lParam))
 		if c, ok := gw.LookupWindow(l.HWND()).(interface {
 			OnCompareItem(item1, item2 any, locale win32.DWORD) int
 		}); ok {
 			return win32.LRESULT(c.OnCompareItem(l.ItemDataFromRaw(uintptr(cmp.ItemData1)), l.ItemDataFromRaw(uintptr(cmp.ItemData2)), cmp.LocaleId))
 		}
-	case appmsg.REFLECT_MEASUREITEM:
+	case app.MSG_REFLECT_MEASUREITEM:
 		ms := (*win32.MEASUREITEMSTRUCT)(unsafe.Add(nil, lParam))
 		if m, ok := gw.LookupWindow(l.HWND()).(interface {
 			OnMeasureItem(index int, itemData any) (width, height int)
@@ -184,7 +184,7 @@ func (l *ListCombo) WndProc(hwnd win32.HWND, msg win32.UINT, wParam win32.WPARAM
 			ms.ItemHeight = win32.UINT(height)
 			return 1
 		}
-	case appmsg.REFLECT_DRAWITEM:
+	case app.MSG_REFLECT_DRAWITEM:
 		ds := (*win32.DRAWITEMSTRUCT)(unsafe.Add(nil, lParam))
 		if d, ok := gw.LookupWindow(l.HWND()).(interface{ OnDrawItem(info *DrawItemInfo) }); ok {
 			d.OnDrawItem(&DrawItemInfo{
@@ -291,10 +291,10 @@ func (l *ListCombo) addString(s string) (int, error) {
 	return int(i), nil
 }
 
-// GetItemString retrieves the string of the item at the specified index in a listbox or combobox.
+// ItemString retrieves the string of the item at the specified index in a listbox or combobox.
 //
 // See https://learn.microsoft.com/en-us/windows/win32/controls/lb-gettext for details.
-func (l *ListCombo) GetItemString(index int) (string, error) {
+func (l *ListCombo) ItemString(index int) (string, error) {
 	if err := l.checkCanUseItemString(); err != nil {
 		return "", err
 	}

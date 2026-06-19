@@ -2,8 +2,8 @@ package static
 
 import (
 	"github.com/mkch/gw"
+	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/control"
-	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/paint/brush"
 	"github.com/mkch/gw/win32"
@@ -105,7 +105,7 @@ func (s *Static) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARA
 	switch message {
 	case win32.WM_DESTROY:
 		s.backgroundBrush.Release()
-	case appmsg.REFLECT_CTLCOLORSTATIC:
+	case app.MSG_REFLECT_CTLCOLORSTATIC:
 		win32.SetBkMode(win32.HDC(wParam), win32.TRANSPARENT) // The *text* background is transparent.
 		return win32.LRESULT(s.backgroundBrush.HBRUSH())
 	}

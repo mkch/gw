@@ -12,7 +12,6 @@ import (
 	"github.com/mkch/gw/events"
 	"github.com/mkch/gw/internal"
 	internal_app "github.com/mkch/gw/internal/app"
-	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/internal/msghandler"
 	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/menu"
@@ -416,13 +415,13 @@ func (w *BaseWindowImpl) realWndProc(hwnd win32.HWND, message win32.UINT, wParam
 		return 0
 	case win32.WM_CTLCOLORSTATIC:
 		// Process WM_CTLCOLORSTATIC here instead of in Window type to support STATIC in child controls.
-		if ret, err := win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_CTLCOLORSTATIC, wParam, lParam); err == nil && ret != 0 {
+		if ret, err := win32.SendMessageW(win32.HWND(lParam), app.MSG_REFLECT_CTLCOLORSTATIC, wParam, lParam); err == nil && ret != 0 {
 			return ret
 		}
 	case win32.WM_COMMAND:
 		// Process WM_COMMAND here instead of in Window type to support commands in child controls.
 		if lParam != 0 { // Control command
-			win32.SendMessageW(win32.HWND(lParam), appmsg.REFLECT_COMMAND, wParam, lParam)
+			win32.SendMessageW(win32.HWND(lParam), app.MSG_REFLECT_COMMAND, wParam, lParam)
 		}
 	case win32.WM_MENUCOMMAND:
 		// Process WM_MENUCOMMAND here instead of in Window type to support TrackPopupMenu of child windows.
@@ -430,7 +429,7 @@ func (w *BaseWindowImpl) realWndProc(hwnd win32.HWND, message win32.UINT, wParam
 		return 0
 	case win32.WM_COMPAREITEM:
 		data := (*win32.COMPAREITEMSTRUCT)(unsafe.Add(nil, lParam))
-		result, _ := win32.SendMessageW(data.HwndItem, appmsg.REFLECT_COMPAREITEM, wParam, lParam)
+		result, _ := win32.SendMessageW(data.HwndItem, app.MSG_REFLECT_COMPAREITEM, wParam, lParam)
 		return result
 	case win32.WM_MEASUREITEM:
 		s := (*win32.MEASUREITEMSTRUCT)(unsafe.Add(nil, lParam))
@@ -442,7 +441,7 @@ func (w *BaseWindowImpl) realWndProc(hwnd win32.HWND, message win32.UINT, wParam
 			if child == 0 {
 				break
 			}
-			win32.SendMessageW(child, appmsg.REFLECT_MEASUREITEM, wParam, lParam)
+			win32.SendMessageW(child, app.MSG_REFLECT_MEASUREITEM, wParam, lParam)
 			return 1
 		}
 	case win32.WM_DRAWITEM:
@@ -451,7 +450,7 @@ func (w *BaseWindowImpl) realWndProc(hwnd win32.HWND, message win32.UINT, wParam
 		case win32.ODT_MENU:
 			// NOP
 		default:
-			win32.SendMessageW(s.HwndItem, appmsg.REFLECT_DRAWITEM, wParam, lParam)
+			win32.SendMessageW(s.HwndItem, app.MSG_REFLECT_DRAWITEM, wParam, lParam)
 			return 1
 		}
 	case win32.WM_LBUTTONUP:

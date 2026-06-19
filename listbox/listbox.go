@@ -128,6 +128,18 @@ type Spec struct {
 	OnMeasureItem func(index int, itemData any) (width, height int)
 	// OnDrawItem is called in [ListBox.OnDrawItem] if not nil.
 	OnDrawItem func(info *listcombo.DrawItemInfo)
+	// OnItemDoubleClick will be set to the list box with [ListBox.SetOnItemDoubleClickListener].
+	OnItemDoubleClick func()
+	// OnErrSpace will be set to the list box with [ListBox.SetOnErrSpaceListener].
+	OnErrSpace func()
+	// OnSetFocus will be set to the list box with [ListBox.SetOnSetFocusListener].
+	OnSetFocus func()
+	// OnKillFocus will be set to the list box with [ListBox.SetOnKillFocusListener].
+	OnKillFocus func()
+	// OnSelCancel will be set to the list box with [ListBox.SetOnSelCancelListener].
+	OnSelCancel func()
+	// OnSelChange will be set to the list box with [ListBox.SetOnSelChangeListener].
+	OnSelChange func()
 }
 
 type ListBox struct {
@@ -135,7 +147,13 @@ type ListBox struct {
 	// Spec is used to create the window and is cleared after creation.
 	Spec *Spec
 
-	draggingIndex int // The item being dragged, or -1 if no item is being dragged.
+	draggingIndex     int // The item being dragged, or -1 if no item is being dragged.
+	onItemDoubleClick func()
+	onErrSpace        func()
+	onSetFocus        func()
+	onKillFocus       func()
+	onSelCancel       func()
+	onSelChange       func()
 }
 
 // dragListMessage is the message sent to the parent of a draggable ListBox when a dragging notification occurs.
@@ -146,7 +164,7 @@ var dragListMessage = func() win32.UINT {
 }()
 
 // REFLECT_DRAGLIST is a custom message used to reflect drag list notifications from the parent of a ListBox to the ListBox itself.
-const REFLECT_DRAGLIST = app.LastReflectMessage + 1
+const REFLECT_DRAGLIST = app.MSG_LAST_REFLECT + 1
 
 // prepareDrag initializes the dragging support for ListBox.
 var prepareDrag = sync.OnceFunc(func() {
@@ -195,7 +213,7 @@ func (l *ListBox) OnDragDropped(from, to int) (err error) {
 	if from == to {
 		return nil
 	}
-	itemString, err := l.GetItemString(from)
+	itemString, err := l.ItemString(from)
 	var noItemString bool
 	if err != nil {
 		if errors.Is(err, listcombo.ErrItemStringNotSupported) {
@@ -239,8 +257,102 @@ func (l *ListBox) OnDragCancel() {
 	comctl32.DrawInsert(parent, hwnd, l.draggingIndex)
 }
 
+// SetOnItemDoubleClickListener sets a listener that is called when the user has double-clicked an item in a list box.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lbn-dblclk for details.
+func (l *ListBox) SetOnItemDoubleClickListener(listener func()) {
+	l.onItemDoubleClick = listener
+}
+
+func (l *ListBox) callOnItemDoubleClickListener() {
+	if l.onItemDoubleClick != nil {
+		l.onItemDoubleClick()
+	}
+}
+
+// SetOnErrSpaceListener sets a listener that is called when the list box cannot allocate enough memory to meet a specific request.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lbn-errspace for details.
+func (l *ListBox) SetOnErrSpaceListener(listener func()) {
+	l.onErrSpace = listener
+}
+
+func (l *ListBox) callOnErrSpaceListener() {
+	if l.onErrSpace != nil {
+		l.onErrSpace()
+	}
+}
+
+// SetOnSetFocusListener sets a listener that is called when the list box has received the keyboard focus.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lbn-setfocus for details.
+func (l *ListBox) SetOnSetFocusListener(listener func()) {
+	l.onSetFocus = listener
+}
+
+func (l *ListBox) callOnSetFocusListener() {
+	if l.onSetFocus != nil {
+		l.onSetFocus()
+	}
+}
+
+// SetOnKillFocusListener sets a listener that is called when the list box has lost the keyboard focus.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lbn-killfocus for details.
+func (l *ListBox) SetOnKillFocusListener(listener func()) {
+	l.onKillFocus = listener
+}
+
+func (l *ListBox) callOnKillFocusListener() {
+	if l.onKillFocus != nil {
+		l.onKillFocus()
+	}
+}
+
+// SetOnSelCancelListener sets a listener that is called when the user has canceled the selection in a list box.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lbn-selcancel for details.
+func (l *ListBox) SetOnSelCancelListener(listener func()) {
+	l.onSelCancel = listener
+}
+
+func (l *ListBox) callOnSelCancelListener() {
+	if l.onSelCancel != nil {
+		l.onSelCancel()
+	}
+}
+
+// SetOnSelChangeListener sets a listener that is called when the selection in a list box has changed as a result of user input.
+//
+// See https://learn.microsoft.com/en-us/windows/win32/controls/lbn-selchange for details.
+func (l *ListBox) SetOnSelChangeListener(listener func()) {
+	l.onSelChange = listener
+}
+
+func (l *ListBox) callOnSelChangeListener() {
+	if l.onSelChange != nil {
+		l.onSelChange()
+	}
+}
+
 func (l *ListBox) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 	switch message {
+	case app.MSG_REFLECT_COMMAND:
+		code := NotifyCode(win32.HIWORD(wParam))
+		switch code {
+		case LBN_DBLCLK:
+			l.callOnItemDoubleClickListener()
+		case LBN_ERRSPACE:
+			l.callOnErrSpaceListener()
+		case LBN_SETFOCUS:
+			l.callOnSetFocusListener()
+		case LBN_KILLFOCUS:
+			l.callOnKillFocusListener()
+		case LBN_SELCHANGE:
+			l.callOnSelChangeListener()
+		case LBN_SELCANCEL:
+			l.callOnSelCancelListener()
+		}
 	case REFLECT_DRAGLIST:
 		info := (*win32.DRAGLISTINFO)(unsafe.Add(nil, lParam))
 		switch info.Notification {
@@ -286,6 +398,13 @@ func (l *ListBox) OnInit() error {
 			return err
 		}
 	}
+
+	l.onItemDoubleClick = l.Spec.OnItemDoubleClick
+	l.onErrSpace = l.Spec.OnErrSpace
+	l.onSetFocus = l.Spec.OnSetFocus
+	l.onKillFocus = l.Spec.OnKillFocus
+	l.onSelCancel = l.Spec.OnSelCancel
+	l.onSelChange = l.Spec.OnSelChange
 
 	return l.ListCombo.OnInit(listcombo.Config{
 		MsgAddString:           LB_ADDSTRING,

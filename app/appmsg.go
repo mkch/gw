@@ -1,4 +1,4 @@
-package appmsg
+package app
 
 import "github.com/mkch/gw/win32"
 
@@ -7,13 +7,13 @@ import "github.com/mkch/gw/win32"
 // Messages in this range do not conflict with system messages.
 
 const (
-	POST = win32.WM_APP + iota
-	NOTIFY_ICON_CALLBACK
-	REFLECT_COMMAND
-	REFLECT_CTLCOLORSTATIC
-	REFLECT_COMPAREITEM
-	REFLECT_MEASUREITEM
-	REFLECT_DRAWITEM
+	msgPost = win32.WM_APP + iota
+	MSG_NOTIFY_ICON_CALLBACK
+	MSG_REFLECT_COMMAND
+	MSG_REFLECT_CTLCOLORSTATIC
+	MSG_REFLECT_COMPAREITEM
+	MSG_REFLECT_MEASUREITEM
+	MSG_REFLECT_DRAWITEM
 
-	LAST_REFLECT_MESSAGE
+	MSG_LAST_REFLECT
 )

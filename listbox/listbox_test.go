@@ -62,19 +62,19 @@ func TestAppendItemString(t *testing.T) {
 			t.Fatalf("expected index 2, got %d", i)
 		}
 
-		if str, err := list.GetItemString(0); err != nil {
+		if str, err := list.ItemString(0); err != nil {
 			t.Fatalf("failed to get item string: %v", err)
 		} else if str != "Item 1" {
 			t.Fatalf("expected 'Item 1', got '%s'", str)
 		}
 
-		if str, err := list.GetItemString(1); err != nil {
+		if str, err := list.ItemString(1); err != nil {
 			t.Fatalf("failed to get item string: %v", err)
 		} else if str != "Item 2" {
 			t.Fatalf("expected 'Item 2', got '%s'", str)
 		}
 
-		if str, err := list.GetItemString(2); err != nil {
+		if str, err := list.ItemString(2); err != nil {
 			t.Fatalf("failed to get item string: %v", err)
 		} else if str != "Item 3" {
 			t.Fatalf("expected 'Item 3', got '%s'", str)
@@ -132,7 +132,7 @@ func TestInsertItemString(t *testing.T) {
 
 		expectedItems := []string{"Item 1", "Item 2", "Item 3"}
 		for i, expected := range expectedItems {
-			if str, err := list.GetItemString(i); err != nil {
+			if str, err := list.ItemString(i); err != nil {
 				t.Fatalf("failed to get item string at index %d: %v", i, err)
 			} else if str != expected {
 				t.Fatalf("expected '%s' at index %d, got '%s'", expected, i, str)
@@ -194,7 +194,7 @@ func TestInsertItemStrings(t *testing.T) {
 
 		expectedItems := []string{"Item 1", "Item 2", "Item 3", "Item 4"}
 		for i, expected := range expectedItems {
-			if str, err := list.GetItemString(i); err != nil {
+			if str, err := list.ItemString(i); err != nil {
 				t.Fatalf("failed to get item string at index %d: %v", i, err)
 			} else if str != expected {
 				t.Fatalf("expected '%s' at index %d, got '%s'", expected, i, str)
@@ -253,14 +253,14 @@ func TestDeleteItems(t *testing.T) {
 
 		expectedAfterDelete := []string{"Item 1", "Item 3", "Item 4"}
 		for i, expected := range expectedAfterDelete {
-			if str, err := list.GetItemString(i); err != nil {
+			if str, err := list.ItemString(i); err != nil {
 				t.Fatalf("failed to get item string at index %d: %v", i, err)
 			} else if str != expected {
 				t.Fatalf("expected '%s' at index %d, got '%s'", expected, i, str)
 			}
 		}
 
-		if _, err := list.GetItemString(3); err == nil {
+		if _, err := list.ItemString(3); err == nil {
 			t.Fatalf("expected error when getting removed item at index 3")
 		}
 
@@ -274,7 +274,7 @@ func TestDeleteItems(t *testing.T) {
 			t.Fatalf("failed to delete all items: %v", err)
 		}
 
-		if _, err := list.GetItemString(0); err == nil {
+		if _, err := list.ItemString(0); err == nil {
 			t.Fatalf("expected error when getting item from empty list")
 		}
 
@@ -361,7 +361,7 @@ func TestItemData(t *testing.T) {
 
 		// Verify that SetItemData does not affect item strings.
 		for i, expected := range items {
-			if str, err := list.GetItemString(i); err != nil {
+			if str, err := list.ItemString(i); err != nil {
 				t.Fatalf("failed to get item string at index %d: %v", i, err)
 			} else if str != expected {
 				t.Fatalf("expected '%s' at index %d, got '%s'", expected, i, str)
@@ -1491,5 +1491,118 @@ func TestSetCount(t *testing.T) {
 		}
 
 		win.Close()
+	}, nil)
+}
+
+func TestOnItemDoubleClick(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		win := chkerr.Must(window.New(&window.Spec{
+			Style:     win32.WS_OVERLAPPEDWINDOW,
+			X:         gw.CW_USEDEFAULT,
+			Width:     metrics.Px(500),
+			Height:    metrics.Px(300),
+			OnDestroy: func() { app.Quit(0) },
+		}))
+
+		var itemDbClickCalled, setFocusCalled, killFocusCalled bool
+		list, err := listbox.New(&listbox.Spec{
+			Parent:            win,
+			Width:             metrics.Px(400),
+			Height:            metrics.Px(100),
+			Style:             win32.WS_VISIBLE | listbox.LBS_STANDARD,
+			OnItemDoubleClick: func() { itemDbClickCalled = true },
+			OnSetFocus:        func() { setFocusCalled = true },
+			OnKillFocus:       func() { killFocusCalled = true },
+		})
+		if err != nil {
+			t.Fatalf("failed to create ListBox: %v", err)
+		}
+
+		list2, err := listbox.New(&listbox.Spec{
+			Parent: win,
+			Y:      metrics.Px(105),
+			Width:  metrics.Px(400),
+			Height: metrics.Px(100),
+			Style:  win32.WS_VISIBLE | listbox.LBS_STANDARD,
+		})
+		if err != nil {
+			t.Fatalf("failed to create ListBox: %v", err)
+		}
+
+		list.AppendItemString("Apple")
+		list2.AppendItemString("Banana")
+
+		rc, err := list.ItemRect(0)
+		win32.SendMessageW(list.HWND(), win32.WM_LBUTTONDBLCLK, 0, win32.LPARAM(win32.MAKELONG(uint16(rc.Left), uint16(rc.Top))))
+
+		if !itemDbClickCalled {
+			t.Fatalf("expected OnItemDoubleClick listener to be called, but it was not")
+		}
+
+		if !setFocusCalled {
+			t.Fatalf("expected OnSetFocus listener to be called, but it was not")
+		}
+
+		if killFocusCalled {
+			t.Fatal("expected OnKillFocus listener to not be called, but it was")
+		}
+
+		rc, err = list2.ItemRect(0)
+		win32.SendMessageW(list2.HWND(), win32.WM_LBUTTONDOWN, 0, win32.LPARAM(win32.MAKELONG(uint16(rc.Left+1), uint16(rc.Top+1))))
+
+		if !killFocusCalled {
+			t.Fatal("expected OnKillFocus listener to be called, but it was not")
+		}
+
+		win.Close()
+	}, nil)
+}
+
+func TestSelChange(t *testing.T) {
+	gw.Run(func(app *app.App) {
+		win := chkerr.Must(window.New(&window.Spec{
+			Style:     win32.WS_OVERLAPPEDWINDOW,
+			X:         gw.CW_USEDEFAULT,
+			Width:     metrics.Px(500),
+			Height:    metrics.Px(300),
+			OnDestroy: func() { app.Quit(0) },
+		}))
+
+		win.Show(win32.SW_SHOW)
+
+		var selChangeCalled bool
+		list, err := listbox.New(&listbox.Spec{
+			Parent:      win,
+			Width:       metrics.Px(400),
+			Height:      metrics.Px(100),
+			Style:       win32.WS_VISIBLE | win32.WS_BORDER | listbox.LBS_STANDARD,
+			OnSelChange: func() { selChangeCalled = true },
+		})
+		if err != nil {
+			t.Fatalf("failed to create ListBox: %v", err)
+		}
+
+		list.AppendItemString("Apple")
+		list.AppendItemString("Banana")
+		rc1, err := list.ItemRect(0)
+		rc2, err := list.ItemRect(1)
+
+		win32.SendMessageW(list.HWND(), win32.WM_LBUTTONDOWN, 0, win32.LPARAM(win32.MAKELONG(uint16(rc1.Left), uint16(rc1.Top))))
+		win32.SendMessageW(list.HWND(), win32.WM_LBUTTONUP, 0, win32.LPARAM(win32.MAKELONG(uint16(rc1.Left), uint16(rc1.Top))))
+
+		if !selChangeCalled {
+			t.Fatalf("expected OnSelChange listener to be called, but it was not")
+		}
+
+		selChangeCalled = false
+		win32.SendMessageW(list.HWND(), win32.WM_LBUTTONDOWN, 0, win32.LPARAM(win32.MAKELONG(uint16(rc2.Left), uint16(rc2.Top+1))))
+		win32.SendMessageW(list.HWND(), win32.WM_LBUTTONUP, 0, win32.LPARAM(win32.MAKELONG(uint16(rc2.Left), uint16(rc2.Top+1))))
+
+		if !selChangeCalled {
+			t.Fatalf("expected OnSelChange listener to be called, but it was not")
+		}
+
+		win.Close()
+
 	}, nil)
 }

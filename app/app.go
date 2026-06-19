@@ -5,7 +5,6 @@ package app
 import (
 	"runtime"
 
-	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/win32"
 )
 
@@ -61,7 +60,3 @@ func (app *App) Destroy() {
 	app.BaseApp.Destroy()
 	runtime.UnlockOSThread()
 }
-
-// LastReflectMessage returns the last reflect message number defined by gw.
-// This can be used to define custom reflect messages that do not conflict with gw's internal messages.
-const LastReflectMessage = appmsg.LAST_REFLECT_MESSAGE

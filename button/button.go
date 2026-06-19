@@ -2,8 +2,8 @@ package button
 
 import (
 	"github.com/mkch/gw"
+	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/control"
-	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/metrics"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
@@ -66,7 +66,7 @@ func (b *Button) OnClick() {
 
 func (b *Button) WndProc(hwnd win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 	switch message {
-	case appmsg.REFLECT_COMMAND:
+	case app.MSG_REFLECT_COMMAND:
 		gw.LookupWindow(b.HWND()).(interface{ OnClick() }).OnClick()
 		return 0
 	}

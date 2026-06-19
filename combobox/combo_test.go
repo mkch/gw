@@ -62,19 +62,19 @@ func TestAppendItemString(t *testing.T) {
 			t.Fatalf("expected index 2, got %d", i)
 		}
 
-		if str, err := combo.GetItemString(0); err != nil {
+		if str, err := combo.ItemString(0); err != nil {
 			t.Fatalf("failed to get item string: %v", err)
 		} else if str != "Item 1" {
 			t.Fatalf("expected 'Item 1', got '%s'", str)
 		}
 
-		if str, err := combo.GetItemString(1); err != nil {
+		if str, err := combo.ItemString(1); err != nil {
 			t.Fatalf("failed to get item string: %v", err)
 		} else if str != "Item 2" {
 			t.Fatalf("expected 'Item 2', got '%s'", str)
 		}
 
-		if str, err := combo.GetItemString(2); err != nil {
+		if str, err := combo.ItemString(2); err != nil {
 			t.Fatalf("failed to get item string: %v", err)
 		} else if str != "Item 3" {
 			t.Fatalf("expected 'Item 3', got '%s'", str)
@@ -132,7 +132,7 @@ func TestInsertItemString(t *testing.T) {
 
 		expectedItems := []string{"Item 1", "Item 2", "Item 3"}
 		for i, expected := range expectedItems {
-			if str, err := combo.GetItemString(i); err != nil {
+			if str, err := combo.ItemString(i); err != nil {
 				t.Fatalf("failed to get item string at index %d: %v", i, err)
 			} else if str != expected {
 				t.Fatalf("expected '%s' at index %d, got '%s'", expected, i, str)
@@ -194,7 +194,7 @@ func TestInsertItemStrings(t *testing.T) {
 
 		expectedItems := []string{"Item 1", "Item 2", "Item 3", "Item 4"}
 		for i, expected := range expectedItems {
-			if str, err := combo.GetItemString(i); err != nil {
+			if str, err := combo.ItemString(i); err != nil {
 				t.Fatalf("failed to get item string at index %d: %v", i, err)
 			} else if str != expected {
 				t.Fatalf("expected '%s' at index %d, got '%s'", expected, i, str)
@@ -253,14 +253,14 @@ func TestDeleteItems(t *testing.T) {
 
 		expectedAfterDelete := []string{"Item 1", "Item 3", "Item 4"}
 		for i, expected := range expectedAfterDelete {
-			if str, err := combo.GetItemString(i); err != nil {
+			if str, err := combo.ItemString(i); err != nil {
 				t.Fatalf("failed to get item string at index %d: %v", i, err)
 			} else if str != expected {
 				t.Fatalf("expected '%s' at index %d, got '%s'", expected, i, str)
 			}
 		}
 
-		if _, err := combo.GetItemString(3); err == nil {
+		if _, err := combo.ItemString(3); err == nil {
 			t.Fatalf("expected error when getting removed item at index 3")
 		}
 
@@ -274,7 +274,7 @@ func TestDeleteItems(t *testing.T) {
 			t.Fatalf("failed to delete all items: %v", err)
 		}
 
-		if _, err := combo.GetItemString(0); err == nil {
+		if _, err := combo.ItemString(0); err == nil {
 			t.Fatalf("expected error when getting item from empty combo")
 		}
 
@@ -361,7 +361,7 @@ func TestItemData(t *testing.T) {
 
 		// Verify that SetItemData does not affect item strings.
 		for i, expected := range items {
-			if str, err := combo.GetItemString(i); err != nil {
+			if str, err := combo.ItemString(i); err != nil {
 				t.Fatalf("failed to get item string at index %d: %v", i, err)
 			} else if str != expected {
 				t.Fatalf("expected '%s' at index %d, got '%s'", expected, i, str)

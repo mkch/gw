@@ -7,7 +7,6 @@ import (
 	"unsafe"
 
 	"github.com/mkch/gg"
-	"github.com/mkch/gw/internal/appmsg"
 	"github.com/mkch/gw/internal/msghandler"
 	"github.com/mkch/gw/internal/objectmap"
 	"github.com/mkch/gw/win32"
@@ -102,7 +101,7 @@ func (b *BaseApp) init(hookGetMsg bool) *BaseApp {
 			if code >= 0 && win32.PeekMessageFlag(wParam) == win32.PM_REMOVE {
 				msg := (*win32.MSG)(unsafe.Add(nil, lParam))
 				switch msg.Message {
-				case appmsg.POST:
+				case msgPost:
 					// Handle posted functions
 					b.postMap.Value(objectmap.Handle(msg.WParam))()
 					msg.Message = win32.WM_NULL // Stop WNDPROC processing
@@ -119,7 +118,7 @@ func (b *BaseApp) init(hookGetMsg bool) *BaseApp {
 	} else {
 		msgHookProc = func(code win32.HookCode, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
 			if code >= 0 && win32.PeekMessageFlag(wParam) == win32.PM_REMOVE {
-				if msg := (*win32.MSG)(unsafe.Add(nil, lParam)); msg.Message == appmsg.POST {
+				if msg := (*win32.MSG)(unsafe.Add(nil, lParam)); msg.Message == msgPost {
 					// Handle posted functions
 					b.postMap.Value(objectmap.Handle(msg.WParam))()
 					msg.Message = win32.WM_NULL // Stop WNDPROC processing
@@ -219,7 +218,7 @@ func (b *BaseApp) Post(f func()) error {
 		f()
 		b.postMap.Remove(h)
 	})
-	return win32.PostThreadMessageW(b.uiThreadId, appmsg.POST, win32.WPARAM(h), 0)
+	return win32.PostThreadMessageW(b.uiThreadId, msgPost, win32.WPARAM(h), 0)
 }
 
 // Quit calls win32.PostQuitMessage which tells the message loop to exit.

@@ -3,7 +3,7 @@ package notifyicon
 import (
 	"unsafe"
 
-	"github.com/mkch/gw/internal/appmsg"
+	"github.com/mkch/gw/app"
 	"github.com/mkch/gw/notifyicon/sys"
 	"github.com/mkch/gw/win32"
 	"github.com/mkch/gw/win32/win32util"
@@ -13,7 +13,7 @@ import (
 // CallbackMessage is the message sent to the window when mouse or keyboard interaction
 // occurs in the bounding rectangle of the icon.
 // Process this message manually or use [Spec].OnEvent.
-const CallbackMessage = appmsg.NOTIFY_ICON_CALLBACK
+const CallbackMessage = app.MSG_NOTIFY_ICON_CALLBACK
 
 // Event is the interaction event occurs in the bounding rectangle of the icon.
 type Event win32.WORD
