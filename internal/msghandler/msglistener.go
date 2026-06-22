@@ -34,8 +34,9 @@ func (c *Chain) AddHandler(h func(arg *Arg, callPrev func(*Arg) win32.LRESULT) w
 }
 
 func (c *Chain) RemoveHandler(key HandlerKey) {
-	c.c.RemoveHandler(key)
-	c.numHandlers--
+	if c.c.RemoveHandler(key) {
+		c.numHandlers--
+	}
 }
 
 func (c *Chain) Execute(arg *Arg) win32.LRESULT {

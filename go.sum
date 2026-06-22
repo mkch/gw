@@ -4,6 +4,8 @@ github.com/mkch/go-events v0.0.0-20260618034806-618cdff9425c h1:UmGWtj8JxjbiOgT3
 github.com/mkch/go-events v0.0.0-20260618034806-618cdff9425c/go.mod h1:uOlyJxyfRyrBiN7JfgF/v2YmnvS2RbjeFyAPNTSk6Uo=
 github.com/mkch/go-events v0.0.0-20260619020537-124eba55daaf h1:zKIP9rycmDYq2jeh0EI3QAV/M100A301tFzUP8R0pfg=
 github.com/mkch/go-events v0.0.0-20260619020537-124eba55daaf/go.mod h1:uOlyJxyfRyrBiN7JfgF/v2YmnvS2RbjeFyAPNTSk6Uo=
+github.com/mkch/go-events v0.0.0-20260620084512-7296f2b92f20 h1:5VYu2f4/Up6ux/ayOLvocvo4Rnue3qjUJZJjpQ3+ge0=
+github.com/mkch/go-events v0.0.0-20260620084512-7296f2b92f20/go.mod h1:uOlyJxyfRyrBiN7JfgF/v2YmnvS2RbjeFyAPNTSk6Uo=
 github.com/mkch/iter2 v0.0.0-20250422043347-0a8d32207b63 h1:vWVF1oPG4kIzAIsXFGi5EosxEs5Z7MhEr1HFEriqcGY=
 github.com/mkch/iter2 v0.0.0-20250422043347-0a8d32207b63/go.mod h1:choU7msDB0XDRX4YaL6yS+NJ6K3lSyrsFAcgXvXkyPM=
 golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb h1:c0vyKkb6yr3KR7jEfJaOSv4lG7xPkbN6r52aJz1d8a8=

@@ -22,4 +22,10 @@ func TestChain_NumHandlers(t *testing.T) {
 	if n := chain.NumHandlers(); n != 0 {
 		t.Errorf("expected 0 handlers, got %d", n)
 	}
+
+	// Duplicate removal should not decrease the count below 0.
+	chain.RemoveHandler(key1)
+	if n := chain.NumHandlers(); n != 0 {
+		t.Errorf("expected 0 handlers, got %d", n)
+	}
 }
