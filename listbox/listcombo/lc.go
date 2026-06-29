@@ -398,6 +398,8 @@ func (l *ListCombo) ItemCount() (int, error) {
 // the data is set by gw itself.
 // If the item does not have item data, it returns (0, nil, nil).
 // If the item data is not set by gw itself, it returns the item data as uintptr.
+//
+//go:nocheckptr
 func (l *ListCombo) getItemData(index int) (uintptr, *ItemData, error) {
 	i, err := SendMessageRetNoError[uintptr](l.HWND(), l.config.MsgGetItemData, index, 0)
 	if err != nil {
@@ -474,6 +476,8 @@ func (l *ListCombo) ItemData(index int) (any, error) {
 // ItemDataFromRaw converts the raw item data retrieved from Win32 API to the actual item data.
 // If the raw data is 0, it returns nil.
 // If the raw data is not 0 but does not correspond to any item data set by gw itself, it returns the raw data as uintptr.
+//
+//go:nocheckptr
 func (l *ListCombo) ItemDataFromRaw(raw uintptr) any {
 	if raw == 0 {
 		return uintptr(0)

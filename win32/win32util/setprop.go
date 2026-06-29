@@ -22,6 +22,8 @@ func NewWindowProp[T any](name string) *WindowProp[T] {
 // Set sets a property data of a window.
 // If data is nil, the property is removed.
 // If data is not nil and the property already exists, the old data will be replaced by the new data.
+//
+//go:nocheckptr
 func (w *WindowProp[T]) Set(hwnd win32.HWND, data *T) error {
 	if oldP := win32.RemovePropW(hwnd, (*win32.WCHAR)(w)); oldP != 0 {
 		(*util.DataPinner[T])(unsafe.Add(nil, oldP)).Unpin()
@@ -40,6 +42,8 @@ func (w *WindowProp[T]) Set(hwnd win32.HWND, data *T) error {
 
 // Get gets the property data of a window.
 // It returns nil if the property does not exist.
+//
+//go:nocheckptr
 func (w *WindowProp[T]) Get(hwnd win32.HWND) *T {
 	if p := win32.GetPropW(hwnd, (*win32.WCHAR)(w)); p != 0 {
 		return (*util.DataPinner[T])(unsafe.Add(nil, p)).Data

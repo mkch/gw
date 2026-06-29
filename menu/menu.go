@@ -23,6 +23,8 @@ type menuPinner struct {
 
 // setMenuData sets m as the menu data of h.
 // If m is nil, the menu data of h will be set to nil.
+//
+//go:nocheckptr
 func setMenuData(h win32.HMENU, m *Menu) error {
 	var oldData win32.ULONG_PTR
 	mi := &win32.MENUINFO{
@@ -56,6 +58,8 @@ func setMenuData(h win32.HMENU, m *Menu) error {
 
 // lookupMenu looks up the Menu associated with h and returns it.
 // Returns nil if no Menu is associated with h.
+//
+//go:nocheckptr
 func lookupMenu(h win32.HMENU) *Menu {
 	mi := &win32.MENUINFO{
 		Size: win32.DWORD(unsafe.Sizeof(win32.MENUINFO{})),

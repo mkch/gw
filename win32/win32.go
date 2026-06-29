@@ -3,7 +3,6 @@ package win32
 import (
 	"errors"
 	"structs"
-	"sync"
 	"unsafe"
 
 	"github.com/mkch/gw/util"
@@ -711,14 +710,14 @@ type ACCEL struct {
 // If len(s) == 0, s is unchanged.
 func AlignSlice[T any, S ~[]T](s S) S {
 	const WordSize = unsafe.Sizeof(uintptr(0))
+	const WordSizeMinus1 = WordSize - 1
 	if len(s) == 0 || uintptr(unsafe.Pointer(&s[0]))%WordSize == 0 {
 		return s
 	}
 	// p = alloc(slice_data_size+WordSize-1)
-	p := make([]byte, len(s)*int(unsafe.Sizeof(s[0]))+int(WordSize-1))
-	shift := uintptr(unsafe.Pointer(&p[0])) % WordSize
-	// aligned = p+shift
-	aligned := unsafe.Slice((*T)(unsafe.Add(unsafe.Pointer(&p[0]), shift)), len(s))
+	p := make([]byte, len(s)*int(unsafe.Sizeof(s[0]))+int(WordSizeMinus1))
+	// aligned := (p + (WordSize-1)) &^ (WordSize-1)
+	aligned := unsafe.Slice((*T)(unsafe.Pointer(uintptr(unsafe.Add(unsafe.Pointer(&p[0]), WordSizeMinus1))&^WordSizeMinus1)), len(s))
 	copy(aligned, s)
 	return aligned
 }
@@ -1890,6 +1889,7 @@ func TlsFree(dwTlsIndex DWORD) error {
 
 var lzTlsGetValue = lzKernel32.NewProc("TlsGetValue")
 
+//go:nocheckptr
 func TlsGetValue(dwTlsIndex DWORD) (PVOID, error) {
 	r, _, err := lzTlsGetValue.Call(uintptr(dwTlsIndex))
 	if r == 0 {
@@ -2037,14 +2037,13 @@ var lzEnumChildWindows = lzUser32.NewProc("EnumChildWindows")
 
 type enumWindowsPinner = util.DataPinner[func(hwnd HWND) bool]
 
-var enumWindowsCallback = sync.OnceValue(
-	func() uintptr {
-		return windows.NewCallback(func(hwnd HWND, lParam LPARAM) uintptr {
-			p := (*enumWindowsPinner)(unsafe.Add(nil, lParam))
-			return gg.If((*p.Data)(hwnd), uintptr(1), uintptr(0))
-		})
-	},
-)
+//go:nocheckptr
+func enumWindowsCallbackFunc(hwnd HWND, lParam LPARAM) uintptr {
+	p := (*enumWindowsPinner)(unsafe.Add(nil, lParam))
+	return gg.If((*p.Data)(hwnd), uintptr(1), uintptr(0))
+}
+
+var enumWindowsCallback = windows.NewCallback(enumWindowsCallbackFunc)
 
 // EnumChildWindows enumerates the child windows of a parent window.
 // The callback returns true to continue enumeration, or false to stop enumeration.
@@ -2052,7 +2051,7 @@ func EnumChildWindows(parent HWND, callback func(HWND) bool) {
 	p := &enumWindowsPinner{Data: &callback}
 	p.Pin()
 	defer p.Unpin()
-	lzEnumChildWindows.Call(uintptr(parent), enumWindowsCallback(), uintptr(unsafe.Pointer(p)))
+	lzEnumChildWindows.Call(uintptr(parent), enumWindowsCallback, uintptr(unsafe.Pointer(p)))
 }
 
 var lzAdjustWindowRectEx = lzUser32.NewProc("AdjustWindowRectEx")
@@ -2067,7 +2066,7 @@ func EnumThreadWindows(threadId DWORD, callback func(HWND) bool) {
 	p := &enumWindowsPinner{Data: &callback}
 	p.Pin()
 	defer p.Unpin()
-	lzEnumThreadWindows.Call(uintptr(threadId), enumWindowsCallback(), uintptr(unsafe.Pointer(p)))
+	lzEnumThreadWindows.Call(uintptr(threadId), enumWindowsCallback, uintptr(unsafe.Pointer(p)))
 }
 
 const (

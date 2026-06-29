@@ -68,6 +68,11 @@ func CreateIUnknownImpl(ppObject **IUnknown) error {
 	return nil
 }
 
+//go:nocheckptr
+func unsafePointer(p uintptr) unsafe.Pointer {
+	return unsafe.Add(nil, p)
+}
+
 // InitIUnknownImpl initializes an IUnknownVMT with a default implementation.
 //
 // This function is a helper to implement arbitrary COM object. See [CreateIUnknownImpl] and other examples.
@@ -90,8 +95,8 @@ func InitIUnknownImpl[T any](obj *T, vt *IUnknownVMT, queryInterface func(sys.RE
 	mtds = Init(obj)
 	mtds.
 		Create(&vt.queryInterface, func(intIID uintptr, intPP uintptr) uintptr {
-			iid := sys.REFIID(unsafe.Add(nil, intIID))
-			pp := (*unsafe.Pointer)(unsafe.Add(nil, intPP))
+			iid := sys.REFIID(unsafePointer(intIID))
+			pp := (*unsafe.Pointer)(unsafePointer(intPP))
 
 			result := sys.E_POINTER
 			if pp != nil {
